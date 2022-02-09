@@ -12,17 +12,29 @@ from contracts.Ownable_base import Ownable_initializer, Ownable_only_owner
 
 from contracts.utils.constants import TRUE
 
+@storage_var
+func cap_() -> (res : Uint256):
+end
+
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, initial_supply : Uint256, recipient : felt, owner : felt):
+        name : felt, symbol : felt, initial_supply : Uint256, recipient : felt, owner : felt,
+        _cap : Uint256):
     ERC20_initializer(name, symbol, initial_supply, recipient)
     Ownable_initializer(owner)
+    cap_.write(_cap)
     return ()
 end
 
 #
 # Getters
 #
+
+@view
+func cap{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : Uint256):
+    let (res : Uint256) = cap_.read()
+    return (res)
+end
 
 @view
 func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
@@ -107,6 +119,9 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         to : felt, amount : Uint256):
     Ownable_only_owner()
+    let (totalSupply : Uint256) = ERC20_totalSupply()
+    let (cap : Uint256) = cap_.read()
+    assert totalSupply + amount <= cap
     ERC20_mint(to, amount)
     return ()
 end
