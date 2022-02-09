@@ -1,7 +1,8 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_check
+from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 
 from contracts.token.ERC20_base import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
@@ -16,13 +17,22 @@ from contracts.utils.constants import TRUE
 func cap_() -> (res : Uint256):
 end
 
+@storage_var
+func distribution_address() -> (res : felt):
+end
+
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         name : felt, symbol : felt, initial_supply : Uint256, recipient : felt, owner : felt,
-        _cap : Uint256):
+        _cap : Uint256, _distribution_address : felt):
+    uint256_check(_cap)
+    let (cap_valid) = uint256_le(_cap, Uint256(0, 0))
+    assert_not_zero(1 - cap_valid)
+    assert_not_zero(_distribution_address)
     ERC20_initializer(name, symbol, initial_supply, recipient)
     Ownable_initializer(owner)
     cap_.write(_cap)
+    distribution_address.write(_distribution_address)
     return ()
 end
 
@@ -118,10 +128,13 @@ end
 @external
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         to : felt, amount : Uint256):
+    alloc_locals
     Ownable_only_owner()
     let (totalSupply : Uint256) = ERC20_totalSupply()
     let (cap : Uint256) = cap_.read()
-    assert totalSupply + amount <= cap
+    let (local sum : Uint256, is_overflow) = uint256_add(totalSupply, amount)
+    let (enough_supply) = uint256_le(sum, cap)
+    assert_not_zero(enough_supply)
     ERC20_mint(to, amount)
     return ()
 end
