@@ -99,7 +99,8 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        _staking_token : felt, _lock_time_period_min : felt, _lock_time_period_max : felt):
+        _staking_token : felt, _lock_time_period_min : felt, _lock_time_period_max : felt,
+        owner : felt):
     # Initliaze storage variables
     assert_not_zero(_staking_token)
     assert_not_zero(_lock_time_period_min)
@@ -109,7 +110,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     lock_time_period_max.write(_lock_time_period_max)
     # Set default values
     stake_reward_factor.write(1000 * 86400)  # Stake 1000 tokens for 1 day to get 1 reward token
-    stake_reward_end_time.write(get_block_timestamp() + 365 * 86400)  # Rewards distribution end in 1 year
+    let (block_timestamp) = get_block_timestamp()
+    stake_reward_end_time.write(block_timestamp + 365 * 86400)  # Rewards distribution end in 1 year
 
     Ownable_initializer(owner)
     return ()
