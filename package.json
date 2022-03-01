@@ -1,24 +1,24 @@
 {
-  "name": "zkpad-contracts",
-  "version": "0.1",
-  "description": "A basic starting point for starknet / cairo projects using starknetjs and nile.",
-  "scripts": {
-    "compile": "watch 'nile compile; nile deploy ZkPadToken; node ./scripts/buildStark.mjs' ./contracts ./scripts",
-    "build": "watch 'node ./scripts/buildStark.mjs' ./scripts",
-    "node": "nile node --port 5001"
-  },
-  "author": "zkpad-team",
-  "license": "CC-0",
-  "devDependencies": {
-    "starknet": "^2.5.0",
-    "watch": "^1.0.2"
-  },
-  "watch": {
-    "build": {
-      "patterns": [
-        "./contracts",
-        "./scripts"
-      ]
-    }
-  }
+	"name": "zkpad-contracts",
+	"version": "0.1",
+	"description": "Smart Contracts for the ZkPad protocol.",
+	"scripts": {
+		"compile": "watch 'nile compile; nile deploy ZkPadToken; node ./scripts/buildStark.mjs' ./contracts ./scripts",
+		"build": "watch 'node ./scripts/buildStark.mjs' ./scripts",
+		"node": "nile node --port 5001"
+	},
+	"author": "zkpad-team",
+	"license": "CC-0",
+	"devDependencies": {
+		"starknet": "^2.5.0",
+		"watch": "^1.0.2"
+	},
+	"watch": {
+		"build": {
+			"patterns": [
+				"./contracts",
+				"./scripts"
+			]
+		}
+	}
 }
