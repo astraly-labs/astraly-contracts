@@ -115,7 +115,7 @@ func burn{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     # Claim Allocation
     let (theAddress) = ido_contract_address.read()
     let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
-    with_attr error_message("ZKTOKEN: Error while claiming the allocation"):
+    with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
         assert res = 1
     end
     return ()
@@ -146,9 +146,10 @@ func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
 end
 
 func is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+    alloc_locals
     let (ido_launch) = ido_launch_date.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadLotteryToken: The date is past the IDO launch"):
+    with_attr error_message("ZkPadLotteryToken: Lottery Ticket Expired"):
         assert_nn_le(block_timestamp, ido_launch)
     end
 
