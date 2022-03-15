@@ -14,18 +14,18 @@ from contracts.token.ERC1155_struct import TokenUri
 
 from contracts.token.ERC1155_base import (
     ERC1155_initializer,
-    ERC1155_transferFrom,
-    ERC1155_safeTransferFrom,
-    ERC1155_batchTransferFrom,
-    ERC1155_safeBatchTransferFrom,
+    ERC1155_transfer_from,
+    ERC1155_safe_transfer_from,
+    ERC1155_batch_transfer_from,
+    ERC1155_safe_batch_transfer_from,
     ERC1155_mint,
-    ERC1155_mintBatch,
+    ERC1155_mint_batch,
     ERC1155_burn,
-    ERC1155_burnBatch,
+    ERC1155_burn_batch,
     ERC1155_URI,
-    ERC1155_setApprovalForAll,
+    ERC1155_set_approval_for_all,
     ERC1155_balances,
-    ERC1155_assertIsOwnerOrApproved
+    ERC1155_assert_is_owner_or_approved
 )
 
 from InterfaceAll import (IZkIDOContract)
@@ -66,7 +66,7 @@ end
 @external
 func setApprovalForAll{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         operator : felt, approved : felt):
-    ERC1155_setApprovalForAll(operator, approved)
+    ERC1155_set_approval_for_all(operator, approved)
 
     return ()
 end
@@ -74,7 +74,7 @@ end
 @external
 func safeTransferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         sender : felt, recipient : felt, token_id : felt, amount : felt):
-    ERC1155_safeTransferFrom(sender, recipient, token_id, amount)
+    ERC1155_safe_transfer_from(sender, recipient, token_id, amount)
 
     return ()
 end
@@ -83,7 +83,7 @@ end
 func safeBatchTransferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         sender : felt, recipient : felt, tokens_id_len : felt, tokens_id : felt*,
         amounts_len : felt, amounts : felt*):
-    ERC1155_safeBatchTransferFrom(sender, recipient, tokens_id_len, tokens_id, amounts_len, amounts)
+    ERC1155_batch_transfer_from(sender, recipient, tokens_id_len, tokens_id, amounts_len, amounts)
 
     return ()
 end
@@ -91,6 +91,7 @@ end
 @external
 func mint{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         recipient : felt, token_id : felt, amount : felt) -> ():
+    is_before_ido_launch()    
     ERC1155_mint(recipient, token_id, amount)
 
     return ()
@@ -100,7 +101,8 @@ end
 func mint_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         recipient : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
         amounts : felt*) -> ():
-    ERC1155_mintBatch(recipient, token_ids_len, token_ids, amounts_len, amounts)
+    is_before_ido_launch()
+    ERC1155_mint_batch(recipient, token_ids_len, token_ids, amounts_len, amounts)
 
     return ()
 end
@@ -124,7 +126,7 @@ end
 #         account : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
 #         amounts : felt*):
 #     alloc_locals
-#     ERC1155_burnBatch(account, token_ids_len, token_ids, amounts_len, amounts)
+#     ERC1155_burn_batch(account, token_ids_len, token_ids, amounts_len, amounts)
 #     # Claim Allocation
 #     let (theAddress) = ido_contract_address.read()
 #     let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
@@ -139,6 +141,16 @@ func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
     let (theAddress) = ido_contract_address.read()
     let (res) = IZkIDOContract.get_ido_launch_date(contract_address=theAddress)
     ido_launch_date.write(res)
+
+    return()
+end
+
+func is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+    let (ido_launch) = ido_launch_date.read()
+    let (block_timestamp) = get_block_timestamp()
+    with_attr error_message("ZkPadLotteryToken: The date is past the IDO launch"):
+        assert_nn_le(block_timestamp, ido_launch)
+    end
 
     return()
 end
