@@ -13,4 +13,7 @@ from starkware.cairo.common.uint256 import (Uint256)
 namespace IZkIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
+
+    func claim_allocation(amount: felt, account: felt) -> (res: felt):
+    end
 end

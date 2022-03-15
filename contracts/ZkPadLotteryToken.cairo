@@ -108,19 +108,31 @@ end
 @external
 func burn{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         account : felt, token_id : felt, amount : felt):
+    alloc_locals
     ERC1155_burn(account, token_id, amount)
-
+    # Claim Allocation
+    let (theAddress) = ido_contract_address.read()
+    let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
+    with_attr error_message("ZKTOKEN: Error while claiming the allocation"):
+        assert res = 1
+    end
     return ()
 end
 
-@external
-func burn_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        account : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
-        amounts : felt*):
-    ERC1155_burnBatch(account, token_ids_len, token_ids, amounts_len, amounts)
-
-    return ()
-end
+# @external
+# func burn_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+#         account : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
+#         amounts : felt*):
+#     alloc_locals
+#     ERC1155_burnBatch(account, token_ids_len, token_ids, amounts_len, amounts)
+#     # Claim Allocation
+#     let (theAddress) = ido_contract_address.read()
+#     let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
+#     with_attr error_message("ZKTOKEN: Error while claiming the allocation"):
+#         assert res = 1
+#     end
+#     return ()
+# end
 
 func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
     alloc_locals
