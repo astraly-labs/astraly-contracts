@@ -28,12 +28,14 @@ from contracts.token.ERC1155_base import (
     ERC1155_assertIsOwnerOrApproved
 )
 
+from InterfaceAll import (IZkIDOContract)
+
 @storage_var
-func idoContractAddress() -> (res : felt):
+func ido_contract_address() -> (res : felt):
 end
 
 @storage_var
-func idoLaunchDate() -> (res : felt):
+func ido_launch_date() -> (res : felt):
 end
 
 #
@@ -41,12 +43,12 @@ end
 #
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt, _idoContractAddress : felt):
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt, _ido_contract_address : felt):
     assert_not_zero(owner)
     Ownable_initializer(owner)
-    assert_not_zero(_idoContractAddress)
-    idoContractAddress.write(_idoContractAddress)
-    set_idoLaunchDate()
+    assert_not_zero(_ido_contract_address)
+    ido_contract_address.write(_ido_contract_address)
+    set_ido_launch_date()
     return ()
 end
 
@@ -120,18 +122,12 @@ func burn_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_pt
     return ()
 end
 
-func set_idoLaunchDate{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
     alloc_locals
-    let (theAddress) = idoContractAddress.read()
+    let (theAddress) = ido_contract_address.read()
     let (res) = IZkIDOContract.get_ido_launch_date(contract_address=theAddress)
-    idoLaunchDate.write(res)
+    ido_launch_date.write(res)
 
     return()
-end
-
-@contract_interface
-namespace IZkIDOContract:
-    func get_ido_launch_date() -> (res : felt):
-    end
 end
 
