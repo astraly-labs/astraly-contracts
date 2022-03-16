@@ -62,7 +62,7 @@ func ERC1155_get_URI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 @view
-func ERC1155_balance_of{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func ERC1155_balanceOf{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         owner : felt, token_id : felt) -> (res : felt):
     assert_not_zero(owner)
     let (res) = ERC1155_balances.read(owner=owner, token_id=token_id)
@@ -70,7 +70,7 @@ func ERC1155_balance_of{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_
 end
 
 @view
-func ERC1155_balance_of_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func ERC1155_balanceOfBatch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         owners_len : felt, owners : felt*, tokens_id_len : felt, tokens_id : felt*) -> (
         res_len : felt, res : felt*):
     assert owners_len = tokens_id_len
@@ -78,11 +78,11 @@ func ERC1155_balance_of_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, 
     local max = owners_len
     let (local ret_array : felt*) = alloc()
     local ret_index = 0
-    populate_balance_of_batch(owners, tokens_id, ret_array, ret_index, max)
+    populateBalanceOfBatch(owners, tokens_id, ret_array, ret_index, max)
     return (max, ret_array)
 end
 
-func populate_balance_of_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func populateBalanceOfBatch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         owners : felt*, tokens_id : felt*, rett : felt*, ret_index : felt, max : felt):
     alloc_locals
     if ret_index == max:
@@ -90,7 +90,7 @@ func populate_balance_of_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*,
     end
     let (local retval0 : felt) = ERC1155_balances.read(owner=owners[0], token_id=tokens_id[0])
     rett[0] = retval0
-    populate_balance_of_batch(owners + 1, tokens_id + 1, rett + 1, ret_index + 1, max)
+    populateBalanceOfBatch(owners + 1, tokens_id + 1, rett + 1, ret_index + 1, max)
     return ()
 end
 
@@ -129,7 +129,7 @@ end
 #
 
 @view
-func ERC1155_is_approved_for_all{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func ERC1155_isApprovedForAll{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         account : felt, operator : felt) -> (res : felt):
     let (res) = ERC1155_operator_approvals.read(owner=account, operator=operator)
     return (res=res)
@@ -209,7 +209,7 @@ func ERC1155_burn{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_
         _from : felt, token_id : felt, amount : felt):
     assert_not_zero(_from)
 
-    let (from_balance) = ERC1155_balance_of(_from, token_id)
+    let (from_balance) = ERC1155_balanceOf(_from, token_id)
     assert_le(amount, from_balance)
     ERC1155_balances.write(_from, token_id, from_balance - amount)
     return ()
@@ -245,7 +245,7 @@ func ERC1155_assert_is_owner_or_approved{
         return ()
     end
 
-    let (operator_is_approved) = ERC1155_is_approved_for_all(account=address, operator=caller)
+    let (operator_is_approved) = ERC1155_isApprovedForAll(account=address, operator=caller)
     assert operator_is_approved = 1
     return ()
 end

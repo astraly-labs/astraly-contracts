@@ -24,8 +24,9 @@ from contracts.token.ERC1155_base import (
     ERC1155_burn_batch,
     ERC1155_URI,
     ERC1155_set_approval_for_all,
-    ERC1155_balances,
-    ERC1155_assert_is_owner_or_approved
+    ERC1155_balanceOf,
+    ERC1155_balanceOfBatch,
+    ERC1155_isApprovedForAll
 )
 
 from InterfaceAll import (IZkIDOContract)
@@ -61,6 +62,31 @@ func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(u
     ERC1155_URI.write(uri_)
 
     return ()
+end
+
+@external
+func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt, token_id : felt) -> (balance : felt):
+    let (_balance) = ERC1155_balanceOf(owner, token_id)
+
+    return (_balance)
+end
+
+@external
+func balanceOfBatch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+        owners_len : felt, 
+        owners : felt*, 
+        tokens_id_len : felt, 
+        tokens_id : felt*) -> (balance_len : felt, balance : felt*):
+    let (_balance_len, _balance) = ERC1155_balanceOfBatch(owners_len, owners, tokens_id_len, tokens_id)
+
+    return (_balance_len, _balance)
+end
+
+@external
+func isApprovedForAll{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(account : felt, operator : felt) -> (res : felt):
+    let (res) = ERC1155_isApprovedForAll(account, operator)
+
+    return (res)
 end
 
 @external
