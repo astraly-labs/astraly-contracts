@@ -55,13 +55,11 @@ end
 
 # Returns the same URI for all tokens type ID
 # Client calling the function must replace the {id} substring with the actual token type ID
-@view
 func ERC1155_get_URI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : TokenUri):
     let (res) = ERC1155_URI.read()
     return (res)
 end
 
-@view
 func ERC1155_balanceOf{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         owner : felt, token_id : felt) -> (res : felt):
     assert_not_zero(owner)
@@ -69,7 +67,6 @@ func ERC1155_balanceOf{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_c
     return (res)
 end
 
-@view
 func ERC1155_balanceOfBatch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
         owners_len : felt, owners : felt*, tokens_id_len : felt, tokens_id : felt*) -> (
         res_len : felt, res : felt*):
