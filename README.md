@@ -7,6 +7,7 @@
 - $ZKPAD ERC20 Token
 - ZkPad Staking Contract
 - Distribution Contract
+- Lottery Tickets (ERC1155)
 
 ---
 
