@@ -95,6 +95,36 @@ end
 func vesting_portions_unlock_time_array(i : felt) -> (res : felt):
 end
 
+# Percent of the participation user can withdraw
+@storage_var
+func vesting_percent_per_portion_array(i :felt) -> (res : felt):
+end
+
+# Precision for percent for portion vesting
+@storage_var
+func portion_vesting_precision() -> (res : felt):
+end
+
+# Added configurable round ID for staking round
+@storage_var
+func staking_round_id() -> (res : felt):
+end
+
+# Max vesting time shift
+@storage_var
+func max_vesting_time_shift() -> (res : felt):
+end
+
+# Registration deposit amount, which will be paid during the registration, and returned back during the participation.
+@storage_var
+func registration_deposit() -> (res : felt):
+end
+
+# Accounting total fees collected, after sale admin can withdraw this
+@storage_var
+func registration_fees() -> (res : felt):
+end
+
 
 
 
