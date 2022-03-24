@@ -1,5 +1,11 @@
 %lang starknet
 
+from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.starknet.common.syscalls import get_caller_address
+
+from InterfaceAll import (IERC20, IAdmin)
+from contracts.utils.constants import (TRUE, FALSE)
+
 struct Sale:
     # Token being sold (interface)
     member token : felt
@@ -125,6 +131,24 @@ end
 func registration_fees() -> (res : felt):
 end
 
+@storage_var
+func admin_contract_address() -> (res : felt):
+end
+
+func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    let (caller) = get_caller_address()
+    let (the_sale) = sale.read()
+    with_attr error_message("ZkPadIDOContract: only sale owner - restricted"):
+        assert the_sale.sale_owner = caller
+    end
+
+    return()
+end
+
+func only_admin {syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    let (caller) = get_caller_address()
+    
+end
 
 
 

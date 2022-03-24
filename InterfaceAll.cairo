@@ -51,3 +51,9 @@ namespace IERC20:
     func approve(spender: felt, amount: Uint256) -> (success: felt):
     end
 end
+
+@contract_interface
+namespace IAdmin:
+    func is_admin(user_address : felt) -> (res : felt):
+    end
+end
