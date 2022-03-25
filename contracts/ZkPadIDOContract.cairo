@@ -138,7 +138,7 @@ end
 func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     let (caller) = get_caller_address()
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract: only sale owner - restricted"):
+    with_attr error_message("ZkPadIDOContract: only sale owner can call this function"):
         assert the_sale.sale_owner = caller
     end
 
@@ -147,8 +147,61 @@ end
 
 func only_admin {syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     let (caller) = get_caller_address()
-    
+    let (the_admin_address) = admin_contract_address.read()
+    let (is_admin) = IAdmin.is_admin(contract_address=the_admin_address, user_address=caller)
+    with_attr error_message("ZkPadIDOContract: only sale admin can call this function"):
+        assert is_admin = 1
+    end
+
+    return()
 end
+
+@event
+func tokens_sold(user_address : felt, amount : felt):
+end
+
+@event 
+func user_registered(user_address : felt, round_id : felt):
+end
+
+@event
+func token_price_set(new_price : felt):
+end
+
+@event
+func max_participation_set(round_id : felt, max_participation : felt):
+end
+
+@event
+func tokens_withdrawn(user_address : felt, amount : felt):
+end
+
+@event
+func sale_created(
+    sale_owner_address : felt,
+    token_price : felt,
+    amount_of_tokens_to_sell : felt,
+    sale_end : felt,
+    tokens_unlock_time : felt
+):
+end
+
+@event
+func registration_time_set(registration_time_starts : felt, registration_time_ends : felt):
+end
+
+@event
+func round_added(
+    round_id : felt,
+    start_time : felt,
+    max_participation : felt
+):
+end
+
+@event
+func registrtion_refunded(user_addess : felt, amount_refunded : felt):
+end
+
 
 
 
