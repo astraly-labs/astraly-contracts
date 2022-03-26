@@ -2,8 +2,10 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le
+from starkware.cairo.common.alloc import alloc
 
-from InterfaceAll import (IERC20, IAdmin)
+from InterfaceAll import (IERC20, IAdmin, IZkIDOFactory, IZkStakingVault)
 from contracts.utils.constants import (TRUE, FALSE)
 
 struct Sale:
@@ -135,6 +137,14 @@ end
 func admin_contract_address() -> (res : felt):
 end
 
+@storage_var
+func staking_vault_contract_address() -> (res : felt):
+end
+
+@storage_var
+func ido_factory_contract_address() -> (res : felt):
+end
+
 func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     let (caller) = get_caller_address()
     let (the_sale) = sale.read()
@@ -202,6 +212,19 @@ end
 func registrtion_refunded(user_addess : felt, amount_refunded : felt):
 end
 
+@constructor
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _admin_address : felt,
+    _staking_vault_address : felt
+):
+    assert_not_zero(_admin_address)
+    assert_not_zero(_staking_vault_address)
 
+    let (caller) = get_caller_address()
+    ido_factory_contract_address.write(caller)
+    admin_contract_address.write(_admin_address)
+    staking_vault_contract_address.write(_staking_vault_address)
+    return ()
+end
 
 

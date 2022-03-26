@@ -57,3 +57,32 @@ namespace IAdmin:
     func is_admin(user_address : felt) -> (res : felt):
     end
 end
+
+@contract_interface
+namespace IZkIDOFactory:
+    func set_sale_owner_and_token(sale_owner_address : felt, sale_token_address : felt):
+    end
+
+    func is_sale_created_through_factory(sale_address : felt) -> (res : felt):
+    end
+end
+
+@contract_interface
+namespace IZkStakingVault:
+    func redistribute(
+        pool_id : felt, 
+        user_address : felt,
+        amount_to_burn : felt):
+    end
+
+    func deposited(pool_id : felt, user_address : felt) -> (res : felt):
+    end
+
+    func set_tokens_unlock_time(
+        pool_id : felt,
+        user_address : felt,
+        token_unlock_time : felt
+    ):
+    end
+end
+
