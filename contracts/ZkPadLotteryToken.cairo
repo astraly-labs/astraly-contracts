@@ -7,8 +7,8 @@ from starkware.starknet.common.syscalls import (
     get_caller_address, get_block_number, get_block_timestamp
 )
 
-from contracts.Ownable_base import Ownable_initializer, Ownable_only_owner
-from contracts.utils.constants import TRUE
+from contracts.openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from contracts.openzeppelin.utils.constants import TRUE
 
 from contracts.token.ERC1155_struct import TokenUri
 
@@ -234,4 +234,3 @@ func is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, rang
 
     return()
 end
-

@@ -5,14 +5,14 @@ from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uin
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.starknet.common.syscalls import get_block_number, get_block_timestamp
 
-from contracts.token.ERC20_base import (
+from contracts.openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
     ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
     ERC20_transfer, ERC20_transferFrom, ERC20_mint)
 
-from contracts.Ownable_base import Ownable_initializer, Ownable_only_owner
+from contracts.openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
-from contracts.utils.constants import TRUE
+from contracts.openzeppelin.utils.constants import TRUE
 
 const MAX_TIME = 2 ** 48 - 1
 
@@ -57,6 +57,8 @@ end
 func stake_reward_factor() -> (stakeRewardFactor : felt):
 end
 
+
+### Events
 @event
 func Stake(wallet : felt, amount : felt, date : felt):
 end

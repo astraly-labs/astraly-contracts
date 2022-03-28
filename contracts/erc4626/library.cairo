@@ -2,16 +2,17 @@
 
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import (
     ALL_ONES, Uint256, uint256_eq, uint256_add, uint256_mul, uint256_unsigned_div_rem, uint256_le)
 
-from openzeppelin.token.erc20.library import (
+from contracts.openzeppelin.token.erc20.library import (
     ERC20_initializer, ERC20_totalSupply, ERC20_mint, ERC20_burn, ERC20_balanceOf, ERC20_allowance,
-    ERC20_decreaseAllowance)
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.utils.constants import FALSE, TRUE
+    ERC20_decreaseAllowance, ERC20_name, ERC20_symbol, ERC20_decimals, ERC20_approve, ERC20_transfer, ERC20_transferFrom)
+from contracts.openzeppelin.utils.constants import FALSE, TRUE
+
+from InterfaceAll import IERC20
 
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
