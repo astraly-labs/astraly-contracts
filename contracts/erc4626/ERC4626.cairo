@@ -23,12 +23,8 @@ from contracts.erc4626.library import (
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, asset_addr : felt, owner : felt):
-    let (decimals) = IERC20.decimals(contract_address=asset_addr)
-    ERC20_initializer(name, symbol, decimals)
-    ERC4626_initializer(asset_addr)
-    # TODO: verify if Ownable is necessary
-    # Ownable_initializer(owner)
+        name : felt, symbol : felt, asset_addr : felt):
+    ERC4626_initializer(name, symbol, asset_addr)
     return ()
 end
 

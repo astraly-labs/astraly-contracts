@@ -2,17 +2,16 @@
 
 %lang starknet
 
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.uint256 import (
     ALL_ONES, Uint256, uint256_eq, uint256_add, uint256_mul, uint256_unsigned_div_rem, uint256_le)
 
 from contracts.openzeppelin.token.erc20.library import (
     ERC20_initializer, ERC20_totalSupply, ERC20_mint, ERC20_burn, ERC20_balanceOf, ERC20_allowance,
-    ERC20_decreaseAllowance, ERC20_name, ERC20_symbol, ERC20_decimals, ERC20_approve, ERC20_transfer, ERC20_transferFrom)
-from contracts.openzeppelin.utils.constants import FALSE, TRUE
-
+    ERC20_decreaseAllowance, ERC20_name, ERC20_symbol, ERC20_decimals, ERC20_transfer, ERC20_transferFrom, ERC20_approve)
 from InterfaceAll import IERC20
+from contracts.openzeppelin.utils.constants import FALSE, TRUE
 
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
@@ -27,7 +26,7 @@ end
 #
 
 @storage_var
-func ERC4626_asset_() -> (addr : felt):
+func ERC4626_asset_addr() -> (addr : felt):
 end
 
 #
@@ -35,8 +34,10 @@ end
 #
 
 func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        asset : felt):
-    ERC4626_asset_.write(asset)
+        name : felt, symbol : felt, asset_addr : felt):
+    let (decimals) = IERC20.decimals(contract_address=asset_addr)
+    ERC20_initializer(name, symbol, decimals)
+    ERC4626_asset_addr.write(asset_addr)
     return ()
 end
 
@@ -46,7 +47,7 @@ end
 
 func ERC4626_asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
         asset : felt):
-    let (asset) = ERC4626_asset_.read()
+    let (asset : felt) = ERC4626_asset_addr.read()
     return (asset)
 end
 
