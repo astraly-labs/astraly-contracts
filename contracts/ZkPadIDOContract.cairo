@@ -209,7 +209,7 @@ func round_added(
 end
 
 @event
-func registrtion_refunded(user_addess : felt, amount_refunded : felt):
+func registration_refunded(user_addess : felt, amount_refunded : felt):
 end
 
 @constructor
