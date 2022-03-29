@@ -21,7 +21,7 @@ struct Sale:
     member tokens_deposited : felt
     # Address of sale owner
     member sale_owner : felt
-    # Price of the token quoted (do we need this?)
+    # Price of the token quoted - needed as its the price set for the IDO
     member token_price : felt
     # Amount of tokens to sell
     member amount_of_tokens_to_sell : felt
@@ -73,7 +73,7 @@ func number_of_participants() -> (res : felt):
 end
 
 # Array storing IDS of rounds (IDs start from 1, so they can't be mapped as array indexes
-# round_ids_array.write(0,123)....(1,234)....etc --> i is the index of the array
+# round_ids_array.write(1,123)....(2,234)....etc --> i is the index of the array
 @storage_var
 func round_ids_array(i : felt) -> (res : felt):
 end
@@ -111,11 +111,6 @@ end
 # Precision for percent for portion vesting
 @storage_var
 func portion_vesting_precision() -> (res : felt):
-end
-
-# Added configurable round ID for staking round
-@storage_var
-func staking_round_id() -> (res : felt):
 end
 
 # Max vesting time shift
