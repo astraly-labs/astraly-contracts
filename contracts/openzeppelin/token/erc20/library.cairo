@@ -10,9 +10,9 @@ from starkware.cairo.common.uint256 import (
     Uint256, uint256_check
 )
 
-from openzeppelin.utils.constants import TRUE, FALSE, UINT8_MAX
+from contracts.openzeppelin.utils.constants import TRUE, FALSE, UINT8_MAX
 
-from openzeppelin.security.safemath import (
+from contracts.openzeppelin.security.safemath import (
     uint256_checked_add, uint256_checked_sub_le
 )
 

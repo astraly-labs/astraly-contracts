@@ -4,7 +4,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
-from openzeppelin.account.library import (
+from contracts.openzeppelin.account.library import (
     AccountCallArray,
     Account_execute,
     Account_get_nonce,
@@ -14,7 +14,7 @@ from openzeppelin.account.library import (
     Account_is_valid_signature
 )
 
-from openzeppelin.introspection.ERC165 import ERC165_supports_interface 
+from contracts.openzeppelin.introspection.ERC165 import ERC165_supports_interface 
 
 #
 # Getters

@@ -10,7 +10,7 @@ from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starknet.testing.starknet import Starknet, StarknetContract
 from starkware.starknet.business_logic.state import BlockInfo
 
-from utils.Signer import Signer
+from utils import Signer
 
 # pytest-xdest only shows stderr
 sys.stdout = sys.stderr
