@@ -5,7 +5,7 @@
 	"scripts": {
 		"compile": "watch 'nile compile; nile deploy ZkPadToken; node ./scripts/buildStark.mjs' ./contracts ./scripts",
 		"build": "watch 'node ./scripts/buildStark.mjs' ./scripts",
-		"node": "nile node --port 5001"
+		"node": "nile node --port 5000"
 	},
 	"author": "zkpad-team",
 	"license": "CC-0",

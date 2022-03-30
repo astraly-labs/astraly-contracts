@@ -18,6 +18,10 @@ sys.stdout = sys.stderr
 CONTRACT_SRC = os.path.join(os.path.dirname(__file__), "..", "contracts")
 
 
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
+
 def compile(path):
     return compile_starknet_files(
         files=[os.path.join(CONTRACT_SRC, path)],
