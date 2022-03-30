@@ -43,9 +43,7 @@ Optional: Add the following to your ~/.zprofile to quickly spin up your environm
 Ensure you're in a Python environment (see step 2 above) before executing the following commands:
 
 1. Spin up a node (in a separate terminal window w/ the python environment running)
-   `nile node --port localhost:5001`
-
-_Note: Some systems have a conflict with port 5000 which is why I chose 5001_
+   `nile node`
 
 1. Compiling and deploy a sample contract (in /contracts directory)
    `npm run compile` or `` CAIRO_PATH=`pwd`/contracts/lib nile compile ``
