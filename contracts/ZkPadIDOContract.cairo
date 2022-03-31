@@ -2,11 +2,11 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
-from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le
+from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt
 from starkware.cairo.common.alloc import alloc
 
 from InterfaceAll import (IERC20, IAdmin, IZkIDOFactory, IZkStakingVault)
-from contracts.utils.constants import (TRUE, FALSE)
+from contracts.utils.constants import (TRUE, FALSE, DAYS_30)
 
 struct Sale:
     # Token being sold (interface)
@@ -40,10 +40,7 @@ struct Participation:
     member amount_paid : felt
     member time_participated : felt
     member round_id : felt
-    # bool[] --> do we need a length struct member? 
-    # member is_portion_withdrawn_array : felt*
-    # can't have arrays as members of the struct. This prevents the struct from being used as a storage variable return type (only fels is allowed)
-    # need to find another way to 
+    member is_portion_withdrawn_array : felt # can't have arrays as members of the struct. Will use a felt with a bit mask
 end
 
 struct Round:
@@ -222,4 +219,79 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_pt
     return ()
 end
 
+@external
+func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _unlocking_times_len : felt,
+    _unlocking_times     : felt*,
+    _percents_len        : felt,
+    _percents            : felt*,
+    _max_vesting_time_shift : felt
+):
+    alloc_locals
+    only_admin()
+
+    with_attr error_message("ZkPadIDOContract: unlocking times array length 0"):
+        assert_not_zero(_unlocking_times_len)
+    end
+    with_attr error_message("ZkPadIDOContract: percents array length 0"):
+        assert_not_zero(_percents_len)
+    end
+    with_attr error_message("ZkPadIDOContract: unlocking times and percents arrays different lengths"):
+        assert _unlocking_times_len = _percents_len
+    end
+    
+    let (_portion_vesting_precision) = portion_vesting_precision.read()
+    with_attr error_message("ZkPadIDOContract: portion vesting precision is zero"):
+        assert_lt(0, _portion_vesting_precision)
+    end
+
+    with_attr error_message("ZkPadIDOContract: max vesting time shift more than 30 days"):
+        assert_le(_max_vesting_time_shift, DAYS_30)
+    end
+    
+    max_vesting_time_shift.write(_max_vesting_time_shift)
+
+    local percent_sum = 0
+    local array_index = 0
+    
+    populate_vesting_params_rec(
+        _unlocking_times_len,
+        _unlocking_times,
+        _percents_len,
+        _percents,
+        percent_sum,
+        array_index
+    )
+    return()
+end
+
+func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _unlocking_times_len : felt,
+    _unlocking_times     : felt*,
+    _percents_len        : felt,
+    _percents            : felt*,
+    _percents_sum        : felt, 
+    _array_index         : felt
+):
+    alloc_locals
+    assert _unlocking_times_len = _percents_len
+    
+    if _unlocking_times_len == 0:
+        return ()
+    end
+
+    local percent0 = _percents[0]
+    vesting_portions_unlock_time_array.write(_array_index, _unlocking_times[0])
+    # vesting_percent_per_portion_array.write(_array_index, _percents[0])
+    vesting_percent_per_portion_array.write(_array_index, percent0)
+
+    return populate_vesting_params_rec(
+        _unlocking_times_len = _unlocking_times_len - 1,
+        _unlocking_times = _unlocking_times + 1,
+        _percents_len =_percents_len - 1,
+        _percents = _percents + 1,
+        _percents_sum = _percents_sum + percent0,    #_percents_sum = _percents_sum + _percents[0],
+        _array_index = _array_index + 1
+    )
+end
 

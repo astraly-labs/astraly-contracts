@@ -11,4 +11,4 @@ const FALSE = 0
 # DATE RELATED
 #
 
-const 30_DAYS = 30*24*60*60
+const DAYS_30 = 30*24*60*60
