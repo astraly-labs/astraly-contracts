@@ -334,13 +334,21 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
     end
 
     # set params
-    the_sale.token = _token_address
-    the_sale.is_created = TRUE
-    the_sale.sale_owner = _sale_owner_address
-    the_sale.token_price = _token_price
-    the_sale.amount_of_tokens_to_sell = _amount_of_tokens_to_sell
-    the_sale.sale_end = _sale_end_time
-    the_sale.tokens_unlock_time = _tokens_unlock_time
+    let new_sale = Sale(
+        token = _token_address,
+        is_created = TRUE,
+        earnings_withdrawn = FALSE,
+        leftover_withdrawn = FALSE,
+        tokens_deposited = 0,
+        sale_owner = _sale_owner_address,
+        token_price = _token_price,
+        amount_of_tokens_to_sell = _amount_of_tokens_to_sell,
+        total_tokens_sold = 0,
+        total_raised = 0,
+        sale_end = _sale_end_time,
+        tokens_unlock_time = _tokens_unlock_time
+    )
+    sale.write(new_sale)
     # Deposit, sent during the registration
     registration_deposit.write(_registration_deposit)
     # Set portion vesting precision
@@ -353,6 +361,31 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
         sale_end = _sale_end_time,
         tokens_unlock_time = _tokens_unlock_time
     )
+    return()
+end
+
+@external
+func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(_sale_token_address : felt):
+    only_admin()
+    let (the_sale) = sale.read()
+    with_attr error_message(""):
+        assert the_sale.token = 0
+    end
+    let upd_sale = Sale(
+        token = _sale_token_address,
+        is_created = the_sale.is_created,
+        earnings_withdrawn = the_sale.earnings_withdrawn,
+        leftover_withdrawn = the_sale.leftover_withdrawn,
+        tokens_deposited = the_sale.tokens_deposited,
+        sale_owner = the_sale.sale_owner,
+        token_price = the_sale.token_price,
+        amount_of_tokens_to_sell = the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold = the_sale.total_tokens_sold,
+        total_raised = the_sale.total_raised,
+        sale_end = the_sale.sale_end,
+        tokens_unlock_time = the_sale.tokens_unlock_time
+    )
+    sale.write(upd_sale)
     return()
 end
 
