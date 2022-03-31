@@ -7,6 +7,8 @@ from starkware.cairo.common.alloc import alloc
 
 from InterfaceAll import (IERC20, IAdmin, IZkIDOFactory, IZkStakingVault)
 from contracts.utils.constants import (TRUE, FALSE, DAYS_30)
+from contracts.utils.ZkPadUtils import get_is_equal
+from starkware.starknet.common.syscalls import (get_block_timestamp)
 
 struct Sale:
     # Token being sold (interface)
@@ -262,6 +264,11 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_c
         percent_sum,
         array_index
     )
+
+    with_attr error_message("ZkPadIDOContract: Percent distribution issue"):
+        assert percent_sum = _portion_vesting_precision
+    end
+
     return()
 end
 
@@ -294,4 +301,59 @@ func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
         _array_index = _array_index + 1
     )
 end
+
+@external
+func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr} (
+    _token_address : felt,
+    _sale_owner_address : felt,
+    _token_price : felt,
+    _amount_of_tokens_to_sell : felt,
+    _sale_end_time : felt,
+    _tokens_unlock_time : felt,
+    _portion_vesting_precision : felt,
+    _registration_deposit : felt
+):
+    # alloc_locals
+    only_admin()
+    let (the_sale) = sale.read()
+    let (block_timestamp) = get_block_timestamp()
+    with_attr error_message("ZkPadIDOContract: Sale is already created"):
+        assert the_sale.is_created = FALSE
+    end
+    with_attr error_message("ZkPadIDOContract: Sale owner address can not be 0"):
+        assert_not_zero(_sale_owner_address)
+    end
+    with_attr error_message("ZkPadIDOContract: Bad input"):
+        assert_not_zero(_token_price)
+        assert_not_zero(_amount_of_tokens_to_sell)
+        assert_lt(block_timestamp, _sale_end_time)
+        assert_lt(block_timestamp, _tokens_unlock_time)
+    end
+    with_attr error_message("ZkPadIDOContract: portion vesting percision should be at least 100"):
+        assert_le(100, _portion_vesting_precision)
+    end
+
+    # set params
+    the_sale.token = _token_address
+    the_sale.is_created = TRUE
+    the_sale.sale_owner = _sale_owner_address
+    the_sale.token_price = _token_price
+    the_sale.amount_of_tokens_to_sell = _amount_of_tokens_to_sell
+    the_sale.sale_end = _sale_end_time
+    the_sale.tokens_unlock_time = _tokens_unlock_time
+    # Deposit, sent during the registration
+    registration_deposit.write(_registration_deposit)
+    # Set portion vesting precision
+    portion_vesting_precision.write(_portion_vesting_precision)
+    # emit event
+    sale_created.emit(
+        sale_owner_address = _sale_owner_address,
+        token_price = _token_price,
+        amount_of_tokens_to_sell = _amount_of_tokens_to_sell,
+        sale_end = _sale_end_time,
+        tokens_unlock_time = _tokens_unlock_time
+    )
+    return()
+end
+
 
