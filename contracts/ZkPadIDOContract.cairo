@@ -218,6 +218,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_pt
     ido_factory_contract_address.write(caller)
     admin_contract_address.write(_admin_address)
     staking_vault_contract_address.write(_staking_vault_address)
+    # shoule we initialize the structs and arrays with default values here?
     return ()
 end
 
@@ -368,7 +369,7 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(_sale_token_address : felt):
     only_admin()
     let (the_sale) = sale.read()
-    with_attr error_message(""):
+    with_attr error_message("ZkPadIDOContract: Token address is already set"):
         assert the_sale.token = 0
     end
     let upd_sale = Sale(
@@ -389,4 +390,41 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check
     return()
 end
 
-
+@external
+func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _registration_time_starts : felt,
+    _registration_time_ends : felt
+):
+    only_admin()
+    let (the_sale) = sale.read()
+    let (the_reg) = registration.read()
+    let (block_timestamp) = get_block_timestamp()
+    with_attr error_message("ZkPadIDOContract: Sale not created yet"):
+        assert the_sale.is_created = TRUE
+    end
+    with_attr error_message("ZkPadIDOContract: the regidtrstion start time is already set"):
+        assert the_reg.registration_time_starts = 0
+    end
+    with_attr error_message("ZkPadIDOContract: registration start/end times issue"):
+        assert_le(block_timestamp, _registration_time_starts)
+        assert_lt(_registration_time_starts, _registration_time_ends)
+    end
+    with_attr error_message("ZkPadIDOContract: registration end has to be before sale end"):
+        assert_lt(_registration_time_ends, the_sale.sale_end)
+    end
+    # TODO...
+    # if (roundIds.length > 0) {
+    #     require(_registrationTimeEnds < roundIdToRound[roundIds[0]].startTime);
+    # }
+    let upd_reg = Registration(
+        registration_time_starts = _registration_time_starts,
+        registration_time_ends = _registration_time_ends,
+        number_of_registrants = the_reg.number_of_registrants
+    )
+    registration.write(upd_reg)
+    registration_time_set.emit(
+        registration_time_starts = _registration_time_starts, 
+        registration_time_ends = _registration_time_ends
+    )
+    return()
+end
