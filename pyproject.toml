@@ -9,6 +9,9 @@ python = "^3.7"
 ecdsa = "^0.17.0"
 fastecdsa = "^2.2.1"
 sympy = "^1.9"
+pytest = "^6.2.5"
+pytest-asyncio = "^0.16.0"
+cairo-lang = "^0.8.0"
 cairo-nile = "^0.5.2"
 dill = "^0.3.4"
 pytest-xdist = "^2.4.0"
@@ -16,6 +19,7 @@ pytest-xdist = "^2.4.0"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 black = {version = "^21.9b0", allow-prereleases = true}
+autopep8 = "^1.6.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
