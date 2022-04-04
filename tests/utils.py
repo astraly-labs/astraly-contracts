@@ -11,7 +11,6 @@ from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.transaction_execution_objects import Event
 from starkware.starknet.core.os.transaction_hash import calculate_transaction_hash_common, TransactionHashPrefix
 from starkware.starknet.definitions.general_config import StarknetChainId
-
 MAX_UINT256 = (2**128 - 1, 2**128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
@@ -85,7 +84,7 @@ def div_rem_uint(a, b):
     return (to_uint(c), to_uint(m))
 
 
-async def assert_revert(fun, reverted_with=None):
+async def assert_revert(fun, reverted_with=None, error_code=None):
     try:
         await fun
         assert False
@@ -94,6 +93,9 @@ async def assert_revert(fun, reverted_with=None):
         if reverted_with is not None:
             assert reverted_with in error['message']
 
+        if error_code is not None:
+            assert error['code'] == error_code
+
 
 def assert_event_emitted(tx_exec_info, from_address, name, data):
     assert Event(
@@ -101,6 +103,7 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
         keys=[get_selector_from_name(name)],
         data=data,
     ) in tx_exec_info.raw_events
+
 
 class Signer():
     def __init__(self, private_key):
@@ -132,6 +135,7 @@ def hash_message(sender, to, selector, calldata, nonce):
         nonce
     ]
     return compute_hash_on_elements(message)
+
 
 def get_contract_def(path):
     """Returns the contract definition from the contract path"""
@@ -199,7 +203,8 @@ class Signer():
             (call[0], get_selector_from_name(call[1]), call[2]) for call in calls]
         (call_array, calldata) = from_call_to_call_array(calls)
 
-        message_hash = get_transaction_hash(account.contract_address, call_array, calldata, nonce, max_fee)
+        message_hash = get_transaction_hash(
+            account.contract_address, call_array, calldata, nonce, max_fee)
         sig_r, sig_s = self.sign(message_hash)
 
         return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
@@ -215,6 +220,7 @@ def from_call_to_call_array(calls):
         call_array.append(entry)
         calldata.extend(call[2])
     return (call_array, calldata)
+
 
 def get_transaction_hash(account, call_array, calldata, nonce, max_fee):
     execute_calldata = [

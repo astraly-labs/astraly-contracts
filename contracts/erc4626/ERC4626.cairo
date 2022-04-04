@@ -1,15 +1,12 @@
+# https://github.com/milancermak/cairo-4626/blob/master/contracts/erc4626/ERC4626.cairo commit hash 01e52cf 
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 
-from contracts.erc4626.library import (
+from contracts.openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf,
     ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom)
-
-from InterfaceAll import IERC20
-
-# from contracts.openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
 from contracts.openzeppelin.utils.constants import TRUE
 
