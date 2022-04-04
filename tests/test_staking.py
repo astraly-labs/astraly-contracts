@@ -2,6 +2,7 @@ import pytest
 from utils import (
     Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted
 )
+from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import Starknet
 
@@ -389,4 +390,4 @@ async def test_allowances(contracts_factory):
         "withdraw",
         [*to_uint(1), user3_account.contract_address,
          user1_account.contract_address],
-    ))
+    ), error_code=StarknetErrorCode.TRANSACTION_FAILED)
