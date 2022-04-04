@@ -11,6 +11,8 @@ from contracts.openzeppelin.token.erc20.library import (
 from contracts.openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from contracts.openzeppelin.utils.constants import FALSE, TRUE
 
+from contracts.utils.safemath import sub256
+
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
 end
@@ -319,8 +321,7 @@ func decrease_allowance_by_amount{syscall_ptr : felt*, pedersen_ptr : HashBuilti
         let (is_spender_allowance_sufficient) = uint256_le(amount, spender_allowance)
         assert is_spender_allowance_sufficient = 1
     end
-
-    let (new_allowance : Uint256) = uint256_sub(spender_allowance, amount)
+    let (new_allowance : Uint256) = sub256(spender_allowance, amount)
     ERC20_allowances.write(owner, spender, new_allowance)
 
     return ()
