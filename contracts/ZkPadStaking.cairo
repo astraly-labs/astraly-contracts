@@ -2,213 +2,122 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.math import assert_not_equal, assert_not_zero
 
-from openzeppelin.token.erc20.library import (
-    ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf,
-    ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom)
+from contracts.openzeppelin.utils.constants import TRUE, FALSE, IERC721_ID
+from contracts.openzeppelin.access.ownable import (Ownable_only_owner)
+from contracts.openzeppelin.introspection.IERC165 import IERC165
+from contracts.openzeppelin.security.reentrancy_guard import ReentrancyGuard_start, ReentrancyGuard_end
 
-from openzeppelin.utils.constants import TRUE
+from contracts.erc4626.ERC4626 import (
+    name, symbol, totalSupply, decimals, balanceOf, allowance,
+    transfer, transferFrom, approve,
+    asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit,
+    deposit, maxMint, previewMint, mint, maxWithdraw, previewWithdraw, withdraw,
+    maxRedeem, previewRedeem, redeem)
 
-from contracts.erc4626.library import (
-    ERC4626_initializer, ERC4626_asset, ERC4626_totalAssets,
-    ERC4626_convertToShares, ERC4626_convertToAssets,
-    ERC4626_maxDeposit, ERC4626_previewDeposit, ERC4626_deposit,
-    ERC4626_maxMint, ERC4626_previewMint, ERC4626_mint,
-    ERC4626_maxWithdraw, ERC4626_previewWithdraw, ERC4626_withdraw,
-    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem)
 
-@constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, asset_addr : felt):
-    ERC4626_initializer(name, symbol, asset_addr)
-    return ()
+# Chainlink
+struct Response:
+    member roundId : felt
+    member answer : felt
+    member startedAt : felt
+    member updatedAt : felt
+    member answeredInRound : felt
+end
+
+@contract_interface
+namespace AggregatorV3Interface:
+ 
+    func latestRoundData() -> (res : Response):
+    end
+end
+
+@storage_var
+func whitelisted_tokens(lp_token : felt) -> (aggregator_address : felt):
 end
 
 #
-# ERC 20
-#
-
-#
-# Getters
+# View
 #
 
 @view
-func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
-    let (name) = ERC20_name()
-    return (name)
+func is_token_whitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> (res : felt):
+    let (is_whitelisted : felt) = whitelisted_tokens.read(lp_token)
+    if is_whitelisted == FALSE:
+        return (FALSE)
+    end
+    return (TRUE)
 end
 
+# Amount of xZKP a user will receive by providing LP token
 @view
-func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
-    let (symbol) = ERC20_symbol()
-    return (symbol)
+func get_xzkp_out{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt, amount : felt) -> (res : Uint256):
+    only_whitelisted_token(lp_token)
+
+
+    let (res : Uint256) = previewMint(Uint256(0,0))
+    return (res)
 end
 
-@view
-func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        totalSupply : Uint256):
-    let (totalSupply : Uint256) = ERC20_totalSupply()
-    return (totalSupply)
-end
-
-@view
-func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        decimals : felt):
-    let (decimals) = ERC20_decimals()
-    return (decimals)
-end
-
-@view
-func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        account : felt) -> (balance : Uint256):
-    let (balance : Uint256) = ERC20_balanceOf(account)
-    return (balance)
-end
-
-@view
-func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        owner : felt, spender : felt) -> (remaining : Uint256):
-    let (remaining : Uint256) = ERC20_allowance(owner, spender)
-    return (remaining)
-end
 
 #
 # Externals
 #
 
 @external
-func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        recipient : felt, amount : Uint256) -> (success : felt):
-    ERC20_transfer(recipient, amount)
-    return (TRUE)
+func add_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt, aggregator_address : felt) -> ():
+    Ownable_only_owner()
+    assert_not_zero(lp_token)
+    assert_not_zero(aggregator_address)
+    different_than_underlying(lp_token)
+    whitelisted_tokens.write(lp_token , aggregator_address)
+    return ()
 end
 
 @external
-func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
-    ERC20_transferFrom(sender, recipient, amount)
-    return (TRUE)
+func remove_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> ():
+    Ownable_only_owner()
+    whitelisted_tokens.write(lp_token , 0)
+    return ()
 end
 
 @external
-func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        spender : felt, amount : Uint256) -> (success : felt):
-    ERC20_approve(spender, amount)
-    return (TRUE)
+func deposit_lp{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+       lp_token : felt, assets : Uint256, receiver : felt) -> (shares : Uint256):
+    ReentrancyGuard_start()
+    different_than_underlying(lp_token)
+    only_whitelisted_token(lp_token)
+
+    let (is_nft : felt) = IERC165.supportsInterface(lp_token, IERC721_ID)
+    if is_nft == FALSE:
+        
+    end
+    
+
+    ReentrancyGuard_end()
+    return (Uint256(0,0))
 end
+
 
 #
-# ERC 4626
+# Internal
 #
 
-@view
-func asset{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        assetTokenAddress : felt):
-    let (asset : felt) = ERC4626_asset()
-    return (asset)
+func only_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
+    let (res : felt) = whitelisted_tokens.read(address)
+    with_attr error_message("token not whitelisted"):
+        assert_not_zero(res)
+    end
+
+    return ()
 end
 
-@view
-func totalAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        totalManagedAssets : Uint256):
-    let (total : Uint256) = ERC4626_totalAssets()
-    return (total)
-end
 
-@view
-func convertToShares{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_convertToShares(assets)
-    return (shares)
-end
-
-@view
-func convertToAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_convertToAssets(shares)
-    return (assets)
-end
-
-@view
-func maxDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        receiver : felt) -> (maxAssets : Uint256):
-    let (maxAssets : Uint256) = ERC4626_maxDeposit(receiver)
-    return (maxAssets)
-end
-
-@view
-func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256) -> (shares : Uint256):
-    let (shares) = ERC4626_previewDeposit(assets)
-    return (shares)
-end
-
-@external
-func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256, receiver : felt) -> (shares : Uint256):
-    let (shares) = ERC4626_deposit(assets, receiver)
-    return (shares)
-end
-
-@view
-func maxMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        receiver : felt) -> (maxShares : Uint256):
-    let (maxShares : Uint256) = ERC4626_maxMint(receiver)
-    return (maxShares)
-end
-
-@view
-func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256) -> (assets : Uint256):
-    let (assets) = ERC4626_previewMint(shares)
-    return (assets)
-end
-
-@external
-func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256, receiver : felt) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_mint(shares, receiver)
-    return (assets)
-end
-
-@view
-func maxWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        owner : felt) -> (maxAssets : Uint256):
-    let (maxWithdraw : Uint256) = ERC4626_maxWithdraw(owner)
-    return (maxWithdraw)
-end
-
-@view
-func previewWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_previewWithdraw(assets)
-    return (shares)
-end
-
-@external
-func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
-    return (shares)
-end
-
-@view
-func maxRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt) -> (
-        maxShares : Uint256):
-    let (maxShares : Uint256) = ERC4626_maxRedeem(owner)
-    return (maxShares)
-end
-
-@view
-func previewRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_previewRedeem(shares)
-    return (assets)
-end
-
-@external
-func redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
-    return (assets)
+func different_than_underlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
+    with_attr error_message("underlying token not allow"):
+        let (unserlying_asset : felt) = asset()
+        assert_not_equal(unserlying_asset, address)
+    end
+    return ()
 end
