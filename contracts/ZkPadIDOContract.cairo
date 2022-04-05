@@ -77,6 +77,10 @@ end
 func round_ids_array(i : felt) -> (res : felt):
 end
 
+@storage_var
+func round_ids_array_len() -> (res : felt):
+end
+
 # Mapping round Id to round
 @storage_var
 func round_id_to_round(round_id : felt) -> (res : Round):
@@ -219,6 +223,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_pt
     admin_contract_address.write(_admin_address)
     staking_vault_contract_address.write(_staking_vault_address)
     # shoule we initialize the structs and arrays with default values here?
+    round_ids_array_len.write(0)
+
     return ()
 end
 
@@ -233,22 +239,22 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_c
     alloc_locals
     only_admin()
 
-    with_attr error_message("ZkPadIDOContract: unlocking times array length 0"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params unlocking times array length 0"):
         assert_not_zero(_unlocking_times_len)
     end
-    with_attr error_message("ZkPadIDOContract: percents array length 0"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params percents array length 0"):
         assert_not_zero(_percents_len)
     end
-    with_attr error_message("ZkPadIDOContract: unlocking times and percents arrays different lengths"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params unlocking times and percents arrays different lengths"):
         assert _unlocking_times_len = _percents_len
     end
     
     let (_portion_vesting_precision) = portion_vesting_precision.read()
-    with_attr error_message("ZkPadIDOContract: portion vesting precision is zero"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params portion vesting precision is zero"):
         assert_lt(0, _portion_vesting_precision)
     end
 
-    with_attr error_message("ZkPadIDOContract: max vesting time shift more than 30 days"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params max vesting time shift more than 30 days"):
         assert_le(_max_vesting_time_shift, DAYS_30)
     end
     
@@ -266,7 +272,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_c
         array_index
     )
 
-    with_attr error_message("ZkPadIDOContract: Percent distribution issue"):
+    with_attr error_message("ZkPadIDOContract::set_vesting_params Percent distribution issue"):
         assert percent_sum = _portion_vesting_precision
     end
 
@@ -318,19 +324,19 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
     only_admin()
     let (the_sale) = sale.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadIDOContract: Sale is already created"):
+    with_attr error_message("ZkPadIDOContract::set_sale_params Sale is already created"):
         assert the_sale.is_created = FALSE
     end
-    with_attr error_message("ZkPadIDOContract: Sale owner address can not be 0"):
+    with_attr error_message("ZkPadIDOContract::set_sale_params Sale owner address can not be 0"):
         assert_not_zero(_sale_owner_address)
     end
-    with_attr error_message("ZkPadIDOContract: Bad input"):
+    with_attr error_message("ZkPadIDOContract::set_sale_params Bad input"):
         assert_not_zero(_token_price)
         assert_not_zero(_amount_of_tokens_to_sell)
         assert_lt(block_timestamp, _sale_end_time)
         assert_lt(block_timestamp, _tokens_unlock_time)
     end
-    with_attr error_message("ZkPadIDOContract: portion vesting percision should be at least 100"):
+    with_attr error_message("ZkPadIDOContract::set_sale_params portion vesting percision should be at least 100"):
         assert_le(100, _portion_vesting_precision)
     end
 
@@ -369,7 +375,7 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(_sale_token_address : felt):
     only_admin()
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract: Token address is already set"):
+    with_attr error_message("ZkPadIDOContract::set_sale_token Token address is already set"):
         assert the_sale.token = 0
     end
     let upd_sale = Sale(
@@ -399,17 +405,17 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
     let (the_sale) = sale.read()
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadIDOContract: Sale not created yet"):
+    with_attr error_message("ZkPadIDOContract::set_registration_time Sale not created yet"):
         assert the_sale.is_created = TRUE
     end
-    with_attr error_message("ZkPadIDOContract: the regidtrstion start time is already set"):
+    with_attr error_message("ZkPadIDOContract::set_registration_time the regidtrstion start time is already set"):
         assert the_reg.registration_time_starts = 0
     end
-    with_attr error_message("ZkPadIDOContract: registration start/end times issue"):
+    with_attr error_message("ZkPadIDOContract::set_registration_time registration start/end times issue"):
         assert_le(block_timestamp, _registration_time_starts)
         assert_lt(_registration_time_starts, _registration_time_ends)
     end
-    with_attr error_message("ZkPadIDOContract: registration end has to be before sale end"):
+    with_attr error_message("ZkPadIDOContract::set_registration_time registration end has to be before sale end"):
         assert_lt(_registration_time_ends, the_sale.sale_end)
     end
     # TODO...
@@ -427,4 +433,97 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
         registration_time_ends = _registration_time_ends
     )
     return()
+end
+
+@external
+func set_rounds{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _start_times_len : felt, 
+    _start_times : felt*,
+    _max_participations_len : felt,
+    _max_participations : felt*
+):
+    only_admin()
+    let (the_sale) = sale.read()
+    let (the_reg) = registration.read()
+    let (block_timestamp) = get_block_timestamp()
+    let (rounds_size) = round_ids_array_len.read()
+    with_attr error_message("ZkPadIDOContract::set_rounds Sale not created yet"):
+        assert the_sale.is_created = TRUE
+    end
+    with_attr error_message("ZkPadIDOContract::set_rounds Bad input"):
+        assert _start_times_len = _max_participations_len
+    end
+    with_attr error_message("ZkPadIDOContract::set_rounds Rounds are set already"):
+        rounds_size = 0
+    end
+    with_attr error_message("ZkPadIDOContract::set_rounds input array is empty"):
+        assert_lt(0, _start_times_len)
+    end
+
+    set_rounds_rec(
+        _start_times_len, 
+        _start_times,
+        _max_participations_len,
+        _max_participations,
+        0,
+        1,
+        the_reg.registration_time_ends,
+        the_sale.sale_end,
+        block_timestamp
+    )
+    return()
+end
+
+func set_rounds_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _start_times_len : felt, 
+    _start_times : felt*,
+    _max_participations_len : felt,
+    _max_participations : felt*,
+    _last_time_stamp : felt,
+    _array_index : felt,
+    _registration_end : felt,
+    _sale_end : felt,
+    _block_timestamp : felt
+):
+    alloc_locals
+    assert _start_times_len = _max_participations_len
+
+    if _start_times_len == 0:
+        return()
+    end
+
+    local start_times0 = _start_times[0]
+    local max_participations0 = _max_participations[0]
+
+    assert_lt(_registration_end, start_times0)
+    assert_lt(start_times0, _sale_end)
+    assert_le(_block_timestamp, start_times0)
+    assert_lt(0, max_participations0)
+    assert_lt(_last_time_stamp, start_times0)
+
+    # _last_time_stamp = start_times0
+    round_ids_array.write(_array_index, _array_index)
+    round_ids_array_len.write(_array_index)
+    let the_round = Round(
+        start_time = start_times0,
+        max_participation = max_participations0
+    )
+    round_id_to_round.write(_array_index, the_round)
+    round_added.emit(
+        round_id = _array_index,
+        start_time = start_times0,
+        max_participation = max_participations0
+    )
+
+    return set_rounds_rec(
+        _start_times_len = _start_times_len - 1, 
+        _start_times = _start_times + 1,
+        _max_participations_len = _max_participations_len - 1,
+        _max_participations = _max_participations,
+        _last_time_stamp = start_times0,
+        _array_index = _array_index + 1,
+        _registration_end = _registration_end,
+        _sale_end = _sale_end,
+        _block_timestamp = _block_timestamp        
+    )
 end
