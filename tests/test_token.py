@@ -1,4 +1,5 @@
 import pytest
+
 from starkware.starknet.testing.starknet import Starknet
 from utils import (
     Signer, to_uint, add_uint, sub_uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, INVALID_UINT256,
@@ -27,7 +28,7 @@ def contract_defs():
 
 
 @pytest.fixture(scope='module')
-async def erc20_init(contract_defs):
+async def contracts_init(contract_defs):
     account_def, zk_pad_token_def = contract_defs
     starknet = await Starknet.empty()
     recipient_account = await starknet.deploy(
@@ -60,9 +61,9 @@ async def erc20_init(contract_defs):
 
 
 @pytest.fixture
-def erc20_factory(contract_defs, erc20_init):
+def contracts_factory(contract_defs, contracts_init):
     account_def, zk_pad_token_def = contract_defs
-    state, account1, account2, erc20 = erc20_init
+    state, account1, account2, erc20 = contracts_init
     _state = state.copy()
     account1 = cached_contract(_state, account_def, account1)
     account2 = cached_contract(_state, account_def, account2)
@@ -76,8 +77,8 @@ def erc20_factory(contract_defs, erc20_init):
 
 
 @pytest.mark.asyncio
-async def test_constructor(erc20_factory):
-    erc20, recipient_account, _ = erc20_factory
+async def test_constructor(contracts_factory):
+    erc20, recipient_account, _ = contracts_factory
 
     # balanceOf recipient
     execution_info = await erc20.balanceOf(recipient_account.contract_address).invoke()
@@ -89,8 +90,8 @@ async def test_constructor(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_constructor_exceed_max_decimals(erc20_factory):
-    _, recipient_account, owner_account = erc20_factory
+async def test_constructor_exceed_max_decimals(contracts_factory):
+    _, recipient_account, owner_account = contracts_factory
 
     bad_decimals = 2**8 + 1
 
@@ -106,30 +107,30 @@ async def test_constructor_exceed_max_decimals(erc20_factory):
                 recipient_account.contract_address,
                 owner_account.contract_address,
                 *CAP,
-                123124 # _distribution_address TODO: Change
+                123124  # _distribution_address TODO: Change
             ],
-        cairo_path=["../contracts"]),
+            cairo_path=["../contracts"]),
         reverted_with="ERC20: decimals exceed 2^8"
     )
 
 
 @pytest.mark.asyncio
-async def test_name(erc20_factory):
-    erc20, _, _ = erc20_factory
+async def test_name(contracts_factory):
+    erc20, _, _ = contracts_factory
     execution_info = await erc20.name().invoke()
     assert execution_info.result.name == NAME
 
 
 @pytest.mark.asyncio
-async def test_symbol(erc20_factory):
-    erc20, _, _ = erc20_factory
+async def test_symbol(contracts_factory):
+    erc20, _, _ = contracts_factory
     execution_info = await erc20.symbol().invoke()
     assert execution_info.result.symbol == SYMBOL
 
 
 @pytest.mark.asyncio
-async def test_decimals(erc20_factory):
-    erc20, _, _ = erc20_factory
+async def test_decimals(contracts_factory):
+    erc20, _, _ = contracts_factory
     execution_info = await erc20.decimals().invoke()
     assert execution_info.result.decimals == DECIMALS
 
@@ -140,8 +141,8 @@ async def test_decimals(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_approve(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_approve(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     # check spender's allowance starts at zero
     execution_info = await erc20.allowance(account.contract_address, spender.contract_address).invoke()
@@ -162,8 +163,8 @@ async def test_approve(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_approve_emits_event(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_approve_emits_event(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     tx_exec_info = await recipient.send_transaction(
         account, erc20.contract_address, 'approve', [
@@ -184,8 +185,8 @@ async def test_approve_emits_event(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_approve_from_zero_address(erc20_factory):
-    erc20, _, spender = erc20_factory
+async def test_approve_from_zero_address(contracts_factory):
+    erc20, _, spender = contracts_factory
 
     # Without using an account abstraction, the caller address
     # (get_caller_address) is zero
@@ -196,8 +197,8 @@ async def test_approve_from_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_approve_to_zero_address(erc20_factory):
-    erc20, account, _ = erc20_factory
+async def test_approve_to_zero_address(contracts_factory):
+    erc20, account, _ = contracts_factory
 
     await assert_revert(recipient.send_transaction(
         account, erc20.contract_address, 'approve', [
@@ -209,8 +210,8 @@ async def test_approve_to_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_approve_invalid_uint256(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_approve_invalid_uint256(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     await assert_revert(
         recipient.send_transaction(
@@ -228,8 +229,8 @@ async def test_approve_invalid_uint256(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transfer(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     # check original totalSupply
     execution_info = await erc20.balanceOf(recipient_account.contract_address).invoke()
@@ -262,8 +263,8 @@ async def test_transfer(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer_emits_event(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transfer_emits_event(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     tx_exec_info = await recipient.send_transaction(
         recipient_account, erc20.contract_address, 'transfer', [
@@ -284,8 +285,8 @@ async def test_transfer_emits_event(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer_not_enough_balance(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transfer_not_enough_balance(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     await assert_revert(recipient.send_transaction(
         recipient_account, erc20.contract_address, 'transfer', [
@@ -297,8 +298,8 @@ async def test_transfer_not_enough_balance(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer_to_zero_address(erc20_factory):
-    erc20, account, _ = erc20_factory
+async def test_transfer_to_zero_address(contracts_factory):
+    erc20, account, _ = contracts_factory
 
     await assert_revert(recipient.send_transaction(
         account, erc20.contract_address, 'transfer', [
@@ -310,8 +311,8 @@ async def test_transfer_to_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer_from_zero_address(erc20_factory):
-    erc20, _, owner_account = erc20_factory
+async def test_transfer_from_zero_address(contracts_factory):
+    erc20, _, owner_account = contracts_factory
 
     # Without using an account abstraction, the caller address
     # (get_caller_address) is zero
@@ -322,8 +323,8 @@ async def test_transfer_from_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transfer_invalid_uint256(erc20_factory):
-    erc20, account, owner_account = erc20_factory
+async def test_transfer_invalid_uint256(contracts_factory):
+    erc20, account, owner_account = contracts_factory
 
     await assert_revert(recipient.send_transaction(
         account, erc20.contract_address, 'transfer', [
@@ -340,8 +341,8 @@ async def test_transfer_invalid_uint256(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transferFrom(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transferFrom(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     # approve
     await recipient.send_transaction(
@@ -374,8 +375,8 @@ async def test_transferFrom(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transferFrom_emits_event(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transferFrom_emits_event(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     # approve
     await recipient.send_transaction(
@@ -405,8 +406,8 @@ async def test_transferFrom_emits_event(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transferFrom_greater_than_allowance(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transferFrom_greater_than_allowance(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
     # we use the same signer to control the main and the owner_account accounts
     # this is ok since they're still two different accounts
 
@@ -431,8 +432,8 @@ async def test_transferFrom_greater_than_allowance(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transferFrom_from_zero_address(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transferFrom_from_zero_address(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     await assert_revert(recipient.send_transaction(
         recipient_account, erc20.contract_address, 'transferFrom', [
@@ -445,8 +446,8 @@ async def test_transferFrom_from_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_transferFrom_to_zero_address(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_transferFrom_to_zero_address(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     await recipient.send_transaction(
         recipient_account, erc20.contract_address, 'approve', [
@@ -471,8 +472,8 @@ async def test_transferFrom_to_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_increaseAllowance(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_increaseAllowance(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     execution_info = await erc20.allowance(account.contract_address, spender.contract_address).invoke()
     assert execution_info.result.remaining == UINT_ZERO
@@ -504,8 +505,8 @@ async def test_increaseAllowance(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_increaseAllowance_emits_event(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_increaseAllowance_emits_event(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     # set approve
     await recipient.send_transaction(
@@ -536,8 +537,8 @@ async def test_increaseAllowance_emits_event(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_increaseAllowance_overflow(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_increaseAllowance_overflow(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     # approve max
     await recipient.send_transaction(
@@ -558,8 +559,8 @@ async def test_increaseAllowance_overflow(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_increaseAllowance_to_zero_address(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_increaseAllowance_to_zero_address(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     await recipient.send_transaction(
         account, erc20.contract_address, 'approve', [
@@ -577,8 +578,8 @@ async def test_increaseAllowance_to_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_increaseAllowance_from_zero_address(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_increaseAllowance_from_zero_address(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     await recipient.send_transaction(
         recipient_account, erc20.contract_address, 'approve', [
@@ -588,7 +589,8 @@ async def test_increaseAllowance_from_zero_address(erc20_factory):
     )
 
     await assert_revert(
-        erc20.increaseAllowance(owner_account.contract_address, AMOUNT).invoke()
+        erc20.increaseAllowance(
+            owner_account.contract_address, AMOUNT).invoke()
     )
 
 
@@ -598,8 +600,8 @@ async def test_increaseAllowance_from_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_decreaseAllowance(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     execution_info = await erc20.allowance(account.contract_address, spender.contract_address).invoke()
     assert execution_info.result.remaining == UINT_ZERO
@@ -631,8 +633,8 @@ async def test_decreaseAllowance(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance_emits_event(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_decreaseAllowance_emits_event(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     # set approve
     await recipient.send_transaction(
@@ -663,8 +665,8 @@ async def test_decreaseAllowance_emits_event(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance_overflow(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_decreaseAllowance_overflow(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     await recipient.send_transaction(
         account, erc20.contract_address, 'approve', [
@@ -689,8 +691,8 @@ async def test_decreaseAllowance_overflow(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance_to_zero_address(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_decreaseAllowance_to_zero_address(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     await recipient.send_transaction(
         account, erc20.contract_address, 'approve', [
@@ -708,8 +710,8 @@ async def test_decreaseAllowance_to_zero_address(erc20_factory):
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance_from_zero_address(erc20_factory):
-    erc20, recipient_account, owner_account = erc20_factory
+async def test_decreaseAllowance_from_zero_address(contracts_factory):
+    erc20, recipient_account, owner_account = contracts_factory
 
     await recipient.send_transaction(
         recipient_account, erc20.contract_address, 'approve', [
@@ -719,13 +721,14 @@ async def test_decreaseAllowance_from_zero_address(erc20_factory):
     )
 
     await assert_revert(
-        erc20.decreaseAllowance(owner_account.contract_address, AMOUNT).invoke()
+        erc20.decreaseAllowance(
+            owner_account.contract_address, AMOUNT).invoke()
     )
 
 
 @pytest.mark.asyncio
-async def test_decreaseAllowance_invalid_uint256(erc20_factory):
-    erc20, account, spender = erc20_factory
+async def test_decreaseAllowance_invalid_uint256(contracts_factory):
+    erc20, account, spender = contracts_factory
 
     await assert_revert(
         recipient.send_transaction(

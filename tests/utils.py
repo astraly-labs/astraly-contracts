@@ -2,7 +2,8 @@
 
 from pathlib import Path
 import math
-from starkware.cairo.common.hash_state import compute_hash_on_elements
+import site
+
 from starkware.crypto.signature.signature import private_to_stark_key, sign
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
@@ -11,6 +12,7 @@ from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.transaction_execution_objects import Event
 from starkware.starknet.core.os.transaction_hash import calculate_transaction_hash_common, TransactionHashPrefix
 from starkware.starknet.definitions.general_config import StarknetChainId
+
 MAX_UINT256 = (2**128 - 1, 2**128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
@@ -24,7 +26,10 @@ _root = Path(__file__).parent.parent
 
 
 def contract_path(name):
-    return str(_root / "contracts" / name)
+    if name.startswith("openzeppelin"):
+        return site.getsitepackages()[0] + "/" + name
+    else:
+        return str(_root / "contracts" / name)
 
 
 def str_to_felt(text):
@@ -105,38 +110,6 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
     ) in tx_exec_info.raw_events
 
 
-class Signer():
-    def __init__(self, private_key):
-        self.private_key = private_key
-        self.public_key = private_to_stark_key(private_key)
-
-    def sign(self, message_hash):
-        return sign(msg_hash=message_hash, priv_key=self.private_key)
-
-    async def send_transaction(self, account, to, selector_name, calldata, nonce=None):
-        if nonce is None:
-            execution_info = await account.get_nonce().call()
-            nonce, = execution_info.result
-
-        selector = get_selector_from_name(selector_name)
-        message_hash = hash_message(
-            account.contract_address, to, selector, calldata, nonce)
-        sig_r, sig_s = self.sign(message_hash)
-
-        return await account.execute(to, selector, calldata, nonce).invoke(signature=[sig_r, sig_s])
-
-
-def hash_message(sender, to, selector, calldata, nonce):
-    message = [
-        sender,
-        to,
-        selector,
-        compute_hash_on_elements(calldata),
-        nonce
-    ]
-    return compute_hash_on_elements(message)
-
-
 def get_contract_def(path):
     """Returns the contract definition from the contract path"""
     path = contract_path(path)
@@ -199,8 +172,6 @@ class Signer():
             execution_info = await account.get_nonce().call()
             nonce, = execution_info.result
 
-        calls_with_selector = [
-            (call[0], get_selector_from_name(call[1]), call[2]) for call in calls]
         (call_array, calldata) = from_call_to_call_array(calls)
 
         message_hash = get_transaction_hash(
