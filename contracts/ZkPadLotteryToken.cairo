@@ -14,20 +14,20 @@ from contracts.token.ERC1155_struct import TokenUri
 
 from contracts.token.ERC1155_base import (
     ERC1155_initializer,
-    ERC1155_get_URI,
-    ERC1155_transfer_from,
-    ERC1155_safe_transfer_from,
-    ERC1155_batch_transfer_from,
-    ERC1155_safe_batch_transfer_from,
+    ERC1155_uri,
+    ERC1155_safeTransferFrom,
+    ERC1155_safeBatchTransferFrom,
     ERC1155_mint,
     ERC1155_mint_batch,
     ERC1155_burn,
     ERC1155_burn_batch,
-    ERC1155_URI,
-    ERC1155_set_approval_for_all,
+    ERC1155_setApprovalForAll,
     ERC1155_balanceOf,
     ERC1155_balanceOfBatch,
-    ERC1155_isApprovedForAll
+    ERC1155_isApprovedForAll,
+    ERC1155_supportsInterface,
+
+    owner_or_approved
 )
 
 from InterfaceAll import (IZkIDOContract)
@@ -45,9 +45,13 @@ end
 #
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt, _ido_contract_address : felt):
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(uri: felt, owner : felt, _ido_contract_address : felt):
+    # Initialize Admin
     assert_not_zero(owner)
     Ownable_initializer(owner)
+    # Initialize ERC1155
+    ERC1155_initializer(uri)
+    # Setup IDO Contract Params
     assert_not_zero(_ido_contract_address)
     ido_contract_address.write(_ido_contract_address)
     set_ido_launch_date()
@@ -55,34 +59,28 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 #
-# Externals
+# Getters
 #
 
-# @dev Returns the URI for all token types
-@external
-func getURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : TokenUri):
-    let (res) = ERC1155_get_URI()
-
-    return (res)
+@view
+func supportsInterface(interfaceId : felt) -> (is_supported : felt):
+    return ERC1155_supportsInterface(interfaceId)
 end
 
-# @dev Sets the URI for all token types
-# @param uri_ : The TokenUri to use . See the ERC1155_struct for more details about the TokenUri type.
-@external
-func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(uri_ : TokenUri):
-    ERC1155_URI.write(uri_)
-
-    return ()
+# @dev Returns the URI for all token types
+@view
+func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}()
+        -> (uri : felt):
+    return ERC1155_uri()
 end
 
 # @dev Returns the amount of tokens of token type token_id owned by owner
 # @param owner : The address of the owner
 # @param token_id : The id of the token
 @view
-func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt, token_id : felt) -> (balance : felt):
-    let (_balance) = ERC1155_balanceOf(owner, token_id)
-
-    return (_balance)
+func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        account : felt, id : Uint256) -> (balance : Uint256):
+    return ERC1155_balanceOf(account,id)
 end
 
 # @dev Batched version of balanceOf.
@@ -91,34 +89,41 @@ end
 # @param tokens_id_len : the length of the toked ids array
 # @param tokens_id : the array of token ids
 @view
-func balanceOfBatch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        owners_len : felt, 
-        owners : felt*, 
-        tokens_id_len : felt, 
-        tokens_id : felt*) -> (balance_len : felt, balance : felt*):
-    let (_balance_len, _balance) = ERC1155_balanceOfBatch(owners_len, owners, tokens_id_len, tokens_id)
-
-    return (_balance_len, _balance)
+func balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*)
+        -> (balances_len : felt, balances : Uint256*):
+    return ERC1155_balanceOfBatch(accounts_len,accounts,ids_len,ids)
 end
 
 # @dev Returns true if operator is approved to transfer account's tokens.
 # @param operator : The address of the operator
 # @param account : The address of the account
 @view
-func isApprovedForAll{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(account : felt, operator : felt) -> (res : felt):
-    let (res) = ERC1155_isApprovedForAll(account, operator)
-
-    return (res)
+func isApprovedForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        account : felt, operator : felt) -> (is_approved : felt):
+    return ERC1155_isApprovedForAll(account, operator)
 end
+
+#
+# Externals
+#
+
+# @dev Sets the URI for all token types
+# @param uri_ : The TokenUri to use . See the ERC1155_struct for more details about the TokenUri type.
+# @external
+# func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(uri_ : TokenUri):
+#     ERC1155_uri_.write(uri_)
+
+#     return ()
+# end
 
 # @dev Grants or revokes permission to operator to transfer the caller’s tokens, according to approved
 # @param operator : The address of the opertor
 # @param approved : Must be 0 (revoke) or 1 (grant)
 @external
-func setApprovalForAll{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+func setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         operator : felt, approved : felt):
-    ERC1155_set_approval_for_all(operator, approved)
-
+    ERC1155_setApprovalForAll(operator, approved)
     return ()
 end
 
@@ -128,10 +133,9 @@ end
 # @param token_id : The type of token to transfer
 # @param amount : The transfer amount
 @external
-func safeTransferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        sender : felt, recipient : felt, token_id : felt, amount : felt):
-    ERC1155_safe_transfer_from(sender, recipient, token_id, amount)
-
+func safeTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _from : felt, to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*):
+    ERC1155_safeTransferFrom(_from, to, id, amount, data_len, data)
     return ()
 end
 
@@ -143,11 +147,12 @@ end
 # @param amounts_len : The length of the transfer amounts array
 # @param amounts : The transfer amounts array
 @external
-func safeBatchTransferFrom{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        sender : felt, recipient : felt, tokens_id_len : felt, tokens_id : felt*,
-        amounts_len : felt, amounts : felt*):
-    ERC1155_batch_transfer_from(sender, recipient, tokens_id_len, tokens_id, amounts_len, amounts)
-
+@external
+func safeBatchTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _from : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
+        data_len : felt, data : felt*):
+    ERC1155_safeBatchTransferFrom(
+        _from, to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
 
@@ -156,11 +161,10 @@ end
 # @param token_id : The token type
 # @param amount : The amount of tokens to mint
 @external
-func mint{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        recipient : felt, token_id : felt, amount : felt) -> ():
-    is_before_ido_launch()    
-    ERC1155_mint(recipient, token_id, amount)
-
+func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*):
+    Ownable_only_owner()
+    ERC1155_mint(to, id, amount, data_len, data)
     return ()
 end
 
@@ -171,27 +175,28 @@ end
 # @param amounts_len : The legth of the amounts array
 # @param amounts : The amounts array
 @external
-func mint_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        recipient : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
-        amounts : felt*) -> ():
+func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
+        data_len : felt, data : felt*):
+    Ownable_only_owner()
     is_before_ido_launch()
-    ERC1155_mint_batch(recipient, token_ids_len, token_ids, amounts_len, amounts)
-
+    ERC1155_mint_batch(to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
 
 # @dev Destroys amount tokens of token type token_id from account
-# @param account : The address from which the tokens will be burnt
-# @param token_id : The type of the token to brun
+# @param _from : The address from which the tokens will be burnt
+# @param id : The id of the token to buun
 # @param amount : The amount of tokens to burn
 @external
-func burn{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-        account : felt, token_id : felt, amount : felt):
+func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+         _from : felt, id : Uint256, amount : Uint256):
     alloc_locals
-    ERC1155_burn(account, token_id, amount)
-    # Claim Allocation
+    owner_or_approved(owner=_from)
+    ERC1155_burn(_from, id, amount)
+    # Spin up VRF and update allocation accordingly
     let (theAddress) = ido_contract_address.read()
-    let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
+    let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=_from)
     with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
         assert res = 1
     end
@@ -199,15 +204,14 @@ func burn{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
 end
 
 # @external
-# func burn_batch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
-#         account : felt, token_ids_len : felt, token_ids : felt*, amounts_len : felt,
-#         amounts : felt*):
-#     alloc_locals
-#     ERC1155_burn_batch(account, token_ids_len, token_ids, amounts_len, amounts)
-#     # Claim Allocation
+# func burnBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+#         _from : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*):
+#     owner_or_approved(owner=_from)
+#     ERC1155_burn_batch(_from, ids_len, ids, amounts_len, amounts)
+#     # Spin up VRF and update allocations accordingly
 #     let (theAddress) = ido_contract_address.read()
 #     let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
-#     with_attr error_message("ZKTOKEN: Error while claiming the allocation"):
+#     with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
 #         assert res = 1
 #     end
 #     return ()

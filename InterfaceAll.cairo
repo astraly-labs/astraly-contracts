@@ -16,8 +16,27 @@ namespace IZkIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func claim_allocation(amount: felt, account: felt) -> (res: felt):
+    func claim_allocation(amount: Uint256, account: felt) -> (res: felt):
     end
+end
+
+@contract_interface
+namespace IERC1155_Receiver:
+
+    func onERC1155Received(
+            operator : felt, _from : felt, id : Uint256, value : Uint256,
+            data_len : felt, data : felt*) -> (selector : felt):
+    end
+
+    func onERC1155BatchReceived(
+            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, 
+            values_len : felt, values : Uint256*, data_len : felt, data : felt*)
+            -> (selector : felt):
+    end
+
+    func supportsInterface(interfaceId : felt) -> (success : felt):
+    end
+
 end
 
 @contract_interface
