@@ -41,14 +41,14 @@ struct Participation:
     member amount_bought : felt
     member amount_paid : felt
     member time_participated : felt
-    member round_id : felt
+    # member round_id : felt
     member is_portion_withdrawn_array : felt # can't have arrays as members of the struct. Will use a felt with a bit mask
 end
 
-struct Round:
-    member start_time : felt
-    member max_participation : felt
-end
+# struct Round:
+#     member start_time : felt
+#     member max_participation : felt
+# end
 
 struct Registration:
     member registration_time_starts : felt
@@ -71,20 +71,18 @@ end
 func number_of_participants() -> (res : felt):
 end
 
-# Array storing IDS of rounds (IDs start from 1, so they can't be mapped as array indexes
-# round_ids_array.write(1,123)....(2,234)....etc --> i is the index of the array
-@storage_var
-func round_ids_array(i : felt) -> (res : felt):
-end
+# @storage_var
+# func round_ids_array(i : felt) -> (res : felt):
+# end
 
-@storage_var
-func round_ids_array_len() -> (res : felt):
-end
+# @storage_var
+# func round_ids_array_len() -> (res : felt):
+# end
 
-# Mapping round Id to round
-@storage_var
-func round_id_to_round(round_id : felt) -> (res : Round):
-end
+# # Mapping round Id to round
+# @storage_var
+# func round_id_to_round(round_id : felt) -> (res : Round):
+# end
 
 # Mapping user to his participation
 @storage_var
@@ -92,8 +90,18 @@ func user_to_participation(user_address : felt) -> (res : Participation):
 end
 
 # Mapping user to round for which he registered
+# @storage_var
+# func address_to_round_registered_for(user_address : felt) -> (res : felt):
+# end
+
+# Mapping user to number of allocations
 @storage_var
-func address_to_round_registered_for(user_address : felt) -> (res : felt):
+func address_to_allocations(user_address : felt) -> (res : felt):
+end
+
+# total allocations given
+@storage_var
+func total_allocations_given() -> (res : felt):
 end
 
 # mapping user to is participated or not
@@ -169,7 +177,7 @@ func tokens_sold(user_address : felt, amount : felt):
 end
 
 @event 
-func user_registered(user_address : felt, round_id : felt):
+func user_registered(user_address : felt, lottery_tickets_burnt : felt, allocations_received : felt):
 end
 
 @event
@@ -223,7 +231,6 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_pt
     admin_contract_address.write(_admin_address)
     staking_vault_contract_address.write(_staking_vault_address)
     # shoule we initialize the structs and arrays with default values here?
-    round_ids_array_len.write(0)
 
     return ()
 end
@@ -418,10 +425,6 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
     with_attr error_message("ZkPadIDOContract::set_registration_time registration end has to be before sale end"):
         assert_lt(_registration_time_ends, the_sale.sale_end)
     end
-    # TODO...
-    # if (roundIds.length > 0) {
-    #     require(_registrationTimeEnds < roundIdToRound[roundIds[0]].startTime);
-    # }
     let upd_reg = Registration(
         registration_time_starts = _registration_time_starts,
         registration_time_ends = _registration_time_ends,
@@ -436,94 +439,54 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
 end
 
 @external
-func set_rounds{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
-    _start_times_len : felt, 
-    _start_times : felt*,
-    _max_participations_len : felt,
-    _max_participations : felt*
-):
-    only_admin()
-    let (the_sale) = sale.read()
+func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (res : felt):
     let (the_reg) = registration.read()
-    let (block_timestamp) = get_block_timestamp()
-    let (rounds_size) = round_ids_array_len.read()
-    with_attr error_message("ZkPadIDOContract::set_rounds Sale not created yet"):
-        assert the_sale.is_created = TRUE
-    end
-    with_attr error_message("ZkPadIDOContract::set_rounds Bad input"):
-        assert _start_times_len = _max_participations_len
-    end
-    with_attr error_message("ZkPadIDOContract::set_rounds Rounds are set already"):
-        rounds_size = 0
-    end
-    with_attr error_message("ZkPadIDOContract::set_rounds input array is empty"):
-        assert_lt(0, _start_times_len)
-    end
-
-    set_rounds_rec(
-        _start_times_len, 
-        _start_times,
-        _max_participations_len,
-        _max_participations,
-        0,
-        1,
-        the_reg.registration_time_ends,
-        the_sale.sale_end,
-        block_timestamp
-    )
-    return()
+    return(res = the_reg.registration_time_starts)
 end
 
-func set_rounds_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
-    _start_times_len : felt, 
-    _start_times : felt*,
-    _max_participations_len : felt,
-    _max_participations : felt*,
-    _last_time_stamp : felt,
-    _array_index : felt,
-    _registration_end : felt,
-    _sale_end : felt,
-    _block_timestamp : felt
-):
+@external
+func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(amount: felt, account: felt) -> (res: felt):
     alloc_locals
-    assert _start_times_len = _max_participations_len
+    let (the_reg) = registration.read()
+    let (block_timestamp) = get_block_timestamp()
 
-    if _start_times_len == 0:
-        return()
+    with_attr error_message("ZkPadIDOContract::claim_allocation account address is the zero address"):
+        assert_not_zero(account)
+    end
+    with_attr error_message("ZkPadIDOContract::claim_allocation allocation claim amount not greater than 0"):
+        assert_lt(0, amount)
+    end
+    with_attr error_message("ZkPadIDOContract::claim_allocation Registration window is closed"):
+        assert_le(the_reg.registration_time_starts, block_timestamp)
+        assert_le(block_timestamp, the_reg.registration_time_ends)
     end
 
-    local start_times0 = _start_times[0]
-    local max_participations0 = _max_participations[0]
+    let (current_allocation) = address_to_allocations.read(account)
+    with_attr error_message("ZkPadIDOContract::claim_allocation allocation claimed already"):
+        assert current_allocation = 0
+    end
 
-    assert_lt(_registration_end, start_times0)
-    assert_lt(start_times0, _sale_end)
-    assert_le(_block_timestamp, start_times0)
-    assert_lt(0, max_participations0)
-    assert_lt(_last_time_stamp, start_times0)
+    let (alloc_received) = calculate_allocation(amount, account)
+    with_attr error_message("ZkPadIDOContract::claim_allocation user received no allocations"):
+        assert_not_zero(alloc_received)
+    end
 
-    # _last_time_stamp = start_times0
-    round_ids_array.write(_array_index, _array_index)
-    round_ids_array_len.write(_array_index)
-    let the_round = Round(
-        start_time = start_times0,
-        max_participation = max_participations0
+    let upd_reg = Registration(
+        registration_time_starts = the_reg.registration_time_starts,
+        registration_time_ends = the_reg.registration_time_ends,
+        number_of_registrants = the_reg.number_of_registrants + 1
     )
-    round_id_to_round.write(_array_index, the_round)
-    round_added.emit(
-        round_id = _array_index,
-        start_time = start_times0,
-        max_participation = max_participations0
-    )
+    registration.write(upd_reg)
+    address_to_allocations.write(account, alloc_received)
 
-    return set_rounds_rec(
-        _start_times_len = _start_times_len - 1, 
-        _start_times = _start_times + 1,
-        _max_participations_len = _max_participations_len - 1,
-        _max_participations = _max_participations,
-        _last_time_stamp = start_times0,
-        _array_index = _array_index + 1,
-        _registration_end = _registration_end,
-        _sale_end = _sale_end,
-        _block_timestamp = _block_timestamp        
-    )
+    user_registered.emit(account, amount, alloc_received)
+    return(res=TRUE)
+end
+
+# This function will calculate the number of allocation the user would get based on how many "winning" lottery tickets they have
+# For now, the fucntion will return a 1:1 allocation until the allocation calculation logic is finalized
+func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+        lottery_tickets_burnt : felt, 
+        user_address: felt) -> (res : felt):
+    return(res=lottery_tickets_burnt)
 end
