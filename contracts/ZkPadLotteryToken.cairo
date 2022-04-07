@@ -7,8 +7,8 @@ from starkware.starknet.common.syscalls import (
     get_caller_address, get_block_number, get_block_timestamp
 )
 
-from contracts.openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
-from contracts.openzeppelin.utils.constants import TRUE
+from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.utils.constants import TRUE
 
 from contracts.token.ERC1155_struct import TokenUri
 

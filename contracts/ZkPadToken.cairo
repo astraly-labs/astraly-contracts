@@ -4,14 +4,14 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_check
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 
-from contracts.openzeppelin.token.erc20.library import (
+from openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
     ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
     ERC20_transfer, ERC20_transferFrom, ERC20_mint)
 
-from contracts.openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
-from contracts.openzeppelin.utils.constants import TRUE
+from openzeppelin.utils.constants import TRUE
 
 @storage_var
 func cap_() -> (res : Uint256):
