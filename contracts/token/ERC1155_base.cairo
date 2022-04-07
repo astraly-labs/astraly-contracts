@@ -6,8 +6,9 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import assert_not_zero, assert_not_equal
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_add, uint256_sub, uint256_le, uint256_check)
+    Uint256, uint256_le, uint256_check)
 from openzeppelin.introspection.IERC165 import IERC165
+from openzeppelin.security.safemath import (uint256_checked_sub_le, uint256_checked_add)
 from InterfaceAll import IERC1155_Receiver
 
 const IERC1155_interface_id = 0xd9b67a26
@@ -189,15 +190,12 @@ func _safe_transfer_from{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         assert_not_zero(sufficient_balance)
     end
     # Deduct from sender
-    let (new_balance : Uint256) = uint256_sub(from_balance, amount)
+    let (new_balance : Uint256) = uint256_checked_sub_le(from_balance, amount)
     ERC1155_balances_.write(id=id, account=from_, value=new_balance)
 
-    # Add to reciever
+    # Add to reicever
     let (to_balance : Uint256) = ERC1155_balances_.read(id=id, account=to)
-    let (new_balance : Uint256, carry) = uint256_add(to_balance, amount)
-    with_attr error_message("arithmetic overflow"):
-        assert carry = 0
-    end
+    let (new_balance : Uint256) = uint256_checked_add(to_balance, amount)
     ERC1155_balances_.write(id=id, account=to, value=new_balance)
 
     let (operator) = get_caller_address()
@@ -248,10 +246,7 @@ func ERC1155_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     # beforeTokenTransfer
     # add to minter check for overflow
     let (to_balance : Uint256) = ERC1155_balances_.read(id=id, account=to)
-    let (new_balance : Uint256, carry) = uint256_add(to_balance, amount)
-    with_attr error_message("ERC1155: arithmetic overflow"):
-        assert carry = 0
-    end
+    let (new_balance : Uint256) = uint256_checked_add(to_balance, amount)
     ERC1155_balances_.write(id=id, account=to, value=new_balance)
     # doSafeTransferAcceptanceCheck
     let (operator) = get_caller_address()
@@ -312,7 +307,7 @@ func ERC1155_burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
         assert_not_zero(sufficient_balance)
     end
     # Deduct from burner
-    let (new_balance : Uint256) = uint256_sub(from_balance, amount)
+    let (new_balance : Uint256) = uint256_checked_sub_le(from_balance, amount)
     ERC1155_balances_.write(id=id, account=from_, value=new_balance)
     let (operator) = get_caller_address()
     TransferSingle.emit(operator=operator, from_=from_, to=0, id=id, value=amount)
@@ -473,15 +468,12 @@ func safe_batch_transfer_from_iter{
         assert_not_zero(sufficient_balance)
     end
     # deduct from
-    let (new_balance : Uint256) = uint256_sub(from_balance, amount)
+    let (new_balance : Uint256) = uint256_checked_sub_le(from_balance, amount)
     ERC1155_balances_.write(id=id, account=from_, value=new_balance)
 
     # add to
     let (to_balance : Uint256) = ERC1155_balances_.read(id=id, account=to)
-    let (new_balance : Uint256, carry) = uint256_add(to_balance, amount)
-    with_attr error_message("arithmetic overflow"):
-        assert carry = 0  # overflow protection
-    end
+    let (new_balance : Uint256) = uint256_checked_add(to_balance, amount)
     ERC1155_balances_.write(id=id, account=to, value=new_balance)
 
     # Recursive call
@@ -506,10 +498,7 @@ func mint_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     end
     # add to
     let (to_balance : Uint256) = ERC1155_balances_.read(id=id, account=to)
-    let (new_balance : Uint256, carry) = uint256_add(to_balance, amount)
-    with_attr error_message("ERC1155: arithmetic overflow"):
-        assert carry = 0  # overflow protection
-    end
+    let (new_balance : Uint256) = uint256_checked_add(to_balance, amount)
     ERC1155_balances_.write(id=id, account=to, value=new_balance)
 
     # Recursive call
@@ -542,7 +531,7 @@ func burn_batch_iter{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     end
 
     # deduct from
-    let (new_balance : Uint256) = uint256_sub(from_balance, amount)
+    let (new_balance : Uint256) = uint256_checked_sub_le(from_balance, amount)
     ERC1155_balances_.write(id=id, account=from_, value=new_balance)
 
     # Recursive call
