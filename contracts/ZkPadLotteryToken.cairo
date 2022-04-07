@@ -54,7 +54,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # Setup IDO Contract Params
     assert_not_zero(_ido_contract_address)
     ido_contract_address.write(_ido_contract_address)
-    set_ido_launch_date()
+    _set_ido_launch_date()
     return ()
 end
 
@@ -164,6 +164,7 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*):
     Ownable_only_owner()
+    _is_before_ido_launch()
     ERC1155_mint(to, id, amount, data_len, data)
     return ()
 end
@@ -172,14 +173,14 @@ end
 # @param recipient : The address of the recipient
 # @param token_ids_len : The length of the token ids array
 # @param token_ids : The token ids array
-# @param amounts_len : The legth of the amounts array
+# @param amounts_len : The length of the amounts array
 # @param amounts : The amounts array
 @external
 func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
         data_len : felt, data : felt*):
     Ownable_only_owner()
-    is_before_ido_launch()
+    _is_before_ido_launch()
     ERC1155_mint_batch(to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
@@ -218,7 +219,7 @@ end
 # end
 
 # @dev Sets the IDO launch date. Calls the IDO contract to get the date.
-func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+func _set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
     alloc_locals
     let (theAddress) = ido_contract_address.read()
     let (res) = IZkIDOContract.get_ido_launch_date(contract_address=theAddress)
@@ -228,11 +229,12 @@ func set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
 end
 
 # @dev Checks if the current block timestamp is before the IDO launch date.
-func is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
     alloc_locals
+    _set_ido_launch_date()
     let (ido_launch) = ido_launch_date.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadLotteryToken: Lottery Ticket Expired"):
+    with_attr error_message("ZkPadLotteryToken: Standby Phase is over"):
         assert_nn_le(block_timestamp, ido_launch)
     end
 

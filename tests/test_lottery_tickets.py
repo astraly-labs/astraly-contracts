@@ -1167,3 +1167,26 @@ async def test_safe_batch_transfer_from_to_unsafe_contract(erc1155_minted_factor
         account, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]),
         "ERC1155: transfer to non ERC1155Receiver implementer")
+
+
+@pytest.mark.asyncio
+async def test_mint_expired(erc1155_factory):
+    """Should revert when user tries to mint after the ido launch (end of Round 0)"""
+    erc1155, owner, _, receiver, ido = erc1155_factory
+
+    recipient = receiver.contract_address
+    token_id = TOKEN_ID
+    amount = MINT_AMOUNT
+
+    # Update ido_launch_date to be in the past
+    await signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
+
+    await assert_revert(signer.send_transaction(
+        owner, erc1155.contract_address, 'mint',
+        [
+            recipient,  # to
+            *token_id,
+            *amount,
+            0  # data
+        ]
+    ), "ZkPadLotteryToken: Standby Phase is over")
