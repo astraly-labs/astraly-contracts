@@ -1,3 +1,5 @@
+[![Tests](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml/badge.svg)](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml)
+
 # 💻 ZkPad - Smart Contracts
 
 _Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet._
@@ -45,10 +47,10 @@ Ensure you're in a Python environment (see step 2 above) before executing the fo
 1. Spin up a node (in a separate terminal window w/ the python environment running)
    `nile node`
 
-1. Compiling and deploy a sample contract (in /contracts directory)
+2. Compiling and deploy a sample contract (in /contracts directory)
    `npm run compile` or `` CAIRO_PATH=`pwd`/contracts/lib nile compile ``
 
-2. Run transactions against your contract
+3. Run transactions against your contract
    `npm run build`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
@@ -59,7 +61,7 @@ These commands will test and deploy against your local node. If you want to depl
 
 1. M1 Macs use a new architecture which is not compatible with some dependencies (e.g. homebrew). [More info](https://stackoverflow.com/questions/64963370/error-cannot-install-in-homebrew-on-arm-processor-in-intel-default-prefix-usr)\*
 
-1. Install Homebrew
+2. Install Homebrew
 
 ```
 /usr/sbin/softwareupdate --install-rosetta --agree-to-license
@@ -68,14 +70,14 @@ arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebr
 
 _Note: From here on out, you need to use `arch -x86_64 brew install <package>` to install packages w/ homebrew._
 
-2. Install required dependencies
+3. Install required dependencies
 
 ```
 arch -x86_64 brew install gmp
 npm install
 ```
 
-3. Install the latest Nile (equivalent to hardhat) with custom port availability
+4. Install the latest Nile (equivalent to hardhat) with custom port availability
 
 ```
 python3 -m venv env
