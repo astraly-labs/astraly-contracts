@@ -21,6 +21,12 @@ user3 = Signer(4567)
 
 
 @pytest.fixture(scope='module')
+async def get_starknet():
+    starknet = await Starknet.empty()
+    return starknet
+
+
+@pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
@@ -29,8 +35,8 @@ def contract_defs():
 
 
 @pytest.fixture(scope='module')
-async def contacts_init(contract_defs):
-    starknet = await Starknet.empty()
+async def contacts_init(contract_defs, get_starknet):
+    starknet = get_starknet
     account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
 
     owner_account = await starknet.deploy(
@@ -74,7 +80,6 @@ async def contacts_init(contract_defs):
     )
 
     return (
-        starknet.state,
         owner_account,
         user1_account,
         user2_account,
@@ -85,10 +90,10 @@ async def contacts_init(contract_defs):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contacts_init):
+def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
-    state, owner_account, user1_account, user2_account, user3_account, zk_pad_token, zk_pad_stake = contacts_init
-    _state = state.copy()
+    owner_account, user1_account, user2_account, user3_account, zk_pad_token, zk_pad_stake = contacts_init
+    _state = get_starknet.state.copy()
     token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
     stake = cached_contract(_state, zk_pad_stake_def, zk_pad_stake)
     owner_cached = cached_contract(_state, account_def, owner_account)
@@ -96,6 +101,20 @@ def contracts_factory(contract_defs, contacts_init):
     user2_cached = cached_contract(_state, account_def, user2_account)
     user3_cached = cached_contract(_state, account_def, user3_account)
     return token, stake, owner_cached, user1_cached, user2_cached, user3_cached
+
+
+@pytest.fixture
+async def mock_contracts_factory(get_starknet):
+    mock_price_oracle_def = get_contract_def(
+        'tests/mocks/test_price_oracle.cairo')
+
+    starknet = get_starknet
+    _state = get_starknet.state.copy()
+    mock_price_oracle = await starknet.deploy(contract_def=mock_price_oracle_def)
+
+    mock_price_oracle_cached = cached_contract(
+        _state, mock_price_oracle_def, mock_price_oracle)
+    return mock_price_oracle_cached
 
 
 @pytest.mark.asyncio

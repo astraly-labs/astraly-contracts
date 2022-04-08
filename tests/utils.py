@@ -26,6 +26,8 @@ _root = Path(__file__).parent.parent
 def contract_path(name):
     if name.startswith("openzeppelin"):
         return site.getsitepackages()[0] + "/" + name
+    elif name.startswith("tests/"):
+        return str(_root / name)
     else:
         return str(_root / "contracts" / name)
 
