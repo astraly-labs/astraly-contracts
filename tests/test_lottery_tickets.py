@@ -1279,11 +1279,11 @@ async def test_mint_expired(erc1155_factory):
             *amount,
             0  # data
         ]
-    ), "ZkPadLotteryToken: Standby Phase is over")
+    ), "ZkPadLotteryToken::Standby Phase is over")
 
 
 #
-# Lottery Tickets Claim
+# claimLotteryTickets()
 #
 
 @pytest.mark.asyncio
@@ -1304,3 +1304,49 @@ async def test_claim_success(full_factory):
     stake_info = await zk_pad_stake.balanceOf(user).invoke()
     execution_info2 = await erc1155.balanceOf(user, IDO_ID).invoke()
     assert execution_info2.result.balance == stake_info.result.balance
+
+
+@pytest.mark.asyncio
+async def test_claim_twice_fail(full_factory):
+    """Should revert when staker tries to claim tickets twice for one IDO"""
+    erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+
+    IDO_ID = to_uint(10)
+    user = owner.contract_address
+
+    # Claim tickets
+    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
+
+    # Attempt to claim again
+    assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+                  *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
+
+
+@pytest.mark.asyncio
+async def test_claim_no_tickets(full_factory):
+    """Should revert when user tries to claim tickets without staking (no xZKP)"""
+    erc1155, owner, user, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+
+    IDO_ID = to_uint(10)
+
+    # Checks user has no xZKP
+    stake_info = await zk_pad_stake.balanceOf(user.contract_address).invoke()
+    assert stake_info.result.balance == UINT_ZERO
+
+    # Try to claim with a user with no xZKP tokens
+    assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
+                  *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
+
+
+@pytest.mark.asyncio
+async def test_claim_expired(full_factory):
+    """Should revert when allocation round has started"""
+    erc1155, owner, user, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+
+    IDO_ID = to_uint(10)
+
+    # Update ido_launch_date to be in the past
+    await signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
+
+    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+        *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
