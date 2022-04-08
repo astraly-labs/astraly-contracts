@@ -144,7 +144,7 @@ async def erc1155_init(contract_defs):
 @pytest.fixture
 def erc1155_factory(contract_defs, erc1155_init):
     account_def, erc1155_def, receiver_def, ido_def, _, _ = contract_defs
-    state, account1, account2, erc1155, receiver, ido = erc1155_init
+    state, account1, account2, erc1155, receiver, ido, _, _ = erc1155_init
     _state = state.copy()
     account1 = cached_contract(_state, account_def, account1)
     account2 = cached_contract(_state, account_def, account2)
@@ -178,7 +178,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
 
 @pytest.fixture
 def erc1155_minted_factory(contract_defs, erc1155_minted_init):
-    account_def, erc1155_def, receiver_def, ido_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, _, _ = contract_defs
     state, erc1155, owner, account, receiver, ido = erc1155_minted_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
