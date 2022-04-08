@@ -60,6 +60,12 @@ id_random = int('0xaabbccdd', 16)
 SUPPORTED_INTERFACES = [id_ERC165, id_IERC1155, id_IERC1155_MetadataURI]
 UNSUPPORTED_INTERFACES = [id_mandatory_unsupported, id_random]
 
+DECIMALS = 18
+INIT_SUPPLY = to_uint(1_000_000)
+CAP = to_uint(1_000_000_000_000)
+UINT_ONE = to_uint(1)
+UINT_ZERO = to_uint(0)
+
 
 # Fixtures
 
@@ -74,12 +80,14 @@ def contract_defs():
     erc1155_def = get_contract_def(erc1155_path)
     receiver_def = get_contract_def(receiver_path)
     ido_def = get_contract_def(ido_path)
-    return account_def, erc1155_def, receiver_def, ido_def
+    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
+    zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
+    return account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def
 
 
 @pytest.fixture(scope='module')
 async def erc1155_init(contract_defs):
-    account_def, erc1155_def, receiver_def, ido_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
     starknet = await Starknet.empty()
     account1 = await starknet.deploy(
         contract_def=account_def,
@@ -98,19 +106,44 @@ async def erc1155_init(contract_defs):
     receiver = await starknet.deploy(
         contract_def=receiver_def
     )
+    zk_pad_token = await starknet.deploy(
+        contract_def=zk_pad_token_def,
+        constructor_calldata=[
+            str_to_felt("ZkPad"),
+            str_to_felt("ZKP"),
+            DECIMALS,
+            *INIT_SUPPLY,
+            account1.contract_address,  # recipient
+            account1.contract_address,  # owner
+            *CAP,
+            123124
+        ],
+    )
+
+    zk_pad_stake = await starknet.deploy(
+        contract_def=zk_pad_stake_def,
+        constructor_calldata=[
+            str_to_felt("xZkPad"),
+            str_to_felt("xZKP"),
+            zk_pad_token.contract_address,
+        ],
+    )
+
     return (
         starknet.state,
         account1,
         account2,
         erc1155,
         receiver,
-        ido
+        ido,
+        zk_pad_token,
+        zk_pad_stake
     )
 
 
 @pytest.fixture
 def erc1155_factory(contract_defs, erc1155_init):
-    account_def, erc1155_def, receiver_def, ido_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, _, _ = contract_defs
     state, account1, account2, erc1155, receiver, ido = erc1155_init
     _state = state.copy()
     account1 = cached_contract(_state, account_def, account1)
@@ -123,8 +156,8 @@ def erc1155_factory(contract_defs, erc1155_init):
 
 @pytest.fixture(scope='module')
 async def erc1155_minted_init(contract_defs, erc1155_init):
-    account_def, erc1155_def, receiver_def, ido_def = contract_defs
-    state, owner, account, erc1155, receiver, ido = erc1155_init
+    account_def, erc1155_def, receiver_def, ido_def, _, _ = contract_defs
+    state, owner, account, erc1155, receiver, ido, _, _ = erc1155_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
     account = cached_contract(_state, account_def, account)
@@ -156,11 +189,68 @@ def erc1155_minted_factory(contract_defs, erc1155_minted_init):
     return erc1155, owner, account, receiver, ido
 
 
+@pytest.fixture(scope='module')
+async def full_init(contract_defs, erc1155_init):
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
+    state, owner, account, erc1155, receiver, ido, zk_pad_token, zk_pad_stake = erc1155_init
+    _state = state.copy()
+    owner = cached_contract(_state, account_def, owner)
+    account = cached_contract(_state, account_def, account)
+    erc1155 = cached_contract(_state, erc1155_def, erc1155)
+    receiver = cached_contract(_state, receiver_def, receiver)
+    ido = cached_contract(_state, ido_def, ido)
+    zk_pad_token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
+    zk_pad_stake = cached_contract(_state, zk_pad_stake_def, zk_pad_stake)
+    # Deposit ZKP in the vault
+    # max approve
+    await signer.send_transaction(
+        owner,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_stake.contract_address, *MAX_UINT256],
+    )
+
+    amount = to_uint(10_000)
+
+    # deposit asset tokens to the vault, get shares
+    tx = await signer.send_transaction(
+        owner,
+        zk_pad_stake.contract_address,
+        "deposit",
+        [*amount, owner.contract_address],
+    )
+
+    # set xzkp address
+    await signer.send_transaction(
+        owner,
+        erc1155.contract_address,
+        "set_xzkp_contract_address",
+        [zk_pad_stake.contract_address],
+    )
+
+    return _state, erc1155, owner, account, receiver, ido, zk_pad_token, zk_pad_stake
+
+
+@pytest.fixture
+def full_factory(contract_defs, full_init):
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
+    state, erc1155, owner, account, receiver, ido, zk_pad_token, zk_pad_stake = full_init
+    _state = state.copy()
+    owner = cached_contract(_state, account_def, owner)
+    account = cached_contract(_state, account_def, account)
+    erc1155 = cached_contract(_state, erc1155_def, erc1155)
+    receiver = cached_contract(_state, receiver_def, receiver)
+    ido = cached_contract(_state, ido_def, ido)
+    zk_pad_token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
+    zk_pad_stake = cached_contract(_state, zk_pad_stake_def, zk_pad_stake)
+    return erc1155, owner, account, receiver, ido, zk_pad_token, zk_pad_stake
+
 # Tests
 
 #
 # Constructor
 #
+
 
 @pytest.mark.asyncio
 async def test_constructor(erc1155_factory):
@@ -1171,7 +1261,7 @@ async def test_safe_batch_transfer_from_to_unsafe_contract(erc1155_minted_factor
 
 @pytest.mark.asyncio
 async def test_mint_expired(erc1155_factory):
-    """Should revert when user tries to mint after the ido launch (end of Round 0)"""
+    """Should revert when owner tries to mint after the ido launch (end of Round 0)"""
     erc1155, owner, _, receiver, ido = erc1155_factory
 
     recipient = receiver.contract_address
@@ -1190,3 +1280,27 @@ async def test_mint_expired(erc1155_factory):
             0  # data
         ]
     ), "ZkPadLotteryToken: Standby Phase is over")
+
+
+#
+# Lottery Tickets Claim
+#
+
+@pytest.mark.asyncio
+async def test_claim_success(full_factory):
+    erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+
+    IDO_ID = to_uint(10)
+    user = owner.contract_address
+
+    # Checks user has no tickets
+    execution_info = await erc1155.balanceOf(user, IDO_ID).invoke()
+    assert execution_info.result.balance == UINT_ZERO
+
+    # Claim tickets
+    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
+
+    # Checks user balances match (1:1 minting here)
+    stake_info = await zk_pad_stake.balanceOf(user).invoke()
+    execution_info2 = await erc1155.balanceOf(user, IDO_ID).invoke()
+    assert execution_info2.result.balance == stake_info.result.balance

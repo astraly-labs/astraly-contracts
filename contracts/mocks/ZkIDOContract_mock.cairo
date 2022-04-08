@@ -8,15 +8,24 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp 
 )
 
+from openzeppelin.utils.constants import (TRUE, FALSE)
+
+
 @storage_var
 func ido_launch_date() -> (res: felt):
 end
+
+@storage_var
+func claim_allocation_success() -> (res: felt):
+end
+
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     # Setup IDO Contract Params
     let (block_timestamp : felt) = get_block_timestamp()
     ido_launch_date.write(block_timestamp)
+    claim_allocation_success.write(TRUE)
     return ()
 end
 
@@ -34,6 +43,14 @@ func set_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 @external
-func claim_allocation(amount: Uint256, account: felt) -> (res: felt):
-    return (1)
+func set_claim_success{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(success: felt) -> ():
+    claim_allocation_success.write(success)
+    return ()
+end
+
+
+@external
+func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: Uint256, account: felt) -> (res: felt):
+    let (success) = claim_allocation_success.read()
+    return (success)
 end

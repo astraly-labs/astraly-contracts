@@ -1,14 +1,14 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_check
+from starkware.cairo.common.uint256 import (Uint256, uint256_add, uint256_le, uint256_lt, uint256_check)
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_block_number, get_block_timestamp
 )
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
-from openzeppelin.utils.constants import TRUE
+from openzeppelin.utils.constants import (TRUE, FALSE)
 
 from contracts.token.ERC1155_struct import TokenUri
 
@@ -30,14 +30,22 @@ from contracts.token.ERC1155_base import (
     owner_or_approved
 )
 
-from InterfaceAll import (IZkIDOContract)
+from InterfaceAll import (IZkIDOContract, IERC20, IERC4626)
 
 @storage_var
 func ido_contract_address() -> (res : felt):
 end
 
 @storage_var
+func xzkp_contract_address() -> (res : felt):
+end
+
+@storage_var
 func ido_launch_date() -> (res : felt):
+end
+
+@storage_var
+func has_claimed(user: felt) -> (res : felt):
 end
 
 #
@@ -147,7 +155,6 @@ end
 # @param amounts_len : The length of the transfer amounts array
 # @param amounts : The transfer amounts array
 @external
-@external
 func safeBatchTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         _from : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
         data_len : felt, data : felt*):
@@ -157,6 +164,7 @@ func safeBatchTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
 end
 
 # @dev Creates amount tokens of token type token_id, and assigns them to recipient.
+# @dev Can only be used by owner (admin)
 # @param recipient : The address of the recipient
 # @param token_id : The token type
 # @param amount : The amount of tokens to mint
@@ -185,9 +193,45 @@ func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return ()
 end
 
+# @dev Claim Lottery tickets for one IDO
+# @param token_ids_len : The length of the token ids array
+# @param token_ids : The token ids array
+# @param amounts_len : The length of the amounts array
+# @param amounts : The amounts array
+@external
+func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        id : Uint256, data_len : felt, data : felt*):
+    alloc_locals
+    _is_before_ido_launch()
+
+    let (caller) = get_caller_address()
+
+    let (claimed) = has_claimed.read(caller)
+    with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
+        assert claimed = FALSE
+    end
+
+    # Get number of tickets to be claimed
+    let (xzkp_address) = xzkp_contract_address.read()
+    let (xzkp_balance: Uint256) = IERC20.balanceOf(xzkp_address, caller)
+    let (amount_to_claim: Uint256) = _balance_to_tickets(xzkp_balance)
+
+    let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))   
+    with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
+        assert_not_zero(1 - has_tickets)
+    end
+
+    # Mint the tickets to the caller
+    ERC1155_mint(caller, id, amount_to_claim, data_len, data)
+
+    has_claimed.write(caller, TRUE)
+
+    return ()
+end
+
 # @dev Destroys amount tokens of token type token_id from account
 # @param _from : The address from which the tokens will be burnt
-# @param id : The id of the token to buun
+# @param id : The id of the token to burn
 # @param amount : The amount of tokens to burn
 @external
 func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -197,9 +241,9 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     ERC1155_burn(_from, id, amount)
     # Spin up VRF and update allocation accordingly
     let (theAddress) = ido_contract_address.read()
-    let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=_from)
-    with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
-        assert res = 1
+    let (success) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=_from)
+    with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
+        assert success = TRUE
     end
     return ()
 end
@@ -218,6 +262,13 @@ end
 #     return ()
 # end
 
+# @dev Sets the xZKP contract address
+@external
+func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(address: felt):
+    xzkp_contract_address.write(address)
+    return()
+end
+
 # @dev Sets the IDO launch date. Calls the IDO contract to get the date.
 func _set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
     alloc_locals
@@ -234,9 +285,18 @@ func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
     _set_ido_launch_date()
     let (ido_launch) = ido_launch_date.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadLotteryToken: Standby Phase is over"):
+    with_attr error_message("ZkPadLotteryToken::Standby Phase is over"):
         assert_nn_le(block_timestamp, ido_launch)
     end
 
     return()
+end
+
+# @dev Computes the amount of lottery tickets given a xZKP balance.
+@view
+func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(balance: Uint256) -> (amount_to_claim: Uint256):
+    alloc_locals
+    # TODO: Exponential Formula OR tier system
+
+    return (balance)
 end
