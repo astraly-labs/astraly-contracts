@@ -104,9 +104,9 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
 
 
 @pytest.fixture
-async def mock_contracts_factory(get_starknet):
+async def mock_mint_calculator_factory(get_starknet):
     mock_price_oracle_def = get_contract_def(
-        'tests/mocks/test_price_oracle.cairo')
+        'tests/mocks/test_mint_calculator.cairo')
 
     starknet = get_starknet
     _state = get_starknet.state.copy()
@@ -115,6 +115,26 @@ async def mock_contracts_factory(get_starknet):
     mock_price_oracle_cached = cached_contract(
         _state, mock_price_oracle_def, mock_price_oracle)
     return mock_price_oracle_cached
+
+
+@pytest.fixture
+async def mock_lp_token_factory(get_starknet):
+    mock_lp_token_def = get_contract_def(
+        "openzeppelin/token/erc20/ERC20.cairo")
+    starknet = get_starknet
+    _state = get_starknet.state.copy()
+    mock_lp_token = await starknet.deploy(
+        contract_def=mock_lp_token_def,
+        constructor_calldata=[
+            str_to_felt("ZKP ETH LP"),
+            str_to_felt("ZKP/ETH"),
+            DECIMALS,
+            *to_uint(10_000),
+            owner_account.contract_address
+        ])
+    mock_lp_token_cached = cached_contract(_state, mock_lp_token_def, mock_lp_token)
+
+    return mock_lp_token_cached
 
 
 @pytest.mark.asyncio
@@ -410,3 +430,22 @@ async def test_allowances(contracts_factory):
         [*to_uint(1), user3_account.contract_address,
          user1_account.contract_address],
     ), error_code=StarknetErrorCode.TRANSACTION_FAILED)
+
+
+@pytest.mark.asyncio
+async def test_deposit_lp(contracts_factory, mock_mint_calculator_factory, mock_lp_token_factory):
+    zk_pad_token, zk_pad_staking, owner_account, user1_account, user2_account, user3_account = contracts_factory
+    mint_calculator = mock_mint_calculator_factory
+    mock_lp_token = mock_lp_token_factory
+
+    await owner.send_transaction(owner_account, zk_pad_staking, "add_whitelisted_token", [
+        mock_lp_token.contract_address,
+        mint_calculator.contract_address
+    ])
+
+    await owner.send_transaction(
+        owner_account,
+        zk_pad_token.contract_address,
+        "transfer",
+        [user1_account.contract_address, *to_uint(10_000)],
+    )
