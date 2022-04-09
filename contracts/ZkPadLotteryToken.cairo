@@ -265,6 +265,7 @@ end
 # @dev Sets the xZKP contract address
 @external
 func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(address: felt):
+    Ownable_only_owner()
     xzkp_contract_address.write(address)
     return()
 end
