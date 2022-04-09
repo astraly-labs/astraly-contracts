@@ -6,6 +6,7 @@ from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_block_number, get_block_timestamp
 )
+from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 from openzeppelin.utils.constants import (TRUE, FALSE)
@@ -194,10 +195,9 @@ func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 end
 
 # @dev Claim Lottery tickets for one IDO
-# @param token_ids_len : The length of the token ids array
-# @param token_ids : The token ids array
-# @param amounts_len : The length of the amounts array
-# @param amounts : The amounts array
+# @param id : IDO id
+# @param data_len : The length of the data array
+# @param data : The data array
 @external
 func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         id : Uint256, data_len : felt, data : felt*):
@@ -228,6 +228,44 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 
     return ()
 end
+
+# @dev Claim Lottery tickets for multiple IDOs at once
+# @param ids_len : The length of the ido ids array
+# @param ids : The ido ids array
+# @param amounts_len : The length of the amounts array
+# @param amounts : The amounts array
+# @external
+# func batchClaimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+#         ids_len : felt, ids : Uint256*, data_len: felt, data : felt*):
+#     alloc_locals
+#     _is_before_ido_launch()
+
+#     let (caller) = get_caller_address()
+
+#     let (claimed) = has_claimed.read(caller)
+#     with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
+#         assert claimed = FALSE
+#     end
+
+#     # Get number of tickets to be claimed
+#     let (xzkp_address) = xzkp_contract_address.read()
+#     let (xzkp_balance: Uint256) = IERC20.balanceOf(xzkp_address, caller)
+#     let (amount_to_claim: Uint256) = _balance_to_tickets(xzkp_balance)
+
+#     let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))   
+#     with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
+#         assert_not_zero(1 - has_tickets)
+#     end
+
+#     let (amounts_to_claim: Uint256*) = _to_array(amount_to_claim, ids_len)
+
+#     # Mint the tickets to the caller
+#     ERC1155_mint_batch(caller, ids_len, ids, ids_len, amounts_to_claim, data_len, data)
+
+#     has_claimed.write(caller, TRUE)
+
+#     return ()
+# end
 
 # @dev Destroys amount tokens of token type token_id from account
 # @param _from : The address from which the tokens will be burnt
@@ -292,6 +330,18 @@ func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
 
     return()
 end
+
+# @dev Constructs an array with a number given a certain length
+# func _to_array{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(number: Uint256, length: felt) -> (array: Uint256*):
+#     alloc_locals
+#     uint256_check(number)
+#     assert_not_zero(length)
+
+#     let (new_array: felt*) = alloc()
+
+
+#     return (new_array)
+# end
 
 # @dev Computes the amount of lottery tickets given a xZKP balance.
 @view
