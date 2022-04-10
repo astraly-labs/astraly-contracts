@@ -2,7 +2,7 @@
 [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/zkpad)
 [![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/ZkPadfi)
 
-![banner](https://zkpad.io/images/home/banner_3d_full.png)
+![banner](./static/banner_3d.png)
 
 # ☄️ ZkPad Smart Contracts
 
