@@ -11,9 +11,9 @@ from starkware.cairo.common.alloc import alloc
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 from openzeppelin.utils.constants import (TRUE, FALSE)
 
-from contracts.token.ERC1155_struct import TokenUri
+from contracts.erc1155.ERC1155_struct import TokenUri
 
-from contracts.token.ERC1155_base import (
+from contracts.erc1155.library import (
     ERC1155_initializer,
     ERC1155_uri,
     ERC1155_safeTransferFrom,
