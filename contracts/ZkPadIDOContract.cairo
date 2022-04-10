@@ -45,15 +45,20 @@ struct Participation:
     member is_portion_withdrawn_array : felt # can't have arrays as members of the struct. Will use a felt with a bit mask
 end
 
-# struct Round:
-#     member start_time : felt
-#     member max_participation : felt
-# end
-
 struct Registration:
     member registration_time_starts : felt
     member registration_time_ends : felt
     member number_of_registrants : felt
+end
+
+struct Purchase_Round:
+    member time_starts : felt
+    member time_ends : felt
+    member number_of_purchases : felt
+end
+
+struct Distribution_Round:
+    member time_starts : felt
 end
 
 # Sale
@@ -66,33 +71,28 @@ end
 func registration() -> (res : Registration):
 end
 
+@storage_var
+func purchase_round() -> (res : Purchase_Round):
+end
+
+@storage_var
+func disctribution_round() -> (res : Distribution_Round):
+end
+
 # Number of users participated in the sale. 
 @storage_var
 func number_of_participants() -> (res : felt):
 end
-
-# @storage_var
-# func round_ids_array(i : felt) -> (res : felt):
-# end
-
-# @storage_var
-# func round_ids_array_len() -> (res : felt):
-# end
-
-# # Mapping round Id to round
-# @storage_var
-# func round_id_to_round(round_id : felt) -> (res : Round):
-# end
 
 # Mapping user to his participation
 @storage_var
 func user_to_participation(user_address : felt) -> (res : Participation):
 end
 
-# Mapping user to round for which he registered
-# @storage_var
-# func address_to_round_registered_for(user_address : felt) -> (res : felt):
-# end
+# Mapping user to number of winning lottery tickets
+@storage_var
+func user_to_winning_lottery_tickets(user_address : felt) -> (res : felt):
+end
 
 # Mapping user to number of allocations
 @storage_var
@@ -102,6 +102,11 @@ end
 # total allocations given
 @storage_var
 func total_allocations_given() -> (res : felt):
+end
+
+# mapping user to is registered or not
+@storage_var
+func is_registered(user_address : felt) -> (res : felt):
 end
 
 # mapping user to is participated or not
@@ -129,16 +134,6 @@ end
 func max_vesting_time_shift() -> (res : felt):
 end
 
-# Registration deposit amount, which will be paid during the registration, and returned back during the participation.
-@storage_var
-func registration_deposit() -> (res : felt):
-end
-
-# Accounting total fees collected, after sale admin can withdraw this
-@storage_var
-func registration_fees() -> (res : felt):
-end
-
 @storage_var
 func admin_contract_address() -> (res : felt):
 end
@@ -149,6 +144,10 @@ end
 
 @storage_var
 func ido_factory_contract_address() -> (res : felt):
+end
+
+@storage_var
+func ido_allocation() -> (res : felt):
 end
 
 func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
@@ -177,7 +176,7 @@ func tokens_sold(user_address : felt, amount : felt):
 end
 
 @event 
-func user_registered(user_address : felt, lottery_tickets_burnt : felt, allocations_received : felt):
+func user_registered(user_address : felt, winning_lottery_tickets : felt):
 end
 
 @event
@@ -204,6 +203,14 @@ end
 
 @event
 func registration_time_set(registration_time_starts : felt, registration_time_ends : felt):
+end
+
+@event
+func purchase_round_time_set(purchase_time_starts : felt, purchase_time_ends : felt):
+end
+
+@event
+func distribtion_round_time_set(dist_time_starts : felt):
 end
 
 @event
@@ -324,8 +331,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
     _amount_of_tokens_to_sell : felt,
     _sale_end_time : felt,
     _tokens_unlock_time : felt,
-    _portion_vesting_precision : felt,
-    _registration_deposit : felt
+    _portion_vesting_precision : felt
 ):
     # alloc_locals
     only_admin()
@@ -363,8 +369,6 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
         tokens_unlock_time = _tokens_unlock_time
     )
     sale.write(new_sale)
-    # Deposit, sent during the registration
-    registration_deposit.write(_registration_deposit)
     # Set portion vesting precision
     portion_vesting_precision.write(_portion_vesting_precision)
     # emit event
@@ -439,13 +443,74 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
 end
 
 @external
+func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _purchase_time_starts : felt,
+    _purchase_time_ends : felt
+):
+    only_admin()
+    let (the_reg) = registration.read()
+    let (the_purchase) = purchase_round.read()
+    with_attr error_message("ZkPadIDOContract::set_purchase_round_params Bad input"):
+        assert_not_zero(_purchase_time_starts)
+        assert_not_zero(_purchase_time_ends)
+    end
+    with_attr error_message("ZkPadIDOContract::set_purchase_round_params end time must be after start end"):
+        assert_lt(_purchase_time_starts, _purchase_time_ends)
+    end
+    with_attr error_message("ZkPadIDOContract::set_purchase_round_params registration time not set yet"):
+        assert_not_zero(the_reg.registration_time_starts)
+        assert_not_zero(the_reg.registration_time_ends)
+    end 
+    with_attr error_message("ZkPadIDOContract::set_purchase_round_params start time must be after registration end"):
+        assert_lt(the_reg.registration_time_ends, _purchase_time_starts)
+    end
+    let upd_purchase = Purchase_Round(
+        time_starts = _purchase_time_starts,
+        time_ends = _purchase_time_ends,
+        number_of_purchases = the_purchase.number_of_purchases
+    )
+    purchase_round.write(upd_purchase)
+    purchase_round_time_set.emit(
+        purchase_time_starts = _purchase_time_starts, 
+        purchase_time_ends = _purchase_time_ends)
+    return()
+end
+
+@external
+func set_dist_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+    _dist_time_starts : felt
+):
+    only_admin()
+    let (the_purchase) = purchase_round.read()
+    let (the_dist) = disctribution_round.read()
+    with_attr error_message("ZkPadIDOContract::set_dist_round_params Bad input"):
+        assert_not_zero(_dist_time_starts)
+    end
+    with_attr error_message("ZkPadIDOContract::set_dist_round_params Purchase round not set yet"):
+        assert_not_zero(the_purchase.time_starts)
+        assert_not_zero(the_purchase.time_ends)
+    end
+    with_attr error_message("ZkPadIDOContract::set_dist_round_params Disctribtion must start after purchase round ends"):
+        assert_lt(the_purchase.time_ends, _dist_time_starts)
+    end
+    let upd_dist = Distribution_Round(
+        time_starts = _dist_time_starts
+    )
+    disctribution_round.write(upd_dist)
+    distribtion_round_time_set.emit(dist_time_starts = _dist_time_starts)
+    return()
+end
+
+@external
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (res : felt):
     let (the_reg) = registration.read()
     return(res = the_reg.registration_time_starts)
 end
 
+# Question: maybe we should rename this method to register_user since at this point we still do not know much allocation the user will be getting.
+# Only how many lottery tickets they are burning and haw many winners they got.
 @external
-func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(amount: felt, account: felt) -> (res: felt):
+func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: felt, account: felt) -> (res: felt):
     alloc_locals
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
@@ -461,32 +526,46 @@ func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_che
         assert_le(block_timestamp, the_reg.registration_time_ends)
     end
 
-    let (current_allocation) = address_to_allocations.read(account)
-    with_attr error_message("ZkPadIDOContract::claim_allocation allocation claimed already"):
-        assert current_allocation = 0
+    let (is_user_reg) = is_registered.read(account)
+    if is_user_reg == 0:
+        is_registered.write(account, TRUE)
+        let upd_reg = Registration(
+            registration_time_starts = the_reg.registration_time_starts,
+            registration_time_ends = the_reg.registration_time_ends,
+            number_of_registrants = the_reg.number_of_registrants + 1
+        )
+        registration.write(upd_reg)
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
     end
-
-    let (alloc_received) = calculate_allocation(amount, account)
-    with_attr error_message("ZkPadIDOContract::claim_allocation user received no allocations"):
-        assert_not_zero(alloc_received)
-    end
-
-    let upd_reg = Registration(
-        registration_time_starts = the_reg.registration_time_starts,
-        registration_time_ends = the_reg.registration_time_ends,
-        number_of_registrants = the_reg.number_of_registrants + 1
-    )
-    registration.write(upd_reg)
-    address_to_allocations.write(account, alloc_received)
-
-    user_registered.emit(account, amount, alloc_received)
+    # let (local current_winning : felt) = user_to_winning_lottery_tickets.read(account)
+    let (current_winning) = user_to_winning_lottery_tickets.read(account)
+    # let (local new_winning : felt) = draw_winning_tickets(tickets_burnt=amount, account=account)
+    let (new_winning) = draw_winning_tickets(tickets_burnt=amount, account=account)
+    user_to_winning_lottery_tickets.write(account, current_winning + new_winning)
+    # question: should the event emit the current number of burnt lottery tickets or the total. For now, it is emitting the current number.
+    user_registered.emit(user_address=account, winning_lottery_tickets=new_winning)
     return(res=TRUE)
 end
 
-# This function will calculate the number of allocation the user would get based on how many "winning" lottery tickets they have
-# For now, the fucntion will return a 1:1 allocation until the allocation calculation logic is finalized
-func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
-        lottery_tickets_burnt : felt, 
-        user_address: felt) -> (res : felt):
-    return(res=lottery_tickets_burnt)
+# This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
+# does this method need anu inputs? or will it only use the number of users and winning tickets?
+@external
+func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}():
+    let (current_allocation) = ido_allocation.read()
+    with_attr error_message("ZkPadIDOContract::calculate_allocation allocation arealdy calculated"):
+        assert current_allocation = 0
+    end
+    return()
+end
+
+# this function will call the VRF and determine the number of winning tickets (if any)
+# for now will return the same number as burnt tickets. i.e. all tickets are winners!
+func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(tickets_burnt: felt, account: felt) -> (res: felt):
+    return (res=tickets_burnt)
 end
