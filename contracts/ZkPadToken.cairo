@@ -4,14 +4,14 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_check
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 
-from contracts.token.ERC20_base import (
+from openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
     ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
     ERC20_transfer, ERC20_transferFrom, ERC20_mint)
 
-from contracts.Ownable_base import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
-from contracts.utils.constants import TRUE
+from openzeppelin.utils.constants import TRUE
 
 @storage_var
 func cap_() -> (res : Uint256):
@@ -23,13 +23,14 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, initial_supply : Uint256, recipient : felt, owner : felt,
+        name : felt, symbol : felt, decimals : felt, initial_supply : Uint256, recipient : felt, owner : felt,
         _cap : Uint256, _distribution_address : felt):
     uint256_check(_cap)
     let (cap_valid) = uint256_le(_cap, Uint256(0, 0))
     assert_not_zero(1 - cap_valid)
     assert_not_zero(_distribution_address)
-    ERC20_initializer(name, symbol, initial_supply, recipient)
+    ERC20_initializer(name, symbol, decimals)
+    ERC20_mint(recipient, initial_supply)
     Ownable_initializer(owner)
     cap_.write(_cap)
     distribution_address.write(_distribution_address)
@@ -133,6 +134,7 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (totalSupply : Uint256) = ERC20_totalSupply()
     let (cap : Uint256) = cap_.read()
     let (local sum : Uint256, is_overflow) = uint256_add(totalSupply, amount)
+    assert is_overflow = 0
     let (enough_supply) = uint256_le(sum, cap)
     assert_not_zero(enough_supply)
     ERC20_mint(to, amount)
