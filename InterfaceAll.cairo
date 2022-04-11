@@ -22,10 +22,10 @@ end
 
 @contract_interface
 namespace IERC4626:
-    func asset() -> (assetTokenAddress : felt):
+    func asset() -> (asset_token_address : felt):
     end
 
-    func totalAssets() -> (totalManagedAssets : Uint256):
+    func totalAssets() -> (total_managed_assets : Uint256):
     end
 
     func convertToShares(assets : Uint256) -> (shares : Uint256):
@@ -34,16 +34,16 @@ namespace IERC4626:
     func convertToAssets(shares : Uint256) -> (assets : Uint256):
     end
 
-    func maxDeposit(receiver : felt) -> (maxAssets : Uint256):
+    func maxDeposit(receiver : felt) -> (max_assets : Uint256):
     end
 
-    func previewDeposit(assets : Uint256) -> (shares: Uint256):
+    func previewDeposit(assets : Uint256) -> (shares : Uint256):
     end
 
     func deposit(assets : Uint256, receiver : felt) -> (shares : Uint256):
     end
 
-    func maxMint(receiver : felt) -> (maxShares : Uint256):
+    func maxMint(receiver : felt) -> (max_shares : Uint256):
     end
 
     func previewMint(shares : Uint256) -> (assets : Uint256):
@@ -52,7 +52,7 @@ namespace IERC4626:
     func mint(shares : Uint256, receiver : felt) -> (assets : Uint256):
     end
 
-    func maxWithdraw(owner : felt) -> (maxAssets : Uint256):
+    func maxWithdraw(owner : felt) -> (max_assets : Uint256):
     end
 
     func previewWithdraw(assets : Uint256) -> (shares : Uint256):
@@ -61,7 +61,7 @@ namespace IERC4626:
     func withdraw(assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
     end
 
-    func maxRedeem(owner : felt) -> (maxShares : Uint256):
+    func maxRedeem(owner : felt) -> (max_shares : Uint256):
     end
 
     func previewRedeem(shares : Uint256) -> (assets : Uint256):
