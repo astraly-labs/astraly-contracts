@@ -1,6 +1,6 @@
 %lang starknet
 
-from contracts.utils.constants import (TRUE, FALSE)
+from openzeppelin.utils.constants import FALSE, TRUE
 
 func assert_is_boolean(x : felt):
     # x == 0 || x == 1

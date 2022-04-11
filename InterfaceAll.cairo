@@ -16,7 +16,7 @@ namespace IZkIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func claim_allocation(amount: felt, account: felt) -> (res: felt):
+    func register_user(amount: felt, account: felt) -> (res: felt):
     end
 end
 
@@ -101,40 +101,5 @@ namespace IERC4626:
     end
 
     func redeem(shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
-    end
-end
-
-
-@contract_interface
-namespace IERC20:
-    func name() -> (name: felt):
-    end
-
-    func symbol() -> (symbol: felt):
-    end
-
-    func decimals() -> (decimals: felt):
-    end
-
-    func totalSupply() -> (totalSupply: Uint256):
-    end
-
-    func balanceOf(account: felt) -> (balance: Uint256):
-    end
-
-    func allowance(owner: felt, spender: felt) -> (remaining: Uint256):
-    end
-
-    func transfer(recipient: felt, amount: Uint256) -> (success: felt):
-    end
-
-    func transferFrom(
-            sender: felt, 
-            recipient: felt, 
-            amount: Uint256
-        ) -> (success: felt):
-    end
-
-    func approve(spender: felt, amount: Uint256) -> (success: felt):
     end
 end

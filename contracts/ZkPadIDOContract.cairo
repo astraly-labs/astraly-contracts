@@ -5,10 +5,12 @@ from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt
 from starkware.cairo.common.alloc import alloc
 
-from InterfaceAll import (IERC20, IAdmin, IZkIDOFactory, IZkStakingVault)
-from contracts.utils.constants import (TRUE, FALSE, DAYS_30)
+from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault)
+from contracts.utils.ZkPadConstants import (DAYS_30)
 from contracts.utils.ZkPadUtils import get_is_equal
 from starkware.starknet.common.syscalls import (get_block_timestamp)
+from openzeppelin.utils.constants import FALSE, TRUE
+from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 
 struct Sale:
     # Token being sold (interface)
@@ -111,7 +113,7 @@ end
 
 # mapping user to is participated or not
 @storage_var
-func is_participated(user_address : felt) -> (res : felt):
+func has_participated(user_address : felt) -> (res : felt):
 end
 
 # Times when portions are getting unlocked
@@ -184,10 +186,6 @@ func token_price_set(new_price : felt):
 end
 
 @event
-func max_participation_set(round_id : felt, max_participation : felt):
-end
-
-@event
 func tokens_withdrawn(user_address : felt, amount : felt):
 end
 
@@ -211,18 +209,6 @@ end
 
 @event
 func distribtion_round_time_set(dist_time_starts : felt):
-end
-
-@event
-func round_added(
-    round_id : felt,
-    start_time : felt,
-    max_participation : felt
-):
-end
-
-@event
-func registration_refunded(user_addess : felt, amount_refunded : felt):
 end
 
 @constructor
@@ -386,9 +372,6 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(_sale_token_address : felt):
     only_admin()
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract::set_sale_token Token address is already set"):
-        assert the_sale.token = 0
-    end
     let upd_sale = Sale(
         token = _sale_token_address,
         is_created = the_sale.is_created,
@@ -507,21 +490,19 @@ func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_
     return(res = the_reg.registration_time_starts)
 end
 
-# Question: maybe we should rename this method to register_user since at this point we still do not know much allocation the user will be getting.
-# Only how many lottery tickets they are burning and haw many winners they got.
 @external
-func claim_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: felt, account: felt) -> (res: felt):
+func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: felt, account: felt) -> (res: felt):
     alloc_locals
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
 
-    with_attr error_message("ZkPadIDOContract::claim_allocation account address is the zero address"):
+    with_attr error_message("ZkPadIDOContract::register_user account address is the zero address"):
         assert_not_zero(account)
     end
-    with_attr error_message("ZkPadIDOContract::claim_allocation allocation claim amount not greater than 0"):
+    with_attr error_message("ZkPadIDOContract::register_user allocation claim amount not greater than 0"):
         assert_lt(0, amount)
     end
-    with_attr error_message("ZkPadIDOContract::claim_allocation Registration window is closed"):
+    with_attr error_message("ZkPadIDOContract::register_user Registration window is closed"):
         assert_le(the_reg.registration_time_starts, block_timestamp)
         assert_le(block_timestamp, the_reg.registration_time_ends)
     end
