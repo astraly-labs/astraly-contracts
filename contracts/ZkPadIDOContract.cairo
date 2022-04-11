@@ -2,7 +2,7 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
-from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt
+from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt, unsigned_div_rem
 from starkware.cairo.common.alloc import alloc
 
 from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault)
@@ -31,6 +31,8 @@ struct Sale:
     member amount_of_tokens_to_sell : felt
     # Total tokens being sold
     member total_tokens_sold : felt
+    # Total winning lottery tickets
+    member total_winning_tickets : felt
     # Total Raised (what are using to track this?)
     member total_raised : felt
     # Sale end time
@@ -350,6 +352,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
         token_price = _token_price,
         amount_of_tokens_to_sell = _amount_of_tokens_to_sell,
         total_tokens_sold = 0,
+        total_winning_tickets = 0,
         total_raised = 0,
         sale_end = _sale_end_time,
         tokens_unlock_time = _tokens_unlock_time
@@ -382,6 +385,7 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check
         token_price = the_sale.token_price,
         amount_of_tokens_to_sell = the_sale.amount_of_tokens_to_sell,
         total_tokens_sold = the_sale.total_tokens_sold,
+        total_winning_tickets = the_sale.total_winning_tickets,
         total_raised = the_sale.total_raised,
         sale_end = the_sale.sale_end,
         tokens_unlock_time = the_sale.tokens_unlock_time
@@ -495,6 +499,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     alloc_locals
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
+    let (the_sale) = sale.read()
 
     with_attr error_message("ZkPadIDOContract::register_user account address is the zero address"):
         assert_not_zero(account)
@@ -524,12 +529,27 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
-    # let (local current_winning : felt) = user_to_winning_lottery_tickets.read(account)
     let (current_winning) = user_to_winning_lottery_tickets.read(account)
-    # let (local new_winning : felt) = draw_winning_tickets(tickets_burnt=amount, account=account)
     let (new_winning) = draw_winning_tickets(tickets_burnt=amount, account=account)
     user_to_winning_lottery_tickets.write(account, current_winning + new_winning)
-    # question: should the event emit the current number of burnt lottery tickets or the total. For now, it is emitting the current number.
+
+    let upd_sale = Sale(
+        token = the_sale.token,
+        is_created = the_sale.is_created,
+        earnings_withdrawn = the_sale.earnings_withdrawn,
+        leftover_withdrawn = the_sale.leftover_withdrawn,
+        tokens_deposited = the_sale.tokens_deposited,
+        sale_owner = the_sale.sale_owner,
+        token_price = the_sale.token_price,
+        amount_of_tokens_to_sell = the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold = the_sale.total_tokens_sold,
+        total_winning_tickets = the_sale.total_winning_tickets + new_winning,
+        total_raised = the_sale.total_raised,
+        sale_end = the_sale.sale_end,
+        tokens_unlock_time = the_sale.tokens_unlock_time
+    )
+    sale.write(upd_sale)
+
     user_registered.emit(user_address=account, winning_lottery_tickets=new_winning)
     return(res=TRUE)
 end
@@ -538,10 +558,16 @@ end
 # does this method need anu inputs? or will it only use the number of users and winning tickets?
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}():
+    only_admin()
     let (current_allocation) = ido_allocation.read()
     with_attr error_message("ZkPadIDOContract::calculate_allocation allocation arealdy calculated"):
         assert current_allocation = 0
     end
+    let (the_sale) = sale.read()
+
+    # Compute the allocation : total_tokens_sold / total_winning_tickets
+    let (the_allocation, _) = unsigned_div_rem(the_sale.total_tokens_sold, the_sale.total_winning_tickets)
+    ido_allocation.write(the_allocation)
     return()
 end
 

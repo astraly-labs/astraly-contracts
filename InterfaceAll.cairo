@@ -103,3 +103,19 @@ namespace IERC4626:
     func redeem(shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
     end
 end
+
+@contract_interface
+namespace ITask:
+    ## @notice Called by task automators to see if task needs to be executed.
+    ## @dev Do not return other values as keeper behavior is undefined.
+    ## @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
+    func probeTask() -> (taskReady: felt):
+    end
+
+    ## @notice Main endpoint for task execution. Task automators call this to execute your task.
+    ## @dev This function should not have access restrictions. However, this function could
+    ## still be called even if `probeTask` returns 0 and needs to be protected accordingly.
+    func executeTask() -> ():
+    end
+end
+
