@@ -1,8 +1,10 @@
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_sub
 from starkware.cairo.common.math import assert_not_equal, assert_not_zero, assert_nn_le, assert_lt
+from starkware.cairo.common.pow import pow
+from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, get_block_timestamp
 
 from openzeppelin.utils.constants import TRUE, FALSE
@@ -29,6 +31,13 @@ namespace IMintCalculator:
     end
 end
 
+struct WhitelistedToken:
+    member bit_mask : felt
+    member mint_calculator_address : felt
+end
+#
+# Events
+#
 @event
 func Deposit_lp(depositor : felt, receiver : felt, lp_address : felt, assets : Uint256, shares : Uint256):
 end
@@ -37,8 +46,17 @@ end
 func Withdraw_lp(withdrawer : felt, receiver : felt, owner : felt, lp_token : felt, assets : Uint256, shares : Uint256):
 end
 
+#
+# Storage variables
+#
+
 @storage_var
-func whitelisted_tokens(lp_token : felt) -> (mint_calculator_address : felt):
+func whitelisted_tokens(lp_token : felt) -> (details : WhitelistedToken):
+end
+
+# bit mask with all whitelisted LP tokens
+@storage_var
+func whitelisted_tokens_mask() -> (mask : felt):
 end
 
 @storage_var
@@ -47,6 +65,10 @@ end
 
 @storage_var
 func deposit_unlock_time(user : felt) -> (unlock_time : felt):
+end
+
+@storage_var
+func user_staked_tokens(user : felt) -> (tokens_mask : felt):
 end
 
 # value is multiplied by 10 to store floating points number in felt type
@@ -60,8 +82,8 @@ end
 
 @view
 func is_token_whitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> (res : felt):
-    let (is_whitelisted : felt) = whitelisted_tokens.read(lp_token)
-    if is_whitelisted == FALSE:
+    let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+    if whitelisted_token.bit_mask == 0:
         return (FALSE)
     end
     return (TRUE)
@@ -71,15 +93,15 @@ end
 @view
 func get_xzkp_out{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt, input : Uint256) -> (res : Uint256):
     alloc_locals
-    let (mint_calculator_address : felt) = whitelisted_tokens.read(lp_token)
+    let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     with_attr error_message("invalid mint calculator address"):
-        assert_not_zero(mint_calculator_address)
+        assert_not_zero(whitelisted_token.mint_calculator_address)
     end
     with_attr error_message("invalid token amount or nft id"):
         let (is_zero) = uint256_is_zero(input)
         assert is_zero = FALSE
     end
-    let (amount_to_mint : Uint256) = IMintCalculator.get_amount_to_mint(mint_calculator_address, input)
+    let (amount_to_mint : Uint256) = IMintCalculator.get_amount_to_mint(whitelisted_token.mint_calculator_address, input)
 
     let (current_boost : felt) = stake_boost.read()
     assert_not_zero(current_boost)
@@ -100,7 +122,8 @@ end
 #
 
 @external
-func add_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt, mint_calculator_address : felt) -> ():
+func add_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
+    lp_token : felt, mint_calculator_address : felt) -> ():
     Ownable_only_owner()
     with_attr error_message("invalid token address"):
         assert_not_zero(lp_token)
@@ -110,19 +133,34 @@ func add_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     end
 
     different_than_underlying(lp_token)
-    whitelisted_tokens.write(lp_token, mint_calculator_address)
+    let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+
+    with_attr error_message("already whitelisted"):
+        assert whitelisted_token.bit_mask = 0
+        assert whitelisted_token.mint_calculator_address = 0
+    end
+
+    let (tokens_masks : felt) = whitelisted_tokens_mask.read()
+
+    let (token_mask : felt) = get_next_available_bit_in_mask(0, tokens_masks)
+    whitelisted_tokens.write(lp_token, WhitelistedToken(token_mask, mint_calculator_address))
     return ()
 end
 
 @external
-func remove_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> ():
+func remove_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(lp_token : felt) -> ():
     Ownable_only_owner()
-    whitelisted_tokens.write(lp_token , 0)
+    let (all_token_masks : felt) = whitelisted_tokens_mask.read()
+    let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+    let (new_tokens_masks : felt) = bitwise_xor(whitelisted_token.bit_mask, all_token_masks)
+    whitelisted_tokens_mask.write(new_tokens_masks)
+
+    whitelisted_tokens.write(lp_token , WhitelistedToken(0, 0))
     return ()
 end
 
 @external
-func lp_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func lp_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
        lp_token : felt, lp_nft_id : Uint256, assets : Uint256, receiver : felt, deadline : felt) -> (shares : Uint256):
     alloc_locals
     ReentrancyGuard_start()
@@ -140,7 +178,6 @@ func lp_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     
     let (caller_address : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
-    let (mint_calculator_address : felt) = whitelisted_tokens.read(lp_token)
     let (is_nft : felt) = IERC165.supportsInterface(lp_token, IERC721_ID)
 
     if is_nft == FALSE:
@@ -165,13 +202,31 @@ func lp_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     deposits.write(receiver, lp_token, new_deposit_amount)
     deposit_unlock_time.write(receiver, deadline)
 
+    let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
+    if is_first_deposit == TRUE:
+        let (user_current_tokens_mask : felt) = user_staked_tokens.read(receiver)
+        let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+        let (new_user_tokens_mask : felt) = bitwise_or(user_current_tokens_mask, whitelisted_token.bit_mask)
+        user_staked_tokens.write(receiver, new_user_tokens_mask)
+
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    else: 
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    end
+
     Deposit_lp.emit(caller_address, receiver, lp_token, assets, token_minted)
     ReentrancyGuard_end()
     return (token_minted)
 end
 
 @external
-func withdraw_lp_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func withdraw_lp_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
     assetAmount : Uint256, lp_token : felt, lp_nft_id : Uint256, receiver : felt, owner : felt) -> ():
     alloc_locals
     ReentrancyGuard_start()
@@ -206,6 +261,26 @@ func withdraw_lp_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     let (unserlying_asset : felt) = asset()
     # TODO: calculate users return
     IERC20.transfer(unserlying_asset, receiver, Uint256(0,0))
+
+    let (new_user_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
+    let (withdraw_all_tokens : felt) = uint256_is_zero(new_user_deposit_amount)
+    
+
+    if withdraw_all_tokens == TRUE:
+        let (user_current_tokens_mask : felt) = user_staked_tokens.read(receiver)
+        let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)   
+        let (new_user_tokens_mask : felt) = bitwise_xor(user_current_tokens_mask, whitelisted_token.bit_mask)
+        user_staked_tokens.write(receiver, new_user_tokens_mask)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    end
     ReentrancyGuard_end()
     return ()
 end
@@ -223,9 +298,10 @@ end
 #
 
 func only_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
-    let (res : felt) = whitelisted_tokens.read(address)
+    let (res : WhitelistedToken) = whitelisted_tokens.read(address)
     with_attr error_message("token not whitelisted"):
-        assert_not_zero(res)
+        assert_not_zero(res.bit_mask)
+        assert_not_zero(res.mint_calculator_address)
     end
     return ()
 end
@@ -243,4 +319,16 @@ func withdraw_from_investment_strategies{syscall_ptr : felt*, pedersen_ptr : Has
     lp_token_address : felt, amount : Uint256) -> ():
     # TODO: implement
     return ()
+end
+
+# return the first available bit in the mask
+func get_next_available_bit_in_mask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
+    index : felt, bit_mask : felt) -> (res : felt):
+    let (value : felt) = pow(2, index)
+    let (and_result : felt) = bitwise_and(value, bit_mask)
+    if and_result == 0:
+        return (and_result)
+    end
+    
+    return get_next_available_bit_in_mask(index + 1, bit_mask)
 end
