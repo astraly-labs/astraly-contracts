@@ -1300,10 +1300,11 @@ async def test_claim_success(full_factory):
     # Claim tickets
     await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
 
-    # Checks user balances match (1:1 minting here)
+    # Checks user balances match
     stake_info = await zk_pad_stake.balanceOf(user).invoke()
     execution_info2 = await erc1155.balanceOf(user, IDO_ID).invoke()
-    assert execution_info2.result.balance == stake_info.result.balance
+    nb_tickets = math.floor(pow(stake_info.result[0][0], 3/5))
+    assert execution_info2.result[0][0] == nb_tickets
 
 
 @pytest.mark.asyncio

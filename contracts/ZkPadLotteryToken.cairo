@@ -1,37 +1,28 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.uint256 import (Uint256, uint256_add, uint256_le, uint256_lt, uint256_check)
+from starkware.cairo.common.uint256 import (
+    Uint256, uint256_add, uint256_le, uint256_lt, uint256_check)
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.starknet.common.syscalls import (
-    get_caller_address, get_block_number, get_block_timestamp
-)
+    get_caller_address, get_block_number, get_block_timestamp)
 from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
-from openzeppelin.utils.constants import (TRUE, FALSE)
+from openzeppelin.utils.constants import TRUE, FALSE
 
 from contracts.erc1155.ERC1155_struct import TokenUri
 
 from contracts.erc1155.library import (
-    ERC1155_initializer,
-    ERC1155_uri,
-    ERC1155_safeTransferFrom,
-    ERC1155_safeBatchTransferFrom,
-    ERC1155_mint,
-    ERC1155_mint_batch,
-    ERC1155_burn,
-    ERC1155_burn_batch,
-    ERC1155_setApprovalForAll,
-    ERC1155_balanceOf,
-    ERC1155_balanceOfBatch,
-    ERC1155_isApprovedForAll,
-    ERC1155_supportsInterface,
+    ERC1155_initializer, ERC1155_uri, ERC1155_safeTransferFrom, ERC1155_safeBatchTransferFrom,
+    ERC1155_mint, ERC1155_mint_batch, ERC1155_burn, ERC1155_burn_batch, ERC1155_setApprovalForAll,
+    ERC1155_balanceOf, ERC1155_balanceOfBatch, ERC1155_isApprovedForAll, ERC1155_supportsInterface,
+    owner_or_approved)
 
-    owner_or_approved
-)
+from contracts.utils.Math64x61 import (
+    Math64x61_fromUint256, Math64x61_toUint256, Math64x61_pow, Math64x61_div, Math64x61_fromFelt)
 
-from InterfaceAll import (IZkIDOContract, IERC20, IERC4626)
+from InterfaceAll import IZkIDOContract, IERC20, IERC4626
 
 @storage_var
 func ido_contract_address() -> (res : felt):
@@ -46,7 +37,7 @@ func ido_launch_date() -> (res : felt):
 end
 
 @storage_var
-func has_claimed(user: felt) -> (res : felt):
+func has_claimed(user : felt) -> (res : felt):
 end
 
 #
@@ -54,7 +45,8 @@ end
 #
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(uri: felt, owner : felt, _ido_contract_address : felt):
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        uri : felt, owner : felt, _ido_contract_address : felt):
     # Initialize Admin
     assert_not_zero(owner)
     Ownable_initializer(owner)
@@ -78,8 +70,7 @@ end
 
 # @dev Returns the URI for all token types
 @view
-func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}()
-        -> (uri : felt):
+func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (uri : felt):
     return ERC1155_uri()
 end
 
@@ -89,7 +80,7 @@ end
 @view
 func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         account : felt, id : Uint256) -> (balance : Uint256):
-    return ERC1155_balanceOf(account,id)
+    return ERC1155_balanceOf(account, id)
 end
 
 # @dev Batched version of balanceOf.
@@ -99,9 +90,9 @@ end
 # @param tokens_id : the array of token ids
 @view
 func balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*)
-        -> (balances_len : felt, balances : Uint256*):
-    return ERC1155_balanceOfBatch(accounts_len,accounts,ids_len,ids)
+        accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*) -> (
+        balances_len : felt, balances : Uint256*):
+    return ERC1155_balanceOfBatch(accounts_len, accounts, ids_len, ids)
 end
 
 # @dev Returns true if operator is approved to transfer account's tokens.
@@ -123,7 +114,7 @@ end
 # func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(uri_ : TokenUri):
 #     ERC1155_uri_.write(uri_)
 
-#     return ()
+# return ()
 # end
 
 # @dev Grants or revokes permission to operator to transfer the caller’s tokens, according to approved
@@ -157,10 +148,9 @@ end
 # @param amounts : The transfer amounts array
 @external
 func safeBatchTransferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        _from : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
-        data_len : felt, data : felt*):
-    ERC1155_safeBatchTransferFrom(
-        _from, to, ids_len, ids, amounts_len, amounts, data_len, data)
+        _from : felt, to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt,
+        amounts : Uint256*, data_len : felt, data : felt*):
+    ERC1155_safeBatchTransferFrom(_from, to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
 
@@ -213,10 +203,10 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 
     # Get number of tickets to be claimed
     let (xzkp_address) = xzkp_contract_address.read()
-    let (xzkp_balance: Uint256) = IERC20.balanceOf(xzkp_address, caller)
-    let (amount_to_claim: Uint256) = _balance_to_tickets(xzkp_balance)
+    let (xzkp_balance : Uint256) = IERC20.balanceOf(xzkp_address, caller)
+    let (amount_to_claim : Uint256) = _balance_to_tickets(xzkp_balance)
 
-    let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))   
+    let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))
     with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
         assert_not_zero(1 - has_tickets)
     end
@@ -240,31 +230,31 @@ end
 #     alloc_locals
 #     _is_before_ido_launch()
 
-#     let (caller) = get_caller_address()
+# let (caller) = get_caller_address()
 
-#     let (claimed) = has_claimed.read(caller)
+# let (claimed) = has_claimed.read(caller)
 #     with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
 #         assert claimed = FALSE
 #     end
 
-#     # Get number of tickets to be claimed
+# # Get number of tickets to be claimed
 #     let (xzkp_address) = xzkp_contract_address.read()
 #     let (xzkp_balance: Uint256) = IERC20.balanceOf(xzkp_address, caller)
 #     let (amount_to_claim: Uint256) = _balance_to_tickets(xzkp_balance)
 
-#     let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))   
+# let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))
 #     with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
 #         assert_not_zero(1 - has_tickets)
 #     end
 
-#     let (amounts_to_claim: Uint256*) = _to_array(amount_to_claim, ids_len)
+# let (amounts_to_claim: Uint256*) = _to_array(amount_to_claim, ids_len)
 
-#     # Mint the tickets to the caller
+# # Mint the tickets to the caller
 #     ERC1155_mint_batch(caller, ids_len, ids, ids_len, amounts_to_claim, data_len, data)
 
-#     has_claimed.write(caller, TRUE)
+# has_claimed.write(caller, TRUE)
 
-#     return ()
+# return ()
 # end
 
 # @dev Destroys amount tokens of token type token_id from account
@@ -273,13 +263,14 @@ end
 # @param amount : The amount of tokens to burn
 @external
 func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-         _from : felt, id : Uint256, amount : Uint256):
+        _from : felt, id : Uint256, amount : Uint256):
     alloc_locals
     owner_or_approved(owner=_from)
     ERC1155_burn(_from, id, amount)
     # Spin up VRF and update allocation accordingly
     let (theAddress) = ido_contract_address.read()
-    let (success) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=_from)
+    let (success) = IZkIDOContract.claim_allocation(
+        contract_address=theAddress, amount=amount, account=_from)
     with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
     end
@@ -302,10 +293,11 @@ end
 
 # @dev Sets the xZKP contract address
 @external
-func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(address: felt):
+func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+        address : felt):
     Ownable_only_owner()
     xzkp_contract_address.write(address)
-    return()
+    return ()
 end
 
 # @dev Sets the IDO launch date. Calls the IDO contract to get the date.
@@ -315,7 +307,7 @@ func _set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, rang
     let (res) = IZkIDOContract.get_ido_launch_date(contract_address=theAddress)
     ido_launch_date.write(res)
 
-    return()
+    return ()
 end
 
 # @dev Checks if the current block timestamp is before the IDO launch date.
@@ -328,7 +320,7 @@ func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
         assert_nn_le(block_timestamp, ido_launch)
     end
 
-    return()
+    return ()
 end
 
 # @dev Constructs an array with a number given a certain length
@@ -337,17 +329,23 @@ end
 #     uint256_check(number)
 #     assert_not_zero(length)
 
-#     let (new_array: felt*) = alloc()
+# let (new_array: felt*) = alloc()
 
-
-#     return (new_array)
+# return (new_array)
 # end
 
-# @dev Computes the amount of lottery tickets given a xZKP balance.
+# @dev Computes the amount of lottery tickets given a xZKP balance : N = x^(3/5)
 @view
-func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(balance: Uint256) -> (amount_to_claim: Uint256):
+func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+        balance : Uint256) -> (amount_to_claim : Uint256):
     alloc_locals
-    # TODO: Exponential Formula OR tier system
 
-    return (balance)
+    let (fixed_bal) = Math64x61_fromUint256(balance)
+    let (fixed3) = Math64x61_fromFelt(3)
+    let (fixed5) = Math64x61_fromFelt(5)
+    let (power) = Math64x61_div(fixed3, fixed5)
+    let (fixed_nb_tickets) = Math64x61_pow(fixed_bal, power)
+    let (nb_tickets) = Math64x61_toUint256(fixed_nb_tickets)
+
+    return (nb_tickets)
 end
