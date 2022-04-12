@@ -20,7 +20,10 @@ from contracts.erc1155.library import (
     owner_or_approved)
 
 from contracts.utils.Math64x61 import (
-    Math64x61_fromUint256, Math64x61_toUint256, Math64x61_pow, Math64x61_div, Math64x61_fromFelt)
+    Math64x61_fromUint256, Math64x61_toUint256, Math64x61_pow, Math64x61_div, Math64x61_fromFelt,
+    Math64x61_toFelt)
+
+from contracts.utils.Uint256_felt_conv import _felt_to_uint
 
 from InterfaceAll import IZkIDOContract, IERC20, IERC4626
 
@@ -345,7 +348,8 @@ func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
     let (fixed5) = Math64x61_fromFelt(5)
     let (power) = Math64x61_div(fixed3, fixed5)
     let (fixed_nb_tickets) = Math64x61_pow(fixed_bal, power)
-    let (nb_tickets) = Math64x61_toUint256(fixed_nb_tickets)
+    let (scaled_nb_tickets) = Math64x61_toFelt(fixed_nb_tickets)
+    let (nb_tickets : Uint256) = _felt_to_uint(scaled_nb_tickets)
 
     return (nb_tickets)
 end
