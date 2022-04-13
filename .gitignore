@@ -3,9 +3,10 @@ artifacts
 cache
 
 # Starknet
-goerli.deployments.txt
+# goerli.deployments.txt
 localhost.deployments.txt
 nile
+127.0.0.1.accounts.json
 
 # Logs
 logs

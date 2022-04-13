@@ -29,16 +29,16 @@ _Note: Mac and Mac M1 have special instructions you can refer to this [article](
    `poetry install`
 
 2. Spin up a node (in a separate terminal window w/ the python environment running)
-   `nile node`
+   `poetry run nile node`
 
 3. Compile contracts
-   `nile compile`
+   `poetry run nile compile`
 
 4. Run tests
    `poetry run pytest tests/`
 
-5. Execute deploy/transaction scripts
-   `nile run scripts/${script_name}.py`
+5. Deploy contracts
+   `poetry run nile run scripts/deploy.py`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
 
