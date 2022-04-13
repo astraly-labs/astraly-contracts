@@ -216,3 +216,13 @@ def hash_multicall(sender, calls, nonce, max_fee):
         TRANSACTION_VERSION
     ]
     return compute_hash_on_elements(message)
+
+
+def get_block_timestamp(starknet_state):
+    return starknet_state.state.block_info.block_timestamp
+
+
+def set_block_timestamp(starknet_state, timestamp):
+    starknet_state.state.block_info = BlockInfo(
+        starknet_state.state.block_info.block_number, timestamp
+    )

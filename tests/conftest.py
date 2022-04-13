@@ -10,7 +10,7 @@ from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starknet.testing.starknet import Starknet, StarknetContract
 from starkware.starknet.business_logic.state import BlockInfo
 
-from utils import Signer
+from utils import Signer, get_block_timestamp, set_block_timestamp
 
 # pytest-xdest only shows stderr
 sys.stdout = sys.stderr
@@ -22,21 +22,12 @@ CONTRACT_SRC = os.path.join(os.path.dirname(__file__), "..", "contracts")
 def event_loop():
     return asyncio.new_event_loop()
 
+
 def compile(path):
     return compile_starknet_files(
         files=[os.path.join(CONTRACT_SRC, path)],
         debug_info=True,
         # cairo_path=CONTRACT_SRC,
-    )
-
-
-def get_block_timestamp(starknet_state):
-    return starknet_state.state.block_info.block_timestamp
-
-
-def set_block_timestamp(starknet_state, timestamp):
-    starknet_state.state.block_info = BlockInfo(
-        starknet_state.state.block_info.block_number, timestamp
     )
 
 

@@ -1,6 +1,6 @@
 import pytest
 from utils import (
-    Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted
+    Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted, get_block_timestamp
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
@@ -76,6 +76,7 @@ async def contacts_init(contract_defs, get_starknet):
             NAME,
             SYMBOL,
             zk_pad_token.contract_address,
+            owner_account.contract_address
         ],
     )
 
@@ -90,7 +91,7 @@ async def contacts_init(contract_defs, get_starknet):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contacts_init, get_starknet):
+async def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
     owner_account, user1_account, user2_account, user3_account, zk_pad_token, zk_pad_stake = contacts_init
     _state = get_starknet.state.copy()
@@ -100,6 +101,9 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     user1_cached = cached_contract(_state, account_def, user1_account)
     user2_cached = cached_contract(_state, account_def, user2_account)
     user3_cached = cached_contract(_state, account_def, user3_account)
+
+    await owner.send_transaction(owner_account, stake.contract_address, "set_stake_boost", [25])
+
     return token, stake, owner_cached, user1_cached, user2_cached, user3_cached
 
 
@@ -118,7 +122,8 @@ async def mock_mint_calculator_factory(get_starknet):
 
 
 @pytest.fixture
-async def mock_lp_token_factory(get_starknet):
+async def mock_lp_token_factory(get_starknet, contracts_factory):
+    _, _, owner_account, _, _, _ = contracts_factory
     mock_lp_token_def = get_contract_def(
         "openzeppelin/token/erc20/ERC20.cairo")
     starknet = get_starknet
@@ -132,7 +137,8 @@ async def mock_lp_token_factory(get_starknet):
             *to_uint(10_000),
             owner_account.contract_address
         ])
-    mock_lp_token_cached = cached_contract(_state, mock_lp_token_def, mock_lp_token)
+    mock_lp_token_cached = cached_contract(
+        _state, mock_lp_token_def, mock_lp_token)
 
     return mock_lp_token_cached
 
@@ -438,7 +444,7 @@ async def test_deposit_lp(contracts_factory, mock_mint_calculator_factory, mock_
     mint_calculator = mock_mint_calculator_factory
     mock_lp_token = mock_lp_token_factory
 
-    await owner.send_transaction(owner_account, zk_pad_staking, "add_whitelisted_token", [
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "add_whitelisted_token", [
         mock_lp_token.contract_address,
         mint_calculator.contract_address
     ])
@@ -448,4 +454,22 @@ async def test_deposit_lp(contracts_factory, mock_mint_calculator_factory, mock_
         zk_pad_token.contract_address,
         "transfer",
         [user1_account.contract_address, *to_uint(10_000)],
+    )
+
+    assert (
+        await mint_calculator.get_amount_to_mint(to_uint(10_000)).invoke()
+    ).result.amount == to_uint(10_000)
+
+    assert (
+        await zk_pad_staking.get_xzkp_out(mock_lp_token.contract_address, to_uint(10_000)).invoke()
+    ).result.res == to_uint(10_000)
+
+    timestamp = get_block_timestamp()
+    one_year = 60 * 60 * 24 * 365
+    await user1.send_transaction(
+        user1_account,
+        zk_pad_staking.contract_address,
+        "lp_mint",
+        [mock_lp_token.contract_address, *
+            to_uint(10_000), owner_account.account_address, timestamp + one_year]
     )

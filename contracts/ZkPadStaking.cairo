@@ -9,7 +9,7 @@ from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address, get_block_timestamp)
 
 from openzeppelin.utils.constants import TRUE, FALSE
-from openzeppelin.access.ownable import Ownable_only_owner
+from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer
 from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
@@ -22,7 +22,7 @@ from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance, transfer, transferFrom, approve,
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit, deposit,
     maxMint, previewMint, mint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem,
-    redeem)
+    redeem, ERC4626_initializer)
 from contracts.utils import uint256_is_zero
 
 const IERC721_ID = 0x80ac58cd
@@ -83,6 +83,14 @@ end
 # value is multiplied by 10 to store floating points number in felt type
 @storage_var
 func stake_boost() -> (boost : felt):
+end
+
+@constructor
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    ERC4626_initializer(name, symbol, asset_addr)
+    Ownable_initializer(owner)
+    return ()
 end
 
 #
@@ -193,7 +201,7 @@ end
 func lp_mint{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
-        lp_token : felt, lp_nft_id : Uint256, assets : Uint256, receiver : felt,
+        lp_token : felt, input : Uint256, receiver : felt,
         deadline : felt) -> (shares : Uint256):
     alloc_locals
     ReentrancyGuard_start()
@@ -214,21 +222,21 @@ func lp_mint{
     let (is_nft : felt) = IERC165.supportsInterface(lp_token, IERC721_ID)
 
     if is_nft == FALSE:
-        let (success : felt) = IERC20.transferFrom(lp_token, caller_address, address_this, assets)
+        let (success : felt) = IERC20.transferFrom(lp_token, caller_address, address_this, input)
         assert success = TRUE
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
     else:
-        let (id_is_zero : felt) = uint256_is_zero(lp_nft_id)
+        let (id_is_zero : felt) = uint256_is_zero(input)
         with_attr error_message("invalid token id"):
             assert id_is_zero = FALSE
         end
-        IERC721.transferFrom(lp_token, caller_address, address_this, lp_nft_id)
+        IERC721.transferFrom(lp_token, caller_address, address_this, input)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
     end
 
-    let (amount_to_mint : Uint256) = get_xzkp_out(lp_token, assets)
+    let (amount_to_mint : Uint256) = get_xzkp_out(lp_token, input)
     let (token_minted : Uint256) = mint(amount_to_mint, receiver)
     let (current_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
     let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, token_minted)
@@ -254,7 +262,7 @@ func lp_mint{
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
 
-    Deposit_lp.emit(caller_address, receiver, lp_token, assets, token_minted)
+    Deposit_lp.emit(caller_address, receiver, lp_token, input, token_minted)
     ReentrancyGuard_end()
     return (token_minted)
 end
