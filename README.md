@@ -37,8 +37,8 @@ _Note: Mac and Mac M1 have special instructions you can refer to this [article](
 4. Run tests
    `poetry run pytest tests/`
 
-5. Execute deploy/transaction scripts
-   `nile run scripts/${script_name}.py`
+5. Deploy contracts
+   `nile run scripts/deploy.py`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
 
