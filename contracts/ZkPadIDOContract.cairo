@@ -18,7 +18,7 @@ struct Sale:
     # Is sale created (boolean)
     member is_created : felt
     # Are earnings withdrawn (boolean)
-    member earnings_withdrawn : felt
+    member raised_funds_withdrawn : felt
     # Is leftover withdrawn (boolean)
     member leftover_withdrawn : felt
     # Have tokens been deposited (boolean)
@@ -345,7 +345,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
     let new_sale = Sale(
         token = _token_address,
         is_created = TRUE,
-        earnings_withdrawn = FALSE,
+        raised_funds_withdrawn = FALSE,
         leftover_withdrawn = FALSE,
         tokens_deposited = 0,
         sale_owner = _sale_owner_address,
@@ -378,7 +378,7 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check
     let upd_sale = Sale(
         token = _sale_token_address,
         is_created = the_sale.is_created,
-        earnings_withdrawn = the_sale.earnings_withdrawn,
+        raised_funds_withdrawn = the_sale.raised_funds_withdrawn,
         leftover_withdrawn = the_sale.leftover_withdrawn,
         tokens_deposited = the_sale.tokens_deposited,
         sale_owner = the_sale.sale_owner,
@@ -536,7 +536,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let upd_sale = Sale(
         token = the_sale.token,
         is_created = the_sale.is_created,
-        earnings_withdrawn = the_sale.earnings_withdrawn,
+        raised_funds_withdrawn = the_sale.raised_funds_withdrawn,
         leftover_withdrawn = the_sale.leftover_withdrawn,
         tokens_deposited = the_sale.tokens_deposited,
         sale_owner = the_sale.sale_owner,
@@ -567,6 +567,9 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range
 
     # Compute the allocation : total_tokens_sold / total_winning_tickets
     let (the_allocation, _) = unsigned_div_rem(the_sale.total_tokens_sold, the_sale.total_winning_tickets)
+    with_attr error_message("ZkPadIDOContract::calculate_allocation calculation error"):
+        assert the_allocation * the_sale.total_winning_tickets = the_sale.total_tokens_sold
+    end
     ido_allocation.write(the_allocation)
     return()
 end
@@ -576,3 +579,6 @@ end
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(tickets_burnt: felt, account: felt) -> (res: felt):
     return (res=tickets_burnt)
 end
+
+# TODO: 1) Function to handle users who have guaranteed allocation
+# TODO: 2) Add Maximum Allocation to prevent whales from abusing the system
