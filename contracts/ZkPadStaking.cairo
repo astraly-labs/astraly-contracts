@@ -2,7 +2,7 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_sub
-from starkware.cairo.common.math import assert_not_equal, assert_not_zero, assert_nn_le, assert_lt
+from starkware.cairo.common.math import assert_not_equal, assert_not_zero, assert_le, assert_lt
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
 from starkware.starknet.common.syscalls import (
@@ -210,7 +210,7 @@ func lp_mint{
     let (current_block_timestamp : felt) = get_block_timestamp()
     let (unlock_time : felt) = deposit_unlock_time.read(receiver)
     with_attr error_message("new deadline should be higher or equal to the old deposit"):
-        assert_nn_le(deadline, unlock_time)
+        assert_le(unlock_time, deadline)
     end
 
     with_attr error_message("new deadline should be higher than current timestamp"):
@@ -281,7 +281,7 @@ func withdraw_lp_tokens{
     with_attr error_message("timestamp lower than deposit deadline"):
         let (current_block_timestamp : felt) = get_block_timestamp()
         let (unlock_time : felt) = deposit_unlock_time.read(owner)
-        assert_nn_le(unlock_time, current_block_timestamp)
+        assert_le(current_block_timestamp, unlock_time)
     end
     tempvar pedersen_ptr = pedersen_ptr
 
@@ -346,7 +346,6 @@ func only_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
         address : felt) -> ():
     let (res : WhitelistedToken) = whitelisted_tokens.read(address)
     with_attr error_message("token not whitelisted"):
-        assert_not_zero(res.bit_mask)
         assert_not_zero(res.mint_calculator_address)
     end
     return ()
