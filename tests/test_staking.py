@@ -473,3 +473,7 @@ async def test_deposit_lp(contracts_factory):
         [mock_lp_token.contract_address, *
             to_uint(10_000), user1_account.contract_address, timestamp + one_year]
     )
+
+    assert (
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(expect_to_mint)

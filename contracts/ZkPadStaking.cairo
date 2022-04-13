@@ -21,8 +21,8 @@ from contracts.openzeppelin.security.reentrancy_guard import (
 from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance, transfer, transferFrom, approve,
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit, deposit,
-    maxMint, previewMint, mint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem,
-    redeem, ERC4626_initializer)
+    maxMint, previewMint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem,
+    redeem, ERC4626_initializer, ERC4626_previewDeposit, ERC20_mint)
 from contracts.utils import uint256_is_zero
 
 const IERC721_ID = 0x80ac58cd
@@ -237,7 +237,8 @@ func lp_mint{
     end
 
     let (amount_to_mint : Uint256) = get_xzkp_out(lp_token, input)
-    let (token_minted : Uint256) = mint(amount_to_mint, receiver)
+    let (token_minted : Uint256) = ERC4626_previewDeposit(amount_to_mint)
+    ERC20_mint(receiver, amount_to_mint)
     let (current_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
     let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, token_minted)
     deposits.write(receiver, lp_token, new_deposit_amount)
