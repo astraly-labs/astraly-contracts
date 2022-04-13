@@ -5,6 +5,7 @@ import math
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
+from starkware.starknet.business_logic.state import BlockInfo
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
@@ -23,6 +24,7 @@ TRANSACTION_VERSION = 0
 
 _root = Path(__file__).parent.parent
 
+
 def contract_path(name):
     if name.startswith("openzeppelin"):
         return site.getsitepackages()[0] + "/" + name
@@ -30,6 +32,7 @@ def contract_path(name):
         return str(_root / name)
     else:
         return str(_root / "contracts" / name)
+
 
 def str_to_felt(text):
     b_text = bytes(text, "ascii")
