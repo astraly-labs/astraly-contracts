@@ -272,7 +272,7 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     ERC1155_burn(_from, id, amount)
     # Spin up VRF and update allocation accordingly
     let (theAddress) = ido_contract_address.read()
-    let (success) = IZkIDOContract.claim_allocation(
+    let (success) = IZkIDOContract.register_user(
         contract_address=theAddress, amount=amount, account=_from)
     with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
@@ -287,7 +287,7 @@ end
 #     ERC1155_burn_batch(_from, ids_len, ids, amounts_len, amounts)
 #     # Spin up VRF and update allocations accordingly
 #     let (theAddress) = ido_contract_address.read()
-#     let (res) = IZkIDOContract.claim_allocation(contract_address=theAddress, amount=amount, account=account)
+#     let (res) = IZkIDOContract.register_user(contract_address=theAddress, amount=amount, account=account)
 #     with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
 #         assert res = 1
 #     end
