@@ -40,7 +40,7 @@ func ido_launch_date() -> (res : felt):
 end
 
 @storage_var
-func has_claimed(user : felt) -> (res : felt):
+func has_claimed(id : Uint256, user : felt) -> (res : felt):
 end
 
 #
@@ -199,7 +199,7 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 
     let (caller) = get_caller_address()
 
-    let (claimed) = has_claimed.read(caller)
+    let (claimed) = has_claimed.read(id, caller)
     with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
         assert claimed = FALSE
     end
@@ -217,7 +217,7 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     # Mint the tickets to the caller
     ERC1155_mint(caller, id, amount_to_claim, data_len, data)
 
-    has_claimed.write(caller, TRUE)
+    has_claimed.write(id, caller, TRUE)
 
     return ()
 end
