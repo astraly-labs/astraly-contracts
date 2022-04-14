@@ -2,9 +2,11 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_sub
-from starkware.cairo.common.math import assert_not_equal, assert_not_zero, assert_le, assert_lt
+from starkware.cairo.common.math import (
+    assert_not_equal, assert_not_zero, assert_le, assert_lt, unsigned_div_rem)
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
+from starkware.cairo.common.alloc import alloc
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address, get_block_timestamp)
 
@@ -21,8 +23,8 @@ from contracts.openzeppelin.security.reentrancy_guard import (
 from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance, transfer, transferFrom, approve,
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit, deposit,
-    maxMint, previewMint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem,
-    redeem, ERC4626_initializer, ERC4626_previewDeposit, ERC20_mint)
+    maxMint, previewMint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem, redeem,
+    ERC4626_initializer, ERC4626_previewDeposit, ERC20_mint)
 from contracts.utils import uint256_is_zero
 
 const IERC721_ID = 0x80ac58cd
@@ -90,6 +92,11 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         name : felt, symbol : felt, asset_addr : felt, owner : felt):
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
+
+    # # Add ZKP token to the whitelist and bit mask on first position
+    token_mask_addresses.write(1, asset_addr)
+    whitelisted_tokens_mask.write(1)
+    whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0))
     return ()
 end
 
@@ -141,15 +148,31 @@ func get_current_boost_value{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 end
 
 @view
-func get_user_stake_info{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        user : felt) -> (res : (felt, felt)):
+func get_user_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        user : felt) -> (unlock_time : felt):
     let (unlock_time : felt) = deposit_unlock_time.read(user)
-    let (staked_tokens : felt) = user_staked_tokens.read(user)  # # transform to array
-
-    let res = (unlock_time, staked_tokens)
-    return (res)
+    return (unlock_time)
 end
 
+@view
+func get_user_staked_tokens{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
+        bitwise_ptr : BitwiseBuiltin*}(user : felt) -> (tokens_len : felt, tokens : felt*):
+    alloc_locals
+    let (user_bit_mask : felt) = user_staked_tokens.read(user)
+
+    let (staked_tokens_array : felt*) = alloc()
+    let (array_len : felt) = get_tokens_addresses_from_mask(
+        0, user_bit_mask, 0, staked_tokens_array)
+    return (array_len, staked_tokens_array)
+end
+
+@view
+func get_tokens_mask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+        tokens_mask : felt):
+    let (bit_mask : felt) = whitelisted_tokens_mask.read()
+    return (bit_mask)
+end
 #
 # Externals
 #
@@ -157,7 +180,9 @@ end
 @external
 func add_whitelisted_token{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
-        bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt) -> ():
+        bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt) -> (
+        token_mask : felt):
+    alloc_locals
     Ownable_only_owner()
     with_attr error_message("invalid token address"):
         assert_not_zero(lp_token)
@@ -179,7 +204,9 @@ func add_whitelisted_token{
     let (token_mask : felt) = get_next_available_bit_in_mask(0, tokens_masks)
     whitelisted_tokens.write(lp_token, WhitelistedToken(token_mask, mint_calculator_address))
     token_mask_addresses.write(token_mask, lp_token)
-    return ()
+    let (new_tokens_masks : felt) = bitwise_or(tokens_masks, token_mask)
+    whitelisted_tokens_mask.write(new_tokens_masks)
+    return (token_mask)
 end
 
 @external
@@ -197,12 +224,12 @@ func remove_whitelisted_token{
     return ()
 end
 
+## `input` should be the amount of tokens in case of an ERC20 or the id in case of ERC721
 @external
 func lp_mint{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
-        lp_token : felt, input : Uint256, receiver : felt,
-        deadline : felt) -> (shares : Uint256):
+        lp_token : felt, input : Uint256, receiver : felt, deadline : felt) -> (shares : Uint256):
     alloc_locals
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
@@ -237,21 +264,15 @@ func lp_mint{
     end
 
     let (amount_to_mint : Uint256) = get_xzkp_out(lp_token, input)
-    let (token_minted : Uint256) = ERC4626_previewDeposit(amount_to_mint)
     ERC20_mint(receiver, amount_to_mint)
     let (current_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
-    let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, token_minted)
+    let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, amount_to_mint)
     deposits.write(receiver, lp_token, new_deposit_amount)
     deposit_unlock_time.write(receiver, deadline)
 
     let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
     if is_first_deposit == TRUE:
-        let (user_current_tokens_mask : felt) = user_staked_tokens.read(receiver)
-        let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
-        let (new_user_tokens_mask : felt) = bitwise_or(
-            user_current_tokens_mask, whitelisted_token.bit_mask)
-        user_staked_tokens.write(receiver, new_user_tokens_mask)
-
+        add_token_to_user_mask(receiver, lp_token)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
@@ -263,9 +284,9 @@ func lp_mint{
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
 
-    Deposit_lp.emit(caller_address, receiver, lp_token, input, token_minted)
+    Deposit_lp.emit(caller_address, receiver, lp_token, input, amount_to_mint)
     ReentrancyGuard_end()
-    return (token_minted)
+    return (amount_to_mint)
 end
 
 @external
@@ -348,6 +369,7 @@ func only_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     let (res : WhitelistedToken) = whitelisted_tokens.read(address)
     with_attr error_message("token not whitelisted"):
         assert_not_zero(res.mint_calculator_address)
+        assert_not_zero(res.bit_mask)
     end
     return ()
 end
@@ -375,8 +397,41 @@ func get_next_available_bit_in_mask{
     let (value : felt) = pow(2, index)
     let (and_result : felt) = bitwise_and(value, bit_mask)
     if and_result == 0:
-        return (and_result)
+        return (value)
     end
 
     return get_next_available_bit_in_mask(index + 1, bit_mask)
+end
+
+func get_tokens_addresses_from_mask{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
+        bitwise_ptr : BitwiseBuiltin*}(
+        position : felt, bit_mask : felt, tokens_allocation_index : felt, array : felt*) -> (
+        length : felt):
+    alloc_locals
+    if bit_mask == 0:
+        return (tokens_allocation_index)
+    end
+
+    let (bit_mask_left : felt, remainder : felt) = unsigned_div_rem(bit_mask, 2)
+    if remainder == 1:
+        let (token_mask : felt) = pow(2, position)
+        let (token_address : felt) = token_mask_addresses.read(token_mask)
+        assert [array + tokens_allocation_index] = token_address
+        return get_tokens_addresses_from_mask(
+            position + 1, bit_mask_left, tokens_allocation_index + 1, array)
+    end
+    return get_tokens_addresses_from_mask(
+        position + 1, bit_mask_left, tokens_allocation_index, array)
+end
+
+func add_token_to_user_mask{
+        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
+        bitwise_ptr : BitwiseBuiltin*}(user : felt, token : felt) -> ():
+    let (user_current_tokens_mask : felt) = user_staked_tokens.read(user)
+    let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(token)
+    let (new_user_tokens_mask : felt) = bitwise_or(
+        user_current_tokens_mask, whitelisted_token.bit_mask)
+    user_staked_tokens.write(user, new_user_tokens_mask)
+    return ()
 end
