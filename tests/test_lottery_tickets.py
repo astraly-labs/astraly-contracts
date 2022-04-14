@@ -1324,6 +1324,23 @@ async def test_claim_twice_fail(full_factory):
 
 
 @pytest.mark.asyncio
+async def test_claim_twice_success(full_factory):
+    """Should not revert when staker tries to claim tickets twice for two different IDOs"""
+    erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+
+    IDO_ID1 = to_uint(10)
+    IDO_ID2 = to_uint(11)
+    user = owner.contract_address
+
+    # Claim tickets for IDO 10
+    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID1, 0])
+
+    # Attempt to claim again for IDO 11
+    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+        *IDO_ID2, 0])
+
+
+@pytest.mark.asyncio
 async def test_claim_no_tickets(full_factory):
     """Should revert when user tries to claim tickets without staking (no xZKP)"""
     erc1155, owner, user, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
