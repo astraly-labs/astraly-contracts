@@ -3,6 +3,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt, unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
 from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault)
@@ -39,6 +40,8 @@ struct Sale:
     member sale_end : felt
     # When tokens can be withdrawn
     member tokens_unlock_time : felt
+    # Cap on the number of lottery tickets to burn when registring
+    member lottery_tickets_burn_cap : felt
 end
 
 struct Participation:
@@ -319,7 +322,8 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
     _amount_of_tokens_to_sell : felt,
     _sale_end_time : felt,
     _tokens_unlock_time : felt,
-    _portion_vesting_precision : felt
+    _portion_vesting_precision : felt,
+    _lottery_tickets_burn_cap : felt
 ):
     # alloc_locals
     only_admin()
@@ -355,7 +359,8 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_chec
         total_winning_tickets = 0,
         total_raised = 0,
         sale_end = _sale_end_time,
-        tokens_unlock_time = _tokens_unlock_time
+        tokens_unlock_time = _tokens_unlock_time,
+        lottery_tickets_burn_cap = _lottery_tickets_burn_cap
     )
     sale.write(new_sale)
     # Set portion vesting precision
@@ -388,7 +393,8 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check
         total_winning_tickets = the_sale.total_winning_tickets,
         total_raised = the_sale.total_raised,
         sale_end = the_sale.sale_end,
-        tokens_unlock_time = the_sale.tokens_unlock_time
+        tokens_unlock_time = the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap = the_sale.lottery_tickets_burn_cap
     )
     sale.write(upd_sale)
     return()
@@ -488,7 +494,7 @@ func set_dist_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,rang
     return()
 end
 
-@external
+@view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (res : felt):
     let (the_reg) = registration.read()
     return(res = the_reg.registration_time_starts)
@@ -500,6 +506,16 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
     let (the_sale) = sale.read()
+    
+    let (factory_address) = ido_factory_contract_address.read()
+    let (lottery_ticket_address) = IZkIDOFactory.get_lottery_ticket_contract_address(contract_address=factory_address)
+    with_attr error_message("ZkPadIDOContract::register_user Lottery ticket contract address not set"):
+        assert_not_zero(lottery_ticket_address)
+    end
+    let (caller) = get_caller_address()
+    with_attr error_message("ZkPadIDOContract::register_user only the lottery ticket contract can make this call"):
+        assert caller = lottery_ticket_address
+    end
 
     with_attr error_message("ZkPadIDOContract::register_user account address is the zero address"):
         assert_not_zero(account)
@@ -529,8 +545,10 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         tempvar pedersen_ptr = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
     end
+
+    let (adjusted_amount) = get_adjusted_amount(_amount=amount, _cap=the_sale.lottery_tickets_burn_cap)
     let (current_winning) = user_to_winning_lottery_tickets.read(account)
-    let (new_winning) = draw_winning_tickets(tickets_burnt=amount, account=account)
+    let (new_winning) = draw_winning_tickets(tickets_burnt=adjusted_amount, account=account)
     user_to_winning_lottery_tickets.write(account, current_winning + new_winning)
 
     let upd_sale = Sale(
@@ -546,12 +564,22 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         total_winning_tickets = the_sale.total_winning_tickets + new_winning,
         total_raised = the_sale.total_raised,
         sale_end = the_sale.sale_end,
-        tokens_unlock_time = the_sale.tokens_unlock_time
+        tokens_unlock_time = the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap = the_sale.lottery_tickets_burn_cap
     )
     sale.write(upd_sale)
 
     user_registered.emit(user_address=account, winning_lottery_tickets=new_winning)
     return(res=TRUE)
+end
+
+func get_adjusted_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_amount : felt, _cap) -> (res : felt):
+    let (is_amount_le_cap) = is_le(_amount, _cap)
+    if  is_amount_le_cap == TRUE:
+        return (res=_amount)
+    else:
+        return (res=_cap)
+    end
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
@@ -580,5 +608,5 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range
     return (res=tickets_burnt)
 end
 
-# TODO: 1) Function to handle users who have guaranteed allocation
+# TODO: 1) Function to handle users who have guaranteed allocation (HOLD)
 # TODO: 2) Add Maximum Allocation to prevent whales from abusing the system

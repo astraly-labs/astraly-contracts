@@ -5,6 +5,8 @@
 # Interfaces include
 # - IZkIDOContract
 # - IERC4626
+# - ITask
+# - IZkIDOFactory
 # @author zkpad
 ####################################################################################
 
@@ -32,6 +34,9 @@ namespace IZkIDOFactory:
     end
 
     func is_sale_created_through_factory(sale_address : felt) -> (res : felt):
+    end
+
+    func get_lottery_ticket_contract_address() -> (lottery_ticket_address : felt):
     end
 end
 
