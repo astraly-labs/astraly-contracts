@@ -12,11 +12,20 @@
 from starkware.cairo.common.uint256 import Uint256
 
 @contract_interface
-namespace IZkIDOContract:
+namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
     func register_user(amount : Uint256, account : felt) -> (res : felt):
+    end
+end
+
+@contract_interface
+namespace IZKPadIDOFactory:
+    func get_ido_launch_date(id : felt) -> (res : felt):
+    end
+
+    func get_ido_address(id : felt) -> (res : felt):
     end
 end
 

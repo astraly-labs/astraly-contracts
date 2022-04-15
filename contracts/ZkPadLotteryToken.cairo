@@ -23,12 +23,12 @@ from contracts.utils.Math64x61 import (
     Math64x61_fromUint256, Math64x61_toUint256, Math64x61_pow, Math64x61_div, Math64x61_fromFelt,
     Math64x61_toFelt)
 
-from contracts.utils.Uint256_felt_conv import _felt_to_uint
+from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
-from InterfaceAll import IZkIDOContract, IERC20, IERC4626
+from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory
 
 @storage_var
-func ido_contract_address() -> (res : felt):
+func ido_factory_address() -> (res : felt):
 end
 
 @storage_var
@@ -49,16 +49,15 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        uri : felt, owner : felt, _ido_contract_address : felt):
+        uri : felt, owner : felt, _ido_factory_address : felt):
     # Initialize Admin
     assert_not_zero(owner)
     Ownable_initializer(owner)
     # Initialize ERC1155
     ERC1155_initializer(uri)
-    # Setup IDO Contract Params
-    assert_not_zero(_ido_contract_address)
-    ido_contract_address.write(_ido_contract_address)
-    _set_ido_launch_date()
+    # Setup IDO Factory Params
+    assert_not_zero(_ido_factory_address)
+    ido_factory_address.write(_ido_factory_address)
     return ()
 end
 
@@ -166,7 +165,6 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*):
     Ownable_only_owner()
-    _is_before_ido_launch()
     ERC1155_mint(to, id, amount, data_len, data)
     return ()
 end
@@ -182,7 +180,6 @@ func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
         to : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*,
         data_len : felt, data : felt*):
     Ownable_only_owner()
-    _is_before_ido_launch()
     ERC1155_mint_batch(to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
@@ -195,7 +192,7 @@ end
 func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         id : Uint256, data_len : felt, data : felt*):
     alloc_locals
-    _is_before_ido_launch()
+    _is_before_ido_launch(id)
 
     let (caller) = get_caller_address()
 
@@ -271,9 +268,12 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner_or_approved(owner=_from)
     ERC1155_burn(_from, id, amount)
     # Spin up VRF and update allocation accordingly
-    let (theAddress) = ido_contract_address.read()
-    let (success) = IZkIDOContract.register_user(
-        contract_address=theAddress, amount=amount, account=_from)
+    let (factory_address : felt) = ido_factory_address.read()
+    let (felt_id : felt) = _uint_to_felt(id)
+    let (ido_address : felt) = IZKPadIDOFactory.get_ido_address(
+        contract_address=factory_address, id=felt_id)
+    let (success : felt) = IZkPadIDOContract.register_user(
+        contract_address=ido_address, amount=amount, account=_from)
     with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
     end
@@ -303,22 +303,16 @@ func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*,
     return ()
 end
 
-# @dev Sets the IDO launch date. Calls the IDO contract to get the date.
-func _set_ido_launch_date{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
-    alloc_locals
-    let (theAddress) = ido_contract_address.read()
-    let (res) = IZkIDOContract.get_ido_launch_date(contract_address=theAddress)
-    ido_launch_date.write(res)
-
-    return ()
-end
-
 # @dev Checks if the current block timestamp is before the IDO launch date.
-func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}():
+func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
+        id : Uint256):
     alloc_locals
-    _set_ido_launch_date()
-    let (ido_launch) = ido_launch_date.read()
+    let (factory_address : felt) = ido_factory_address.read()
+    let (felt_id : felt) = _uint_to_felt(id)
+    let (ido_launch) = IZKPadIDOFactory.get_ido_launch_date(
+        contract_address=factory_address, id=felt_id)
     let (block_timestamp) = get_block_timestamp()
+
     with_attr error_message("ZkPadLotteryToken::Standby Phase is over"):
         assert_nn_le(block_timestamp, ido_launch)
     end
