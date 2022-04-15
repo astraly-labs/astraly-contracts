@@ -24,7 +24,7 @@ from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance, transfer, transferFrom, approve,
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit, deposit,
     maxMint, previewMint, maxWithdraw, previewWithdraw, withdraw, maxRedeem, previewRedeem, redeem,
-    ERC4626_initializer, ERC4626_previewDeposit, ERC20_mint)
+    ERC4626_initializer, ERC4626_previewDeposit, ERC20_mint, ERC20_burn)
 from contracts.utils import uint256_is_zero
 
 const IERC721_ID = 0x80ac58cd
@@ -148,23 +148,17 @@ func get_current_boost_value{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 end
 
 @view
-func get_user_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        user : felt) -> (unlock_time : felt):
-    let (unlock_time : felt) = deposit_unlock_time.read(user)
-    return (unlock_time)
-end
-
-@view
-func get_user_staked_tokens{
+func get_user_stake_info{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
-        bitwise_ptr : BitwiseBuiltin*}(user : felt) -> (tokens_len : felt, tokens : felt*):
+        bitwise_ptr : BitwiseBuiltin*}(user : felt) -> (unlock_time : felt, tokens_len : felt, tokens : felt*):
     alloc_locals
+    let (unlock_time : felt) = deposit_unlock_time.read(user)
     let (user_bit_mask : felt) = user_staked_tokens.read(user)
 
     let (staked_tokens_array : felt*) = alloc()
     let (array_len : felt) = get_tokens_addresses_from_mask(
         0, user_bit_mask, 0, staked_tokens_array)
-    return (array_len, staked_tokens_array)
+    return (unlock_time, array_len, staked_tokens_array)
 end
 
 @view
@@ -293,8 +287,7 @@ end
 func withdraw_lp_tokens{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
-        assetAmount : Uint256, lp_token : felt, lp_nft_id : Uint256, receiver : felt,
-        owner : felt) -> ():
+        lp_token : felt, assetAmount : Uint256, receiver : felt, owner : felt) -> ():
     alloc_locals
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
@@ -323,10 +316,10 @@ func withdraw_lp_tokens{
         tempvar pedersen_ptr = pedersen_ptr
     end
 
-    IERC20.transferFrom(lp_token, owner, address_this, assetAmount)
-    let (unserlying_asset : felt) = asset()
-    # TODO: calculate users return
-    IERC20.transfer(unserlying_asset, receiver, Uint256(0, 0))
+    ERC20_burn(owner, assetAmount)
+    let (underlying_asset : felt) = asset()
+    # TODO: calculate user return
+    IERC20.transfer(underlying_asset, receiver, Uint256(0, 0))
 
     let (new_user_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
     let (withdraw_all_tokens : felt) = uint256_is_zero(new_user_deposit_amount)
@@ -377,8 +370,8 @@ end
 func different_than_underlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         address : felt) -> ():
     with_attr error_message("underlying token not allow"):
-        let (unserlying_asset : felt) = asset()
-        assert_not_equal(unserlying_asset, address)
+        let (underlying_asset : felt) = asset()
+        assert_not_equal(underlying_asset, address)
     end
     return ()
 end
