@@ -416,6 +416,25 @@ async def test_allowances(contracts_factory):
 
 
 @pytest.mark.asyncio
+async def test_whitelisted_permissions(contracts_factory):
+    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
+    user1 = Signer(2345)
+    user1_account = await deploy_account_func(user1.public_key)
+
+    await assert_revert(
+        user1.send_transaction(
+            user1_account, zk_pad_staking.contract_address, "add_whitelisted_token", [123, 123]),
+        "Ownable: caller is not the owner")
+
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "add_whitelisted_token", [123, 123])
+
+    await assert_revert(
+        user1.send_transaction(
+            user1_account, zk_pad_staking.contract_address, "remove_whitelisted_token", [123]),
+        "Ownable: caller is not the owner")
+
+
+@pytest.mark.asyncio
 async def test_deposit_lp(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, deploy_contract_func, state = contracts_factory
 
@@ -441,7 +460,7 @@ async def test_deposit_lp(contracts_factory):
     ])
 
     assert (
-        await zk_pad_staking.is_token_whitelisted(mock_lp_token.contract_address).invoke()
+        await zk_pad_staking.is_token_whitelisted(mock_lp_token.contract_address).call()
     ).result.res == 1
 
     await owner.send_transaction(
@@ -452,18 +471,18 @@ async def test_deposit_lp(contracts_factory):
     )
 
     assert (
-        await mock_lp_token.balanceOf(user1_account.contract_address).invoke()
+        await mock_lp_token.balanceOf(user1_account.contract_address).call()
     ).result.balance == to_uint(deposit_amount)
 
     assert (
-        await mint_calculator.get_amount_to_mint(to_uint(deposit_amount)).invoke()
+        await mint_calculator.get_amount_to_mint(to_uint(deposit_amount)).call()
     ).result.amount == to_uint(deposit_amount)
 
-    current_boost_value = (await zk_pad_staking.get_current_boost_value().invoke()).result.res
+    current_boost_value = (await zk_pad_staking.get_current_boost_value().call()).result.res
     assert boost_value == current_boost_value
     expect_to_mint = int((deposit_amount * current_boost_value) / 10)
     assert (
-        await zk_pad_staking.get_xzkp_out(mock_lp_token.contract_address, to_uint(deposit_amount)).invoke()
+        await zk_pad_staking.get_xzkp_out(mock_lp_token.contract_address, to_uint(deposit_amount)).call()
     ).result.res == to_uint(expect_to_mint)
 
     await user1.send_transaction(
@@ -484,16 +503,10 @@ async def test_deposit_lp(contracts_factory):
     )
 
     assert (
-        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+        await zk_pad_staking.balanceOf(user1_account.contract_address).call()
     ).result.balance == to_uint(expect_to_mint)
 
-    assert (
-        await zk_pad_staking.get_user_unlock_time(user1_account.contract_address).invoke()
-    ).result.unlock_time == timestamp + one_year
+    user_stake_info = (await zk_pad_staking.get_user_stake_info(user1_account.contract_address).call()).result
 
-    assert (
-        await zk_pad_staking.get_user_tokens_mask(user1_account.contract_address).invoke()
-    ).result.tokens_mask in add_whitelisted_token_tx.result.response
-
-    user_staked_tokens = (await zk_pad_staking.get_user_staked_tokens(user1_account.contract_address).invoke()).result.tokens
-    assert mock_lp_token.contract_address in user_staked_tokens
+    assert user_stake_info.unlock_time == timestamp + one_year
+    assert mock_lp_token.contract_address in user_stake_info.tokens
