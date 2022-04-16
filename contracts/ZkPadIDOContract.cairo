@@ -6,7 +6,7 @@ from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_n
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
-from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault)
+from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault, IXoroshiro, XOROSHIRO_ADDR)
 from contracts.utils.ZkPadConstants import (DAYS_30)
 from contracts.utils.ZkPadUtils import get_is_equal
 from starkware.starknet.common.syscalls import (get_block_timestamp)
@@ -605,7 +605,14 @@ end
 # this function will call the VRF and determine the number of winning tickets (if any)
 # for now will return the same number as burnt tickets. i.e. all tickets are winners!
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(tickets_burnt: felt, account: felt) -> (res: felt):
+    let (rnd) = get_random_number()
+    # do something with this random number to come up with the number of winning tickets.
     return (res=tickets_burnt)
+end
+
+func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (rnd : felt):
+    let (rnd) = IXoroshiro.next(contract_address=XOROSHIRO_ADDR)
+    return (rnd)
 end
 
 # TODO: 1) Function to handle users who have guaranteed allocation (HOLD)

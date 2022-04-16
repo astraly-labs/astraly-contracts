@@ -50,7 +50,15 @@ func populate_admins_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     )
 end
 
+@view
 func is_admin{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user_address : felt) -> (res : felt):
     let (the_user) = is_admin_user.read(user_address)
     return (res = the_user)
 end
+
+@view
+func get_admins_array_len{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (the_length) = admins_array_len.read()
+    return(res = the_length)
+end
+

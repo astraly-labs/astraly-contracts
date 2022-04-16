@@ -38,7 +38,7 @@ async def contacts_init(contract_defs):
         contract_def=zk_pad_admin_def,
         constructor_calldata=[
             2,
-            [admin1_account.contract_address, admin2_account.contract_address]
+            *[admin1_account.contract_address, admin2_account.contract_address]
         ],
     )
 
@@ -49,5 +49,25 @@ async def contacts_init(contract_defs):
         admin2_account,
         zk_pad_admin
     )
+
+@pytest.fixture
+def contracts_factory(contract_defs, contacts_init):
+    account_def, zk_pad_admin_def = contract_defs
+    state, deployer_account, admin1_account, admin2_account, zk_pad_admin = contacts_init
+    _state = state.copy()
+    admin = cached_contract(_state, zk_pad_admin_def, zk_pad_admin)
+    deployer_cached = cached_contract(_state, account_def, deployer_account)
+    admin1_cached = cached_contract(_state, account_def, admin1_account)
+    admin2_cached = cached_contract(_state, account_def, admin2_account)
+    return admin, deployer_cached, admin1_cached, admin2_cached
+
+@pytest.mark.asyncio
+@pytest.mark.order(1)
+async def test_init(contracts_factory):
+    zk_pad_admin, _, _, _ = contracts_factory
+    assert (await zk_pad_admin.get_admins_array_len().invoke()).result.res == str_to_felt('2')
+
+
+
 
 
