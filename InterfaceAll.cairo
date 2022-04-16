@@ -9,14 +9,39 @@
 ####################################################################################
 
 %lang starknet
-from starkware.cairo.common.uint256 import (Uint256)
+from starkware.cairo.common.uint256 import Uint256
 
 @contract_interface
-namespace IZkIDOContract:
+namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func claim_allocation(amount: felt, account: felt) -> (res: felt):
+    func register_user(amount : Uint256, account : felt) -> (res : felt):
+    end
+end
+
+@contract_interface
+namespace IZKPadIDOFactory:
+    func get_ido_launch_date(id : felt) -> (res : felt):
+    end
+
+    func get_ido_address(id : felt) -> (res : felt):
+    end
+end
+
+@contract_interface
+namespace IERC1155_Receiver:
+    func onERC1155Received(
+            operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt,
+            data : felt*) -> (selector : felt):
+    end
+
+    func onERC1155BatchReceived(
+            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, values_len : felt,
+            values : Uint256*, data_len : felt, data : felt*) -> (selector : felt):
+    end
+
+    func supportsInterface(interfaceId : felt) -> (success : felt):
     end
 end
 
@@ -37,7 +62,7 @@ namespace IERC4626:
     func maxDeposit(receiver : felt) -> (maxAssets : Uint256):
     end
 
-    func previewDeposit(assets : Uint256) -> (shares: Uint256):
+    func previewDeposit(assets : Uint256) -> (shares : Uint256):
     end
 
     func deposit(assets : Uint256, receiver : felt) -> (shares : Uint256):
@@ -71,37 +96,32 @@ namespace IERC4626:
     end
 end
 
-
 @contract_interface
 namespace IERC20:
-    func name() -> (name: felt):
+    func name() -> (name : felt):
     end
 
-    func symbol() -> (symbol: felt):
+    func symbol() -> (symbol : felt):
     end
 
-    func decimals() -> (decimals: felt):
+    func decimals() -> (decimals : felt):
     end
 
-    func totalSupply() -> (totalSupply: Uint256):
+    func totalSupply() -> (totalSupply : Uint256):
     end
 
-    func balanceOf(account: felt) -> (balance: Uint256):
+    func balanceOf(account : felt) -> (balance : Uint256):
     end
 
-    func allowance(owner: felt, spender: felt) -> (remaining: Uint256):
+    func allowance(owner : felt, spender : felt) -> (remaining : Uint256):
     end
 
-    func transfer(recipient: felt, amount: Uint256) -> (success: felt):
+    func transfer(recipient : felt, amount : Uint256) -> (success : felt):
     end
 
-    func transferFrom(
-            sender: felt, 
-            recipient: felt, 
-            amount: Uint256
-        ) -> (success: felt):
+    func transferFrom(sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
     end
 
-    func approve(spender: felt, amount: Uint256) -> (success: felt):
+    func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
 end
