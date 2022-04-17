@@ -11,25 +11,25 @@
 ####################################################################################
 
 %lang starknet
-from starkware.cairo.common.uint256 import (Uint256)
+from starkware.cairo.common.uint256 import Uint256
 
 @contract_interface
-namespace IZkIDOContract:
+namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func register_user(amount: felt, account: felt) -> (res: felt):
+    func register_user(amount : Uint256, account : felt) -> (res : felt):
     end
 end
 
 @contract_interface
-namespace IAdmin:
-    func is_admin(user_address : felt) -> (res : felt):
+namespace IZKPadIDOFactory:
+    func get_ido_launch_date(id : felt) -> (res : felt):
     end
-end
 
-@contract_interface
-namespace IZkIDOFactory:
+    func get_ido_address(id : felt) -> (res : felt):
+    end
+
     func set_sale_owner_and_token(sale_owner_address : felt, sale_token_address : felt):
     end
 
@@ -37,6 +37,28 @@ namespace IZkIDOFactory:
     end
 
     func get_lottery_ticket_contract_address() -> (lottery_ticket_address : felt):
+    end
+end
+
+@contract_interface
+namespace IERC1155_Receiver:
+    func onERC1155Received(
+            operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt,
+            data : felt*) -> (selector : felt):
+    end
+
+    func onERC1155BatchReceived(
+            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, values_len : felt,
+            values : Uint256*, data_len : felt, data : felt*) -> (selector : felt):
+    end
+
+    func supportsInterface(interfaceId : felt) -> (success : felt):
+    end
+end
+
+@contract_interface
+namespace IAdmin:
+    func is_admin(user_address : felt) -> (res : felt):
     end
 end
 
@@ -75,7 +97,7 @@ namespace IERC4626:
     func maxDeposit(receiver : felt) -> (maxAssets : Uint256):
     end
 
-    func previewDeposit(assets : Uint256) -> (shares: Uint256):
+    func previewDeposit(assets : Uint256) -> (shares : Uint256):
     end
 
     func deposit(assets : Uint256, receiver : felt) -> (shares : Uint256):
@@ -109,6 +131,43 @@ namespace IERC4626:
     end
 end
 
+namespace IERC20:
+    func name() -> (name : felt):
+    end
+
+    func symbol() -> (symbol : felt):
+    end
+
+    func decimals() -> (decimals : felt):
+    end
+
+    func totalSupply() -> (totalSupply : Uint256):
+    end
+
+    func balanceOf(account : felt) -> (balance : Uint256):
+    end
+
+    func allowance(owner : felt, spender : felt) -> (remaining : Uint256):
+    end
+
+    func transfer(recipient : felt, amount : Uint256) -> (success : felt):
+    end
+
+    func transferFrom(sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
+    end
+
+    func approve(spender : felt, amount : Uint256) -> (success : felt):
+    end
+end
+
+const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
+
+@contract_interface
+namespace IXoroshiro:
+    func next() -> (rnd : felt):
+    end
+end
+
 @contract_interface
 namespace ITask:
     ## @notice Called by task automators to see if task needs to be executed.
@@ -123,13 +182,3 @@ namespace ITask:
     func executeTask() -> ():
     end
 end
-
-const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
-
-@contract_interface
-namespace IXoroshiro:
-    func next() -> (rnd : felt):
-    end
-end
-
-

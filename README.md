@@ -1,89 +1,57 @@
-# 💻 ZkPad - Smart Contracts
+[![Tests](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml/badge.svg)](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml)
+[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/zkpad)
+[![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/ZkPadfi)
 
-_Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet._
+![banner](./static/banner_3d.png)
 
-# Contracts
+# ☄️ ZkPad Smart Contracts
 
-- $ZKPAD ERC20 Token
-- ZkPad Staking Contract
-- Distribution Contract
-- Lottery Tickets (ERC1155)
+_Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet. Learn more about it [here](https://wp.zkpad.io)._
 
----
+## Contracts
 
-This repository has been bootstrapped using [Nile](https://github.com/OpenZeppelin/nile).
+| Contract                                                 | Title          | Description                                                                                            |
+| -------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| [ZkPadStaking](./contracts/ZkPadStaking.cairo)           | xZKP Token     | Lock ZKP or ZKP-LP in the vault. Follows [ERC-4626](https://github.com/fei-protocol/ERC4626) standard. |
+| [ZkPadLotteryToken](./contracts/ZkPadLotteryToken.cairo) | Lottery Ticket | Lottery Ticket tokenized as ERC-1155 token.                                                            |
+| [ZkPadToken](./contracts/ZkPadToken.cairo)               | ZKP Token      | Native token of the platform. Follows ERC-20 standard. Mintable, Burnable, Pausable.                   |
+| [ZkPadIDO](./contracts/ZkPadIDO.cairo)                   | IDO Contract   | Handles the whole business logic of the IDO. Triggers VRF when a lottery ticket is burnt.              |
+| [ZkPadIDOFactory](./contracts/ZkPadIDO.cairo)            | IDO Factory    | Instanciates ZkPadIDO contracts for every new IDO.                                                     |
+| [Utils](./contracts/utils)                               | Cairo utils    |
 
-_Note: Mac and Mac M1 have special instructions at the bottom._
+# Development Workflow
 
-# Setup
+This repository has been bootstrapped using [Nile](https://github.com/OpenZeppelin/nile) and [Poetry](https://python-poetry.org/docs/).
 
-1. Install js dependencies
-   `npm install`
+_Note: Mac and Mac M1 have special instructions you can refer to this [article](https://th0rgal.medium.com/the-easiest-way-to-setup-a-cairo-dev-environment-8f2a63610d46)_
 
-2. Install the latest Nile (equivalent to hardhat) with custom port availability
+1. Install Dependencies
+   `poetry install`
 
-```
-python3 -m venv env
-source env/bin/activate
-git clone https://github.com/OpenZeppelin/nile.git
-env/bin/python3 -m pip install --upgrade pip
-pip install ./nile
-```
+2. Spin up a node (in a separate terminal window w/ the python environment running)
+   `poetry run nile node`
 
-_Note: You'll run these commands every time you develop._
+3. Compile contracts
+   `poetry run nile compile`
 
-3. Setup project
-   `nile init`
+4. Run tests
+   `poetry run pytest tests/`
 
-Optional: Add the following to your ~/.zprofile to quickly spin up your environment each time:
-`alias envsetup="python3 -m venv env; source env/bin/activate; git clone https://github.com/OpenZeppelin/nile.git; env/bin/python3 -m pip install --upgrade pip; pip install ./nile; nile init"`
-
-# Usage
-
-Ensure you're in a Python environment (see step 2 above) before executing the following commands:
-
-1. Spin up a node (in a separate terminal window w/ the python environment running)
-   `nile node`
-
-1. Compiling and deploy a sample contract (in /contracts directory)
-   `npm run compile` or `` CAIRO_PATH=`pwd`/contracts/lib nile compile ``
-
-2. Run transactions against your contract
-   `npm run build`
+5. Deploy contracts
+   `poetry run nile run scripts/deploy.py`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
 
-# Starknet Setup on Mac M1
+# Contributing
 
-**Why do we need a special install guide?**
+We encourage pull requests.
 
-1. M1 Macs use a new architecture which is not compatible with some dependencies (e.g. homebrew). [More info](https://stackoverflow.com/questions/64963370/error-cannot-install-in-homebrew-on-arm-processor-in-intel-default-prefix-usr)\*
+1. **Create an [issue](https://github.com/ZkPad-Labs/zkpad-contracts/issues)** to describe the improvement/issue. Provide as much detail as possible in the beginning so the team understands your improvement/issue.
+2. **Fork the repo** so you can make and test changes in your local repository.
+3. **Test your changes** Make sure your tests (manual and/or automated) pass.
+4. **Create a pull request** and describe the changes you made. Include a reference to the Issue you created.
+5. **Monitor and respond to comments** made by the team around code standards and suggestions. Most pull requests will have some back and forth.
 
-1. Install Homebrew
+If you have further questions, visit [#technology in our discord](https://discord.gg/zkpad) and make sure to reference your issue number.
 
-```
-/usr/sbin/softwareupdate --install-rosetta --agree-to-license
-arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-```
-
-_Note: From here on out, you need to use `arch -x86_64 brew install <package>` to install packages w/ homebrew._
-
-2. Install required dependencies
-
-```
-arch -x86_64 brew install gmp
-npm install
-```
-
-3. Install the latest Nile (equivalent to hardhat) with custom port availability
-
-```
-python3 -m venv env
-source env/bin/activate
-git clone https://github.com/OpenZeppelin/nile.git
-env/bin/python3 -m pip install --upgrade pip
-pip install ./nile
-```
-
-Optional: Add the following to your ~/.zprofile to quickly spin up your environment each time:
-`alias envsetup="python3 -m venv env; source env/bin/activate; git clone https://github.com/OpenZeppelin/nile.git; env/bin/python3 -m pip install --upgrade pip; pip install ./nile; nile init"`
+Thank you for taking the time to make our project better!
