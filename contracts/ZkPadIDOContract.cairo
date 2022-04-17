@@ -6,7 +6,7 @@ from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_n
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
-from InterfaceAll import (IAdmin, IZkIDOFactory, IZkStakingVault, IXoroshiro, XOROSHIRO_ADDR)
+from InterfaceAll import (IAdmin, IZKPadIDOFactory, IZkStakingVault, IXoroshiro, XOROSHIRO_ADDR)
 from contracts.utils.ZkPadConstants import (DAYS_30)
 from contracts.utils.ZkPadUtils import get_is_equal
 from starkware.starknet.common.syscalls import (get_block_timestamp)
@@ -508,7 +508,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (the_sale) = sale.read()
     
     let (factory_address) = ido_factory_contract_address.read()
-    let (lottery_ticket_address) = IZkIDOFactory.get_lottery_ticket_contract_address(contract_address=factory_address)
+    let (lottery_ticket_address) = IZKPadIDOFactory.get_lottery_ticket_contract_address(contract_address=factory_address)
     with_attr error_message("ZkPadIDOContract::register_user Lottery ticket contract address not set"):
         assert_not_zero(lottery_ticket_address)
     end
