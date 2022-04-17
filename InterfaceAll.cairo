@@ -81,6 +81,7 @@ namespace IZkStakingVault:
     end
 end
 
+@contract_interface
 namespace IERC4626:
     func asset() -> (assetTokenAddress : felt):
     end
@@ -131,6 +132,7 @@ namespace IERC4626:
     end
 end
 
+@contract_interface
 namespace IERC20:
     func name() -> (name : felt):
     end
