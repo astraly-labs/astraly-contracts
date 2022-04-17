@@ -6,6 +6,9 @@ from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import Starknet
 
+TRUE = 1
+FALSE = 0
+
 deployer = Signer(1234)
 admin1 = Signer(2345)
 admin2 = Signer(3456)
@@ -64,8 +67,11 @@ def contracts_factory(contract_defs, contacts_init):
 @pytest.mark.asyncio
 @pytest.mark.order(1)
 async def test_init(contracts_factory):
-    zk_pad_admin, _, _, _ = contracts_factory
-    assert (await zk_pad_admin.get_admins_array_len().invoke()).result.res == str_to_felt('2')
+    zk_pad_admin, deployer, admin1, admin2 = contracts_factory
+    assert (await zk_pad_admin.get_admins_array_len().invoke()).result.res == 2
+    assert (await zk_pad_admin.is_admin(admin1.contract_address).invoke()).result.res == TRUE
+    assert (await zk_pad_admin.is_admin(admin2.contract_address).invoke()).result.res == TRUE
+    assert (await zk_pad_admin.is_admin(deployer.contract_address).invoke()).result.res == FALSE
 
 
 
