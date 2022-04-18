@@ -416,7 +416,7 @@ async def test_allowances(contracts_factory):
 
 
 @pytest.mark.asyncio
-async def test_whitelisted_permissions(contracts_factory):
+async def test_permissions(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
     user1 = Signer(2345)
     user1_account = await deploy_account_func(user1.public_key)
@@ -432,6 +432,8 @@ async def test_whitelisted_permissions(contracts_factory):
         user1.send_transaction(
             user1_account, zk_pad_staking.contract_address, "remove_whitelisted_token", [123]),
         "Ownable: caller is not the owner")
+
+    await assert_revert(user1.send_transaction(user1_account, zk_pad_staking.contract_address, "set_stake_boost", [25]))
 
 
 @pytest.mark.asyncio
