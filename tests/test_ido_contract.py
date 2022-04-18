@@ -120,12 +120,12 @@ def contracts_factory(contract_defs, contacts_init):
     return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, zkp_token_cached, ido_cached
 
 @pytest.mark.asyncio
-async def test_set_sale_params(contracts_factory):
+async def test_setup_sale_success_with_events(contracts_factory):
     admin_contract, _, admin_user, stakin_contract, owner_contract, zkp_token, ido = contracts_factory
     day = datetime.today()
-    timeDelta30 = timedelta(days=30)
-    sale_end = day + timeDelta30
-    token_unlock = sale_end + timeDelta30
+    timeDelta30days = timedelta(days=30)
+    sale_end = day + timeDelta30days
+    token_unlock = sale_end + timeDelta30days
     
     tx = await admin1.send_transaction(
         admin_user,
@@ -150,3 +150,23 @@ async def test_set_sale_params(contracts_factory):
         int(sale_end.timestamp()),
         int(token_unlock.timestamp())
     ])
+
+    timeDeltaOneWeek = timedelta(weeks=1)
+    reg_start = day + timeDeltaOneWeek
+    reg_end = reg_start + timeDeltaOneWeek
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_registration_time",
+        [
+            int(reg_start.timestamp()),
+            int(reg_end.timestamp())
+        ]
+    )
+
+    assert_event_emitted(tx, ido.contract_address, "registration_time_set", data=[
+        int(reg_start.timestamp()),
+        int(reg_end.timestamp())
+    ])
+
