@@ -1,6 +1,6 @@
 import pytest
 from utils import (
-    Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted, get_block_timestamp
+    Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
@@ -15,12 +15,9 @@ SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
 owner = Signer(1234)
-
-
-@pytest.fixture(scope='module')
-async def get_starknet():
-    starknet = await Starknet.empty()
-    return starknet
+user1 = Signer(2345)
+user2 = Signer(3456)
+user3 = Signer(4567)
 
 
 @pytest.fixture(scope='module')
@@ -32,13 +29,25 @@ def contract_defs():
 
 
 @pytest.fixture(scope='module')
-async def contacts_init(contract_defs, get_starknet):
-    starknet = get_starknet
+async def contacts_init(contract_defs):
+    starknet = await Starknet.empty()
     account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
 
     owner_account = await starknet.deploy(
         contract_def=account_def,
         constructor_calldata=[owner.public_key]
+    )
+    user1_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[user1.public_key]
+    )
+    user2_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[user2.public_key]
+    )
+    user3_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[user3.public_key]
     )
 
     zk_pad_token = await starknet.deploy(
@@ -61,47 +70,32 @@ async def contacts_init(contract_defs, get_starknet):
             NAME,
             SYMBOL,
             zk_pad_token.contract_address,
-            owner_account.contract_address
         ],
     )
 
     return (
+        starknet.state,
         owner_account,
+        user1_account,
+        user2_account,
+        user3_account,
         zk_pad_token,
         zk_pad_stake
     )
 
 
 @pytest.fixture
-async def contracts_factory(contract_defs, contacts_init, get_starknet):
+def contracts_factory(contract_defs, contacts_init):
     account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
-    owner_account, zk_pad_token, zk_pad_stake = contacts_init
-    _state = get_starknet.state.copy()
+    state, owner_account, user1_account, user2_account, user3_account, zk_pad_token, zk_pad_stake = contacts_init
+    _state = state.copy()
     token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
     stake = cached_contract(_state, zk_pad_stake_def, zk_pad_stake)
     owner_cached = cached_contract(_state, account_def, owner_account)
-
-    async def deploy_contract_func(contract_name, constructor_calldata=None):
-        contract_def = get_contract_def(contract_name)
-        starknet = Starknet(_state)
-        deployed_contract = await starknet.deploy(
-            contract_def=contract_def,
-            constructor_calldata=constructor_calldata)
-        contract = cached_contract(_state, contract_def, deployed_contract)
-
-        return contract
-
-    async def deploy_account_func(public_key):
-        account_def, _, _ = contract_defs
-        starknet = Starknet(_state)
-        deployed_account = await starknet.deploy(
-            contract_def=account_def,
-            constructor_calldata=[public_key]
-        )
-        cached_account = cached_contract(_state, account_def, deployed_account)
-        return cached_account
-
-    return token, stake, owner_cached, deploy_account_func, deploy_contract_func, _state
+    user1_cached = cached_contract(_state, account_def, user1_account)
+    user2_cached = cached_contract(_state, account_def, user2_account)
+    user3_cached = cached_contract(_state, account_def, user3_account)
+    return token, stake, owner_cached, user1_cached, user2_cached, user3_cached
 
 
 @pytest.mark.asyncio
@@ -134,10 +128,7 @@ async def test_conversions(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_deposit_redeem_flow(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-
-    user1 = Signer(2345)
-    user1_account = await deploy_account_func(user1.public_key)
+    zk_pad_token, zk_pad_staking, owner_account, user1_account, _, _ = contracts_factory
 
     await owner.send_transaction(
         owner_account,
@@ -209,10 +200,7 @@ async def test_deposit_redeem_flow(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_mint_withdraw_flow(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-
-    user1 = Signer(2345)
-    user1_account = await deploy_account_func(user1.public_key)
+    zk_pad_token, zk_pad_staking, owner_account, user1_account, _, _ = contracts_factory
 
     await owner.send_transaction(
         owner_account,
@@ -288,17 +276,7 @@ async def test_mint_withdraw_flow(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_allowances(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-
-    user1 = Signer(2345)
-    user1_account = await deploy_account_func(user1.public_key)
-
-    user2 = Signer(3456)
-    user2_account = await deploy_account_func(user2.public_key)
-
-    user3 = Signer(4567)
-    user3_account = await deploy_account_func(user3.public_key)
-
+    zk_pad_token, zk_pad_staking, owner_account, user1_account, user2_account, user3_account = contracts_factory
     amount = to_uint(100_000)
 
     # mint assets to user1
@@ -413,100 +391,3 @@ async def test_allowances(contracts_factory):
         [*to_uint(1), user3_account.contract_address,
          user1_account.contract_address],
     ), error_code=StarknetErrorCode.TRANSACTION_FAILED)
-
-
-@pytest.mark.asyncio
-async def test_whitelisted_permissions(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-    user1 = Signer(2345)
-    user1_account = await deploy_account_func(user1.public_key)
-
-    await assert_revert(
-        user1.send_transaction(
-            user1_account, zk_pad_staking.contract_address, "add_whitelisted_token", [123, 123]),
-        "Ownable: caller is not the owner")
-
-    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "add_whitelisted_token", [123, 123])
-
-    await assert_revert(
-        user1.send_transaction(
-            user1_account, zk_pad_staking.contract_address, "remove_whitelisted_token", [123]),
-        "Ownable: caller is not the owner")
-
-
-@pytest.mark.asyncio
-async def test_deposit_lp(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, deploy_contract_func, state = contracts_factory
-
-    user1 = Signer(2345)
-    user1_account = await deploy_account_func(user1.public_key)
-
-    deposit_amount = 10_000
-    boost_value = int(2.5 * 10)
-
-    mint_calculator = await deploy_contract_func("tests/mocks/test_mint_calculator.cairo")
-    mock_lp_token = await deploy_contract_func("tests/mocks/test_erc20.cairo", [
-        str_to_felt("ZKP ETH LP"),
-        str_to_felt("ZKP/ETH"),
-        DECIMALS,
-        *to_uint(deposit_amount),
-        owner_account.contract_address
-    ])
-    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "set_stake_boost", [boost_value])
-
-    add_whitelisted_token_tx = await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "add_whitelisted_token", [
-        mock_lp_token.contract_address,
-        mint_calculator.contract_address
-    ])
-
-    assert (
-        await zk_pad_staking.is_token_whitelisted(mock_lp_token.contract_address).call()
-    ).result.res == 1
-
-    await owner.send_transaction(
-        owner_account,
-        mock_lp_token.contract_address,
-        "transfer",
-        [user1_account.contract_address, *to_uint(deposit_amount)],
-    )
-
-    assert (
-        await mock_lp_token.balanceOf(user1_account.contract_address).call()
-    ).result.balance == to_uint(deposit_amount)
-
-    assert (
-        await mint_calculator.get_amount_to_mint(to_uint(deposit_amount)).call()
-    ).result.amount == to_uint(deposit_amount)
-
-    current_boost_value = (await zk_pad_staking.get_current_boost_value().call()).result.res
-    assert boost_value == current_boost_value
-    expect_to_mint = int((deposit_amount * current_boost_value) / 10)
-    assert (
-        await zk_pad_staking.get_xzkp_out(mock_lp_token.contract_address, to_uint(deposit_amount)).call()
-    ).result.res == to_uint(expect_to_mint)
-
-    await user1.send_transaction(
-        user1_account,
-        mock_lp_token.contract_address,
-        "approve",
-        [zk_pad_staking.contract_address, *to_uint(deposit_amount)]
-    )
-
-    timestamp = get_block_timestamp(state)
-    one_year = 60 * 60 * 24 * 365
-    mint_transaction = await user1.send_transaction(
-        user1_account,
-        zk_pad_staking.contract_address,
-        "lp_mint",
-        [mock_lp_token.contract_address, *
-            to_uint(deposit_amount), user1_account.contract_address, timestamp + one_year]
-    )
-
-    assert (
-        await zk_pad_staking.balanceOf(user1_account.contract_address).call()
-    ).result.balance == to_uint(expect_to_mint)
-
-    user_stake_info = (await zk_pad_staking.get_user_stake_info(user1_account.contract_address).call()).result
-
-    assert user_stake_info.unlock_time == timestamp + one_year
-    assert mock_lp_token.contract_address in user_stake_info.tokens
