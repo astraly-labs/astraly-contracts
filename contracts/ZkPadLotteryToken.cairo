@@ -36,10 +36,6 @@ func xzkp_contract_address() -> (res : felt):
 end
 
 @storage_var
-func ido_launch_date() -> (res : felt):
-end
-
-@storage_var
 func has_claimed(id : Uint256, user : felt) -> (res : felt):
 end
 
