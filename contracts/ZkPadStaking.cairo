@@ -11,12 +11,13 @@ from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address, get_block_timestamp)
 
 from openzeppelin.utils.constants import TRUE, FALSE
-from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer
+from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
 from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
     uint256_checked_add, uint256_checked_sub_lt, uint256_checked_sub_le, uint256_checked_mul, uint256_checked_div_rem)
+from openzeppelin.security.pausable import Pausable_when_not_paused, Pausable_when_paused, Pausable_pause, Pausable_unpause
 
 from contracts.openzeppelin.security.reentrancy_guard import (
     ReentrancyGuard_start, ReentrancyGuard_end)
@@ -89,6 +90,10 @@ end
 
 @storage_var
 func default_lock_time() -> (lock_time : felt):
+end
+
+@storage_var
+func emergency_breaker() -> (address : felt):
 end
 
 @constructor
@@ -179,6 +184,11 @@ func get_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     let (lock_time : felt) = default_lock_time.read()
     return (lock_time)
 end
+
+func get_emergency_breaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
+    let (address : felt) = emergency_breaker.read()
+    return (address)
+end
 #
 # Externals
 #
@@ -231,9 +241,18 @@ func remove_whitelisted_token{
 end
 
 @external
+func set_emergency_breaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
+    Ownable_only_owner()
+    assert_not_zero(address)
+    emergency_breaker.write(address)
+    return ()
+end
+
+@external
 func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt) -> (shares : Uint256):
     alloc_locals
+    Pausable_when_not_paused()
     let (shares) = ERC4626_deposit(assets, receiver)
     let (underlying_asset : felt) = asset()
     let (current_block_timestamp : felt) = get_block_timestamp()
@@ -247,6 +266,7 @@ end
 func deposit_for_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt, deadline : felt) -> (shares : Uint256):
     alloc_locals
+    Pausable_when_not_paused()
     let (shares) = ERC4626_deposit(assets, receiver)
     set_new_deposit_unlock_time(receiver, deadline)
     let (underlying_asset : felt) = asset()
@@ -261,6 +281,7 @@ func lp_deposit{
         bitwise_ptr : BitwiseBuiltin*}(
         lp_token : felt, input : Uint256, receiver : felt, deadline : felt) -> (shares : Uint256):
     alloc_locals
+    Pausable_when_not_paused()
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
     only_whitelisted_token(lp_token)
@@ -297,6 +318,7 @@ end
 func redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
     alloc_locals
+    Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
@@ -312,6 +334,7 @@ func redeem_lp{
         bitwise_ptr : BitwiseBuiltin*}(
         lp_token : felt, sharesAmount : Uint256, receiver : felt) -> ():
     alloc_locals
+    Pausable_when_not_paused()
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
     only_whitelisted_token(lp_token)
@@ -359,6 +382,7 @@ end
 func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
     alloc_locals
+    Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
     let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
     let (zkp_address : felt) = asset()
@@ -369,6 +393,7 @@ end
 @external
 func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         recipient : felt, amount : Uint256) -> (success : felt):
+    Pausable_when_not_paused()
     let (caller_address : felt) = get_caller_address()
     assert_not_before_unlock_time(caller_address)
     ERC20_transfer(recipient, amount)
@@ -378,6 +403,7 @@ end
 @external
 func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
+    Pausable_when_not_paused()
     assert_not_before_unlock_time(sender)
     ERC20_transferFrom(sender, recipient, amount)
     return (TRUE)
@@ -395,6 +421,7 @@ end
 @external
 func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         spender : felt, amount : Uint256) -> (success : felt):
+    Pausable_when_not_paused()
     let (caller_address : felt) = get_caller_address()
     assert_not_before_unlock_time(caller_address)
     ERC20_approve(spender, amount)
@@ -405,6 +432,33 @@ end
 func set_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time : felt) -> ():
     Ownable_only_owner()
     default_lock_time.write(new_lock_time)
+    return ()
+end
+
+@external
+func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    alloc_locals
+    let (caller_address : felt) = get_caller_address()
+    let (emergency_breaker_address : felt) = emergency_breaker.read()
+    let (owner : felt ) = Ownable_get_owner()
+    local permissions
+    if owner == caller_address:
+        permissions = TRUE
+    end
+    if emergency_breaker_address == caller_address:
+        permissions = TRUE # either owner or emergency breaker have permission to pause the contract
+    end
+    with_attr error_message("invalid permissions"):
+        assert permissions = TRUE
+    end
+    Pausable_pause()
+    return ()
+end
+
+@external
+func unpause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
+    Ownable_only_owner()
+    Pausable_unpause()
     return ()
 end
 
