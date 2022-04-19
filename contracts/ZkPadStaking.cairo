@@ -16,7 +16,7 @@ from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
-    uint256_checked_add, uint256_checked_sub_lt, uint256_checked_mul, uint256_checked_div_rem)
+    uint256_checked_add, uint256_checked_sub_lt, uint256_checked_sub_le, uint256_checked_mul, uint256_checked_div_rem)
 
 from contracts.openzeppelin.security.reentrancy_guard import (
     ReentrancyGuard_start, ReentrancyGuard_end)
@@ -239,7 +239,7 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
     let (current_block_timestamp : felt) = get_block_timestamp()
     let (default_lock_period : felt) = default_lock_time.read()
     set_new_deposit_unlock_time(receiver, current_block_timestamp + default_lock_period)
-    modify_user_deposit(receiver, underlying_asset, assets)
+    update_user_after_deposit(receiver, underlying_asset, assets)
     return (shares)
 end
 
@@ -248,9 +248,9 @@ func deposit_for_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         assets : Uint256, receiver : felt, deadline : felt) -> (shares : Uint256):
     alloc_locals
     let (shares) = ERC4626_deposit(assets, receiver)
-    let (underlying_asset : felt) = asset()
     set_new_deposit_unlock_time(receiver, deadline)
-    modify_user_deposit(receiver, underlying_asset, assets)
+    let (underlying_asset : felt) = asset()
+    update_user_after_deposit(receiver, underlying_asset, assets)
     return (shares)
 end
 
@@ -287,41 +287,20 @@ func lp_deposit{
 
     let (amount_to_mint : Uint256) = get_xzkp_out(lp_token, input)
     ERC20_mint(receiver, amount_to_mint)
-    modify_user_deposit(receiver, lp_token, amount_to_mint)
+    update_user_after_deposit(receiver, lp_token, amount_to_mint)
     Deposit_lp.emit(caller_address, receiver, lp_token, input, amount_to_mint)
     ReentrancyGuard_end()
     return (amount_to_mint)
 end
 
-func modify_user_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
-        user : felt, token : felt, new_amount : Uint256) -> ():
-    alloc_locals
-    let (current_deposit_amount : Uint256) = deposits.read(user, token)
-    let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, new_amount)
-    deposits.write(user, token, new_deposit_amount)
-
-
-    let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
-    if is_first_deposit == TRUE:
-        add_token_to_user_mask(user, token)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
-    end
-    return ()
-end
-
 @external
-func redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
+    alloc_locals
     assert_not_before_unlock_time(owner)
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
+    let (zkp_address : felt) = asset()
+    update_mask_after_withdraw(owner, zkp_address)
     return (assets)
 end
 
@@ -348,45 +327,42 @@ func redeem_lp{
         withdraw_from_investment_strategies(lp_token, amount_to_withdraw)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr = pedersen_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     else:
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr = pedersen_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     end
 
     ERC20_burn(owner, sharesAmount)
-    let (underlying_asset : felt) = asset()
     let (user_current_deposit_amount : Uint256) = deposits.read(receiver, lp_token)
     let (lp_withdraw_amount : Uint256) = calculate_withdraw_lp_amount(owner, lp_token, sharesAmount)
 
-    let (withdraw_more_than_deposit :felt) = uint256_lt(user_current_deposit_amount, lp_withdraw_amount) # allow, user earned fees
+    let (withdraw_more_than_deposit : felt) = uint256_lt(user_current_deposit_amount, lp_withdraw_amount) # allow, user earned fees
     if withdraw_more_than_deposit == TRUE:
         deposits.write(receiver, lp_token, Uint256(0,0))
-
-        let (user_current_tokens_mask : felt) = user_staked_tokens.read(receiver)
-        let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
-        let (new_user_tokens_mask : felt) = bitwise_xor(
-            user_current_tokens_mask, whitelisted_token.bit_mask)
-        user_staked_tokens.write(receiver, new_user_tokens_mask)
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+        update_mask_after_withdraw(owner, lp_token)
     else:
-        let (new_user_deposit_amount : Uint256) = uint256_checked_sub_lt(user_current_deposit_amount, lp_withdraw_amount)
+        let (new_user_deposit_amount : Uint256) = uint256_checked_sub_le(user_current_deposit_amount, lp_withdraw_amount)
         deposits.write(receiver, lp_token, new_user_deposit_amount)
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
 
-    IERC20.transfer(underlying_asset, receiver, lp_withdraw_amount)
+    let (success : felt) = IERC20.transfer(lp_token, receiver, lp_withdraw_amount)
+    assert success = TRUE
     Redeem_lp.emit(receiver, owner, lp_token, lp_withdraw_amount, sharesAmount)
     ReentrancyGuard_end()
     return ()
 end
 
 @external
-func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
+    alloc_locals
     assert_not_before_unlock_time(owner)
     let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
+    let (zkp_address : felt) = asset()
+    update_mask_after_withdraw(owner, zkp_address)
     return (shares)
 end
 
@@ -512,7 +488,7 @@ func assert_not_before_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuilt
     let (current_block_timestamp : felt) = get_block_timestamp()
     let (unlock_time : felt) = deposit_unlock_time.read(user)
     with_attr error_message("timestamp {current_block_timestamp} lower than deposit unlock time {unlock_time}"):
-        assert_le(current_block_timestamp, unlock_time)
+        assert_le(unlock_time, current_block_timestamp)
     end
     return ()
 end
@@ -520,7 +496,10 @@ end
 func calculate_withdraw_lp_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt, lp_token : felt, sharesAmount : Uint256) -> (amount : Uint256):
     # TODO: calculate user return
-    return (sharesAmount)
+    let (multiplied : Uint256) = uint256_checked_mul(sharesAmount, Uint256(0, 10))
+    let (current_boost : felt) = stake_boost.read()
+    let (res : Uint256, _) = uint256_checked_div_rem(multiplied, Uint256(0, current_boost))
+    return (res)
 end
 
 func set_new_deposit_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user :felt, deadline : felt) -> ():
@@ -534,5 +513,54 @@ func set_new_deposit_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
         assert_lt(current_block_timestamp, deadline)
     end
     deposit_unlock_time.write(user, deadline)
+    return ()
+end
+
+# update user deposit info and staked tokens bit mask
+func update_user_after_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
+        user : felt, token : felt, new_amount : Uint256) -> ():
+    alloc_locals
+    let (current_deposit_amount : Uint256) = deposits.read(user, token)
+    let (new_deposit_amount : Uint256) = uint256_checked_add(current_deposit_amount, new_amount)
+    deposits.write(user, token, new_deposit_amount)
+
+
+    let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
+    if is_first_deposit == TRUE:
+        add_token_to_user_mask(user, token)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    end
+    return ()
+end
+
+# remove user staked tokens from the bit mask is new balance is 0
+func update_mask_after_withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(user : felt, token : felt) -> ():
+    alloc_locals
+    let (current_user_deposit : Uint256) = deposits.read(user, token)
+    let (withdraw_all_tokens : felt) = uint256_is_zero(current_user_deposit)
+    if withdraw_all_tokens == TRUE:
+        let (user_current_tokens_mask : felt) = user_staked_tokens.read(user)
+        let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(token)
+        let (new_user_tokens_mask : felt) = bitwise_xor(
+            user_current_tokens_mask, whitelisted_token.bit_mask)
+        user_staked_tokens.write(user, new_user_tokens_mask)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+    end
     return ()
 end

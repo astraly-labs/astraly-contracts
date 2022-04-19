@@ -1,6 +1,6 @@
 import pytest
 from utils import (
-    Signer, to_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted, get_block_timestamp
+    Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted, get_block_timestamp, set_block_timestamp
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
@@ -438,7 +438,7 @@ async def test_permissions(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_deposit_lp(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, deploy_contract_func, state = contracts_factory
+    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, deploy_contract_func, starknet_state = contracts_factory
 
     user1 = Signer(2345)
     user1_account = await deploy_account_func(user1.public_key)
@@ -494,21 +494,52 @@ async def test_deposit_lp(contracts_factory):
         [zk_pad_staking.contract_address, *to_uint(deposit_amount)]
     )
 
-    timestamp = get_block_timestamp(state)
+    vault_balance_before_deposit = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
+    timestamp = get_block_timestamp(starknet_state)
     one_year = 60 * 60 * 24 * 365
     mint_transaction = await user1.send_transaction(
         user1_account,
         zk_pad_staking.contract_address,
-        "lp_mint",
+        "lp_deposit",
         [mock_lp_token.contract_address, *
             to_uint(deposit_amount), user1_account.contract_address, timestamp + one_year]
     )
+    user_xzkp_balance = (await zk_pad_staking.balanceOf(user1_account.contract_address).call()).result.balance
+    assert user_xzkp_balance == to_uint(expect_to_mint)
 
-    assert (
-        await zk_pad_staking.balanceOf(user1_account.contract_address).call()
-    ).result.balance == to_uint(expect_to_mint)
+    vault_balance_after_deposit = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
+    assert from_uint(vault_balance_after_deposit) == from_uint(
+        vault_balance_before_deposit) + deposit_amount
 
     user_stake_info = (await zk_pad_staking.get_user_stake_info(user1_account.contract_address).call()).result
 
     assert user_stake_info.unlock_time == timestamp + one_year
     assert mock_lp_token.contract_address in user_stake_info.tokens
+
+    await assert_revert(user1.send_transaction(user1_account, zk_pad_staking.contract_address, "redeem_lp", [
+        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address]),
+        reverted_with="lower than deposit unlock time")
+
+    set_block_timestamp(starknet_state, user_stake_info.unlock_time + 1)
+
+    vault_balance_before_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
+
+    redeem_tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "redeem_lp", [
+        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address])
+
+    vault_balance_after_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
+
+    assert from_uint(vault_balance_before_redeem) == from_uint(
+        vault_balance_after_redeem) + deposit_amount
+
+    assert_event_emitted(redeem_tx, zk_pad_staking.contract_address, "Redeem_lp", [
+        user1_account.contract_address,
+        user1_account.contract_address,
+        mock_lp_token.contract_address,
+        *to_uint(deposit_amount),
+        *user_xzkp_balance
+    ])
+
+    assert (
+        await mock_lp_token.balanceOf(user1_account.contract_address).call()
+    ).result.balance == to_uint(deposit_amount)
