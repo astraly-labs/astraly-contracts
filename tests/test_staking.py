@@ -1,9 +1,10 @@
+import time
+
 import pytest
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert, assert_event_emitted, get_block_timestamp, set_block_timestamp
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import Starknet
 
 INIT_SUPPLY = to_uint(1_000_000)
@@ -15,11 +16,13 @@ SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
 owner = Signer(1234)
+one_year = 60 * 60 * 24 * 365
 
 
 @pytest.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()
+    set_block_timestamp(starknet.state, int(time.time()))
     return starknet
 
 
@@ -134,7 +137,7 @@ async def test_conversions(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_deposit_redeem_flow(contracts_factory):
-    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
+    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
     user1 = Signer(2345)
     user1_account = await deploy_account_func(user1.public_key)
@@ -183,7 +186,77 @@ async def test_deposit_redeem_flow(contracts_factory):
         await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
     ).result.balance == to_uint(90_000)
 
+    current_timestamp = get_block_timestamp(starknet_state)
+    set_block_timestamp(starknet_state, current_timestamp + one_year + 1)
     # redeem vault shares, get back assets
+    tx = await user1.send_transaction(
+        user1_account,
+        zk_pad_staking.contract_address,
+        "redeem",
+        [*amount, user1_account.contract_address,
+         user1_account.contract_address],
+    )
+
+    assert (
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
+    assert_event_emitted(tx, zk_pad_staking.contract_address, "Withdraw", data=[
+        user1_account.contract_address,
+        user1_account.contract_address,
+        user1_account.contract_address,
+        *tx.result.response,
+        *amount,
+    ])
+    assert (
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
+
+
+@pytest.mark.asyncio
+async def test_deposit_for_time_and_redeem_flow(contracts_factory):
+    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
+
+    user1 = Signer(2345)
+    user1_account = await deploy_account_func(user1.public_key)
+
+    await owner.send_transaction(
+        owner_account,
+        zk_pad_token.contract_address,
+        "mint",
+        [user1_account.contract_address, *to_uint(100_000)],
+    )
+    assert (
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
+
+    assert (
+        await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
+    ).result.maxAssets == MAX_UINT256
+
+    # max approve
+    await user1.send_transaction(
+        user1_account,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_staking.contract_address, *MAX_UINT256],
+    )
+
+    amount = to_uint(10_000)
+    current_timestamp = get_block_timestamp(starknet_state)
+
+    # deposit asset tokens to the vault, get shares
+    tx = await user1.send_transaction(
+        user1_account,
+        zk_pad_staking.contract_address,
+        "deposit_for_time",
+        [*amount, user1_account.contract_address,
+            current_timestamp + (one_year * 2)],
+    )
+    assert (
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == amount
+
+    set_block_timestamp(starknet_state, current_timestamp + (one_year * 2) + 1)
     tx = await user1.send_transaction(
         user1_account,
         zk_pad_staking.contract_address,
@@ -496,7 +569,7 @@ async def test_deposit_lp(contracts_factory):
 
     vault_balance_before_deposit = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
     timestamp = get_block_timestamp(starknet_state)
-    one_year = 60 * 60 * 24 * 365
+
     mint_transaction = await user1.send_transaction(
         user1_account,
         zk_pad_staking.contract_address,
