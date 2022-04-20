@@ -29,15 +29,16 @@ async def get_starknet():
 @pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
-    return account_def, zk_pad_token_def, zk_pad_stake_def
+    return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
 
 
 @pytest.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
-    account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
+    account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
 
     owner_account = await starknet.deploy(
         contract_def=account_def,
@@ -58,26 +59,26 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
-    zk_pad_stake = await starknet.deploy(
-        contract_def=zk_pad_stake_def,
-        constructor_calldata=[
-            NAME,
-            SYMBOL,
-            zk_pad_token.contract_address,
-            owner_account.contract_address
-        ],
-    )
+    zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
+
+    zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def, constructor_calldata=[zk_pad_stake_implementation.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
+        NAME,
+        SYMBOL,
+        zk_pad_token.contract_address,
+        owner_account.contract_address
+    ])
 
     return (
         owner_account,
         zk_pad_token,
-        zk_pad_stake
+        zk_pad_stake_proxy
     )
 
 
 @pytest.fixture
 async def contracts_factory(contract_defs, contacts_init, get_starknet):
-    account_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
+    account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
     owner_account, zk_pad_token, zk_pad_stake = contacts_init
     _state = get_starknet.state.copy()
     token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
@@ -95,7 +96,7 @@ async def contracts_factory(contract_defs, contacts_init, get_starknet):
         return contract
 
     async def deploy_account_func(public_key):
-        account_def, _, _ = contract_defs
+        account_def, _, _, _ = contract_defs
         starknet = Starknet(_state)
         deployed_account = await starknet.deploy(
             contract_def=account_def,
@@ -118,8 +119,66 @@ async def test_init(contracts_factory):
     assert (await zk_pad_staking.totalAssets().invoke()).result.totalManagedAssets == to_uint(0)
 
 
+async def cache_on_state(state, contract_def, deployment_func):
+    deployment = await deployment_func
+    return cached_contract(state, contract_def, deployment)
+
+
 @pytest.mark.asyncio
-async def test_conversions(contracts_factory):
+async def test_proxy_upgrade(contract_defs, contacts_init):
+    account_def, proxy_def, _, zk_pad_stake_def = contract_defs
+    erc20_def = get_contract_def('openzeppelin/token/erc20/ERC20.cairo')
+    starknet = await Starknet.empty()
+    user = Signer(123)
+    owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[owner.public_key]
+    ))
+    user_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[user.public_key]
+    ))
+
+    erc20_contract = await cache_on_state(
+        starknet.state, erc20_def, starknet.deploy(contract_def=erc20_def, constructor_calldata=[
+            str_to_felt("ZkPad"),
+            str_to_felt("ZKP"),
+            DECIMALS,
+            *INIT_SUPPLY,
+            owner_account.contract_address
+        ]))
+
+    zk_pad_stake_implementation = await cache_on_state(
+        starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=zk_pad_stake_def))
+
+    zk_pad_stake_proxy = await cache_on_state(starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=proxy_def, constructor_calldata=[zk_pad_stake_implementation.contract_address]))
+
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
+        NAME,
+        SYMBOL,
+        erc20_contract.contract_address,
+        owner_account.contract_address
+    ])
+
+    current_zk_pad_stake_implementation_address = (await user.send_transaction(user_account, zk_pad_stake_proxy.contract_address, "get_implementation", [])).result.response[0]
+    assert zk_pad_stake_implementation.contract_address == current_zk_pad_stake_implementation_address
+
+    new_zk_pad_implementation = await cache_on_state(
+        starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=zk_pad_stake_def))
+    await assert_revert(
+        user.send_transaction(
+            user_account, zk_pad_stake_proxy.contract_address, "upgrade",
+            [new_zk_pad_implementation.contract_address]),
+        "Proxy: caller is not admin",
+        StarknetErrorCode.TRANSACTION_FAILED
+    )
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "upgrade", [new_zk_pad_implementation.contract_address])
+    current_zk_pad_stake_implementation_address = (await user.send_transaction(user_account, zk_pad_stake_proxy.contract_address, "get_implementation", [])).result.response[0]
+    assert new_zk_pad_implementation.contract_address == current_zk_pad_stake_implementation_address
+
+
+@pytest.mark.asyncio
+async def test_conversions(contract_defs, contracts_factory):
     _, zk_pad_staking, _, _, _, _ = contracts_factory
     shares = to_uint(1000)
     assets = to_uint(1000)

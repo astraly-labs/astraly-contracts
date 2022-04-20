@@ -18,6 +18,12 @@ from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
     uint256_checked_add, uint256_checked_sub_lt, uint256_checked_sub_le, uint256_checked_mul, uint256_checked_div_rem)
 from openzeppelin.security.pausable import Pausable_when_not_paused, Pausable_when_paused, Pausable_pause, Pausable_unpause
+from openzeppelin.upgrades.library import (
+    Proxy_only_admin,
+    Proxy_initializer,
+    Proxy_get_implementation,
+    Proxy_set_implementation
+)
 
 from contracts.openzeppelin.security.reentrancy_guard import (
     ReentrancyGuard_start, ReentrancyGuard_end)
@@ -96,21 +102,6 @@ end
 func emergency_breaker() -> (address : felt):
 end
 
-@constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, asset_addr : felt, owner : felt):
-    ERC4626_initializer(name, symbol, asset_addr)
-    Ownable_initializer(owner)
-
-    default_lock_time.write(31536000) # 1 year
-
-    # # Add ZKP token to the whitelist and bit mask on first position
-    token_mask_addresses.write(1, asset_addr)
-    whitelisted_tokens_mask.write(1)
-    whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0))
-    return ()
-end
-
 #
 # View
 #
@@ -185,13 +176,48 @@ func get_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     return (lock_time)
 end
 
+@view
 func get_emergency_breaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
     let (address : felt) = emergency_breaker.read()
+    return (address)
+end
+
+@view
+func get_implementation{
+        syscall_ptr : felt*, 
+        pedersen_ptr : HashBuiltin*,
+        range_check_ptr
+    }() -> (address: felt):
+    let (address) = Proxy_get_implementation()
     return (address)
 end
 #
 # Externals
 #
+
+@external
+func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    assert_not_zero(owner)
+    Proxy_initializer(owner)
+    ERC4626_initializer(name, symbol, asset_addr)
+    Ownable_initializer(owner)
+
+    default_lock_time.write(31536000) # 1 year
+
+    # # Add ZKP token to the whitelist and bit mask on first position
+    token_mask_addresses.write(1, asset_addr)
+    whitelisted_tokens_mask.write(1)
+    whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0))
+    return ()
+end
+
+@external
+func upgrade{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_implementation : felt) -> ():
+    Proxy_only_admin()
+    Proxy_set_implementation(new_implementation)
+    return ()
+end
 
 @external
 func add_whitelisted_token{
