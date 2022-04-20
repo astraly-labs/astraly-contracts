@@ -614,7 +614,15 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range
 end
 
 func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (rnd : felt):
-    let (rnd) = IXoroshiro.next(contract_address=XOROSHIRO_ADDR)
+    let (ido_factory_address) = ido_factory_contract_address.read()
+    let (rnd_nbr_gen_addr) = IZKPadIDOFactory.get_random_number_generator_address(contract_address=ido_factory_address)
+    with_attr error_message("ZkPadIDOContract::get_random_number random number generator address not set in the factory"):
+        assert_not_zero(rnd_nbr_gen_addr)
+    end
+    let (rnd) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr)
+    with_attr error_message("ZkPadIDOContract::get_random_number invalid random number value"):
+        assert_not_zero(rnd)
+    end
     return (rnd)
 end
 
