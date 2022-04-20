@@ -38,6 +38,9 @@ namespace IZKPadIDOFactory:
 
     func get_lottery_ticket_contract_address() -> (lottery_ticket_address : felt):
     end
+
+    func get_random_number_generator_address() -> (random_number_generator_address : felt):
+    end
 end
 
 @contract_interface

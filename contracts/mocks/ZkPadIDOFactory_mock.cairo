@@ -16,6 +16,10 @@ end
 func current_id() -> (id : felt):
 end
 
+@storage_var
+func random_number_generator_address() -> (res : felt):
+end
+
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         id : felt) -> (launch_date : felt):
@@ -33,6 +37,12 @@ func get_ido_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     return (the_address)
 end
 
+@view
+func get_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (rnd_nbr_gen_adr) = random_number_generator_address.read()
+    return (res = rnd_nbr_gen_adr)
+end
+
 @external
 func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt):
     alloc_locals
@@ -40,4 +50,10 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     ido_contract_addresses.write(_id, address)
     current_id.write(_id + 1)
     return ()
+end
+
+@external
+func set_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(rnd_nbr_gen_adr : felt):
+    random_number_generator_address.write(rnd_nbr_gen_adr)
+    return()
 end

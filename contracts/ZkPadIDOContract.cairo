@@ -219,16 +219,19 @@ end
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
     _admin_address : felt,
-    _staking_vault_address : felt
+    _staking_vault_address : felt,
+    _ido_factory_contract_address : felt
 ):
     assert_not_zero(_admin_address)
     assert_not_zero(_staking_vault_address)
+    assert_not_zero(_ido_factory_contract_address)
 
     let (caller) = get_caller_address()
-    ido_factory_contract_address.write(caller)
+    # for now we will pass the address of the factory until we are able to instantiate the IDO contract from the factory
+    # ido_factory_contract_address.write(caller)
+    ido_factory_contract_address.write(_ido_factory_contract_address)
     admin_contract_address.write(_admin_address)
     staking_vault_contract_address.write(_staking_vault_address)
-    # shoule we initialize the structs and arrays with default values here?
 
     return ()
 end
