@@ -5,12 +5,12 @@ import math
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
-from starkware.starknet.business_logic.state import BlockInfo
+from starkware.starknet.business_logic.state.state import BlockInfo
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
-from starkware.starknet.business_logic.transaction_execution_objects import Event
+from starkware.starknet.business_logic.execution.objects import Event
 
 
 MAX_UINT256 = (2**128 - 1, 2**128 - 1)
@@ -226,6 +226,6 @@ def get_block_timestamp(starknet_state):
 
 
 def set_block_timestamp(starknet_state, timestamp):
-    starknet_state.state.block_info = BlockInfo(
+    starknet_state.state.block_info = BlockInfo.create_for_testing(
         starknet_state.state.block_info.block_number, timestamp
     )
