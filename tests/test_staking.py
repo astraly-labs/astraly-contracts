@@ -632,7 +632,7 @@ async def test_deposit_lp(contracts_factory):
     mint_transaction = await user1.send_transaction(
         user1_account,
         zk_pad_staking.contract_address,
-        "lp_deposit",
+        "deposit_lp",
         [mock_lp_token.contract_address, *
             to_uint(deposit_amount), user1_account.contract_address, timestamp + one_year]
     )
