@@ -94,6 +94,11 @@ end
 func user_staked_tokens(user : felt) -> (tokens_mask : felt):
 end
 
+# value is multiplied by 10 to store floating points number in felt type
+@storage_var
+func stake_boost() -> (boost : felt):
+end
+
 @storage_var
 func default_lock_time() -> (lock_time : felt):
 end
@@ -107,7 +112,7 @@ end
 #
 
 @view
-func is_token_whitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func isTokenWhitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         lp_token : felt) -> (res : felt):
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     if whitelisted_token.bit_mask == 0:
@@ -117,8 +122,11 @@ func is_token_whitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 end
 
 # Amount of xZKP a user will receive by providing LP token
+# lp_token Address of the ZKP/ETH LP token
+# assets Amount of LP tokens or the NFT id
+# lock_time Number of days user lock the tokens
 @view
-func preview_deposit_lp{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         lp_token : felt, assets : Uint256, lock_time : felt) -> (shares : Uint256):
     alloc_locals
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
@@ -134,13 +142,25 @@ func preview_deposit_lp{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         whitelisted_token.mint_calculator_address, assets)
     let (converted_to_shares : Uint256) = convertToShares(amount_to_mint)
 
-    let (value_multiplied : Uint256) = uint256_checked_mul(converted_to_shares, Uint256(0, lock_time))
-    let (shares : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(0, 730))
-    return (shares)
+    let (value_multiplied : Uint256) = uint256_checked_mul(converted_to_shares, Uint256(low=lock_time, high=0))
+    let (shares : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=730, high=0))
+    let (current_boost : felt) = stake_boost.read()
+    if current_boost == 0:
+        return (shares)
+    end
+    let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(low=current_boost, high=0))
+    return (applied_boost)
 end
 
 @view
-func get_user_stake_info{
+func getCurrentBoostValue{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        ) -> (res : felt):
+    let (res : felt) = stake_boost.read()
+    return (res)
+end
+
+@view
+func getUserStakeInfo{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(user : felt) -> (unlock_time : felt, tokens_len : felt, tokens : felt*):
     alloc_locals
@@ -154,26 +174,26 @@ func get_user_stake_info{
 end
 
 @view
-func get_tokens_mask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+func getTokensMask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
         tokens_mask : felt):
     let (bit_mask : felt) = whitelisted_tokens_mask.read()
     return (bit_mask)
 end
 
 @view
-func get_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (lock_time : felt):
+func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (lock_time : felt):
     let (lock_time : felt) = default_lock_time.read()
     return (lock_time)
 end
 
 @view
-func get_emergency_breaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
+func getEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
     let (address : felt) = emergency_breaker.read()
     return (address)
 end
 
 @view
-func get_implementation{
+func getImplementation{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -183,7 +203,7 @@ func get_implementation{
 end
 
 @view
-func preview_redeem_lp{
+func previewRedeemLP{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -197,7 +217,7 @@ func preview_redeem_lp{
 end
 
 @view
-func preview_withdraw_lp{
+func previewWithdrawLP{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
@@ -216,12 +236,14 @@ end
 @external
 func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    alloc_locals
     assert_not_zero(owner)
     Proxy_initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
 
-    default_lock_time.write(31536000) # 1 year
+    let (seconds : felt) = days_to_seconds(365)
+    default_lock_time.write(seconds)
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
@@ -238,7 +260,7 @@ func upgrade{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 end
 
 @external
-func add_whitelisted_token{
+func addWhitelistedToken{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt) -> (
         token_mask : felt):
@@ -270,7 +292,7 @@ func add_whitelisted_token{
 end
 
 @external
-func remove_whitelisted_token{
+func removeWhitelistedToken{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(lp_token : felt) -> ():
     Ownable_only_owner()
@@ -285,7 +307,7 @@ func remove_whitelisted_token{
 end
 
 @external
-func set_emergency_breaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
+func setEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt) -> ():
     Ownable_only_owner()
     assert_not_zero(address)
     emergency_breaker.write(address)
@@ -308,7 +330,7 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
 end
 
 @external
-func deposit_for_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
+func depositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt, lock_time : felt) -> (shares : Uint256):
     alloc_locals
     ReentrancyGuard_start()
@@ -323,7 +345,7 @@ end
 
 ## `input` should be the amount of tokens in case of an ERC20 or the id in case of ERC721
 @external
-func deposit_lp{
+func depositLP{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
         lp_token : felt, assets : Uint256, receiver : felt, lock_time : felt) -> (shares : Uint256):
@@ -332,7 +354,8 @@ func deposit_lp{
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
     only_whitelisted_token(lp_token)
-    set_new_deposit_unlock_time(receiver, lock_time)
+    let (seconds : felt) = days_to_seconds(lock_time)
+    set_new_deposit_unlock_time(receiver, seconds)
 
     let (caller_address : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
@@ -353,7 +376,7 @@ func deposit_lp{
         tempvar range_check_ptr = range_check_ptr
     end
 
-    let (shares : Uint256) = preview_deposit_lp(lp_token, assets, lock_time)
+    let (shares : Uint256) = previewDepositLP(lp_token, assets, lock_time)
     ERC20_mint(receiver, shares)
     update_user_after_deposit(receiver, lp_token, shares)
     Deposit_lp.emit(caller_address, receiver, lp_token, assets, shares)
@@ -395,7 +418,7 @@ end
 # lp_token is the LP token address user deposited first and get the xZKP tokens
 # shares amount of xZKP tokens user want to redeem
 @external
-func redeem_lp{
+func redeemLP{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
         lp_token : felt, shares : Uint256, owner : felt, receiver : felt) -> (amount : Uint256):
@@ -462,13 +485,13 @@ func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
 end
 
 @external
-func withdraw_lp{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
+func withdrawLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         lp_token : felt, assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
     alloc_locals
     Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
     let (caller : felt) = get_caller_address()
-    let (shares : Uint256) = preview_withdraw_lp(lp_token, assets)
+    let (shares : Uint256) = previewWithdrawLP(lp_token, assets)
     if caller != owner:
         decrease_allowance_by_amount(owner, caller, shares)
         tempvar syscall_ptr = syscall_ptr
@@ -530,9 +553,21 @@ func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 end
 
 @external
-func set_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time : felt) -> ():
+func setStakeBoost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        new_boost_value : felt) -> ():
     Ownable_only_owner()
-    default_lock_time.write(new_lock_time)
+    assert_not_zero(new_boost_value)
+    stake_boost.write(new_boost_value)
+    return ()
+end
+
+# new_lock_time number of days
+@external
+func setDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time : felt) -> ():
+    alloc_locals
+    Ownable_only_owner()
+    let (seconds : felt) = days_to_seconds(new_lock_time)
+    default_lock_time.write(seconds)
     return ()
 end
 
@@ -715,4 +750,24 @@ func remove_from_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
     return ()
+end
+
+func days_to_seconds{syscall_ptr : felt*, range_check_ptr}(days : felt) -> (seconds : felt):
+    let (hours : felt) = safe_multiply(days, 24)
+    let (minutes : felt) = safe_multiply(hours, 60)
+    let (seconds : felt) = safe_multiply(minutes, 60)
+    return (seconds)
+end
+
+func safe_multiply{syscall_ptr : felt*, range_check_ptr}(a : felt, b : felt) -> (result : felt):
+    if a == 0:
+        return (0)
+    end
+    if b == 0:
+        return (0)
+    end
+    let res : felt = a * b
+    assert_le(a, res)
+    assert_le(b, res)
+    return (res)
 end
