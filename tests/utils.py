@@ -1,5 +1,5 @@
 """Utilities for testing Cairo contracts."""
-
+from collections import namedtuple
 from pathlib import Path
 import math
 import site
@@ -12,15 +12,13 @@ from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event
 
-
-MAX_UINT256 = (2**128 - 1, 2**128 - 1)
+MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
 FALSE = 0
 
 TRANSACTION_VERSION = 0
-
 
 _root = Path(__file__).parent.parent
 
@@ -53,12 +51,17 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
 
 
 def uint(a):
-    return(a, 0)
+    return (a, 0)
 
 
 def to_uint(a):
     """Takes in value, returns uint256-ish tuple."""
     return (a & ((1 << 128) - 1), a >> 128)
+
+
+def to_uint_typed(a):
+    Uint256 = namedtuple("Uint256", "low high")
+    return Uint256(low=a & ((1 << 128) - 1), high=a >> 128)
 
 
 def from_uint(uint):

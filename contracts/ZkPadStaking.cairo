@@ -31,7 +31,7 @@ from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance,
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit,
     maxMint, previewMint, maxWithdraw, previewWithdraw, maxRedeem, previewRedeem,
-    ERC4626_withdraw, ERC4626_deposit, ERC4626_initializer, ERC4626_previewDeposit, ERC4626_redeem, ERC4626_mint,
+    ERC4626_withdraw, ERC4626_deposit, ERC4626_initializer, ERC4626_redeem, ERC4626_mint,
     decrease_allowance_by_amount)
 from openzeppelin.token.erc20.library import ERC20_approve, ERC20_burn, ERC20_transfer, ERC20_transferFrom, ERC20_mint
 from contracts.utils import uint256_is_zero
@@ -148,8 +148,9 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     if current_boost == 0:
         return (shares)
     end
-    let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(low=current_boost, high=0))
-    return (applied_boost)
+    let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(current_boost, 0))
+    let (res : Uint256, _) = uint256_checked_div_rem(applied_boost, Uint256(10, 0))
+    return (res)
 end
 
 @view
@@ -395,9 +396,8 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bit
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
 
     let (underlying_asset : felt) = asset()
-    let (current_block_timestamp : felt) = get_block_timestamp()
     let (default_lock_period : felt) = default_lock_time.read()
-    set_new_deposit_unlock_time(receiver, current_block_timestamp + default_lock_period)
+    set_new_deposit_unlock_time(receiver, default_lock_period)
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
     return (assets)

@@ -1,6 +1,6 @@
 %lang starknet
 
-from openzeppelin.token.erc20.ERC20 import constructor
+from openzeppelin.token.erc20.ERC20_Mintable import constructor
 
 
 @external

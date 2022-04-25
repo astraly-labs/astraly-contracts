@@ -596,15 +596,26 @@ async def test_deposit_lp(contracts_factory):
 
     deposit_amount = 10_000
     boost_value = int(2.5 * 10)
+    initial_lock_time = 365  # days
 
     mint_calculator = await deploy_contract_func("tests/mocks/test_mint_calculator.cairo")
     mock_lp_token = await deploy_contract_func("tests/mocks/test_erc20.cairo", [
         str_to_felt("ZKP ETH LP"),
         str_to_felt("ZKP/ETH"),
         DECIMALS,
-        *to_uint(deposit_amount),
+        *to_uint(deposit_amount * 2),
+        user1_account.contract_address,
         owner_account.contract_address
     ])
+
+    # just to have balance for withdraw after earn interest
+    await user1.send_transaction(
+        user1_account,
+        mock_lp_token.contract_address,
+        "transfer",
+        [zk_pad_staking.contract_address, *to_uint(deposit_amount)]
+    )  # TODO: Remove after implementing the withdraw from investment strategies function
+
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "setStakeBoost", [boost_value])
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken", [
@@ -616,28 +627,24 @@ async def test_deposit_lp(contracts_factory):
                await zk_pad_staking.isTokenWhitelisted(mock_lp_token.contract_address).call()
            ).result.res == 1
 
-    await owner.send_transaction(
-        owner_account,
-        mock_lp_token.contract_address,
-        "transfer",
-        [user1_account.contract_address, *to_uint(deposit_amount)],
-    )
-
     assert (
                await mock_lp_token.balanceOf(user1_account.contract_address).call()
            ).result.balance == to_uint(deposit_amount)
-
-    assert (
-               await mint_calculator.getAmountToMint(to_uint(deposit_amount)).call()
-           ).result.amount == to_uint(deposit_amount)
+    zkp_assets_value = (
+        await mint_calculator.getAmountToMint(to_uint(deposit_amount)).call()
+    ).result.amount
+    assert zkp_assets_value == to_uint(deposit_amount)  # mock tokens
+    converted_to_shares = (await zk_pad_staking.previewDeposit(zkp_assets_value).call()).result.shares
 
     current_boost_value = (await zk_pad_staking.getCurrentBoostValue().call()).result.res
     assert boost_value == current_boost_value
-    expect_to_mint = int((deposit_amount * current_boost_value) / 10)
-    assert (
-               await zk_pad_staking.previewDepositLP(mock_lp_token.contract_address, to_uint(deposit_amount),
-                                                     365).call()
-           ).result.res == to_uint(expect_to_mint)
+
+    expect_to_mint = int(current_boost_value * ((from_uint(converted_to_shares) * initial_lock_time) / 730) / 10)
+    preview_deposit = (
+        await zk_pad_staking.previewDepositLP(mock_lp_token.contract_address, to_uint(deposit_amount),
+                                              initial_lock_time).call()
+    ).result.shares
+    assert preview_deposit == to_uint(expect_to_mint)
 
     await user1.send_transaction(
         user1_account,
@@ -654,8 +661,8 @@ async def test_deposit_lp(contracts_factory):
         user1_account,
         zk_pad_staking.contract_address,
         "depositLP",
-        [mock_lp_token.contract_address, *
-        to_uint(deposit_amount), user1_account.contract_address, 365]
+        [mock_lp_token.contract_address,
+         *to_uint(deposit_amount), user1_account.contract_address, initial_lock_time]
     )
     user_xzkp_balance = (await zk_pad_staking.balanceOf(user1_account.contract_address).call()).result.balance
     assert user_xzkp_balance == to_uint(expect_to_mint)
@@ -670,7 +677,8 @@ async def test_deposit_lp(contracts_factory):
     assert mock_lp_token.contract_address in user_stake_info.tokens
 
     await assert_revert(user1.send_transaction(user1_account, zk_pad_staking.contract_address, "redeemLP", [
-        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address]),
+        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address,
+        user1_account.contract_address]),
                         reverted_with="lower than deposit unlock time")
 
     set_block_timestamp(starknet_state, user_stake_info.unlock_time + 1)
@@ -678,21 +686,22 @@ async def test_deposit_lp(contracts_factory):
     vault_balance_before_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
 
     redeem_tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "redeemLP", [
-        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address])
+        mock_lp_token.contract_address, *user_xzkp_balance, user1_account.contract_address,
+        user1_account.contract_address])
 
     vault_balance_after_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
 
     assert from_uint(vault_balance_before_redeem) == from_uint(
-        vault_balance_after_redeem) + deposit_amount
+        vault_balance_after_redeem) + from_uint(preview_deposit)
 
     assert_event_emitted(redeem_tx, zk_pad_staking.contract_address, "Redeem_lp", [
         user1_account.contract_address,
         user1_account.contract_address,
         mock_lp_token.contract_address,
-        *to_uint(deposit_amount),
-        *user_xzkp_balance
+        *preview_deposit,
+        *preview_deposit
     ])
 
     assert (
                await mock_lp_token.balanceOf(user1_account.contract_address).call()
-           ).result.balance == to_uint(deposit_amount)
+           ).result.balance == preview_deposit
