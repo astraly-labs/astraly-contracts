@@ -40,7 +40,7 @@ const IERC721_ID = 0x80ac58cd
 
 @contract_interface
 namespace IMintCalculator:
-    func get_amount_to_mint(input : Uint256) -> (amount : Uint256):
+    func getAmountToMint(input : Uint256) -> (amount : Uint256):
     end
 end
 
@@ -138,7 +138,7 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         assert is_zero = FALSE
     end
     # convert to ZKP
-    let (amount_to_mint : Uint256) = IMintCalculator.get_amount_to_mint(
+    let (amount_to_mint : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, assets)
     let (converted_to_shares : Uint256) = convertToShares(amount_to_mint)
 
@@ -226,7 +226,7 @@ func previewWithdrawLP{
     let (caller_address : felt) = get_caller_address()
     assert_not_before_unlock_time(caller_address)
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
-    let (output : Uint256) = IMintCalculator.get_amount_to_mint(whitelisted_token.mint_calculator_address, input)
+    let (output : Uint256) = IMintCalculator.getAmountToMint(whitelisted_token.mint_calculator_address, input)
     return (output)
 end
 #
@@ -320,7 +320,7 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (shares) = ERC4626_deposit(assets, receiver)
+    let (shares : Uint256) = ERC4626_deposit(assets, receiver)
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = default_lock_time.read()
     set_new_deposit_unlock_time(receiver, default_lock_period)
@@ -335,15 +335,16 @@ func depositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (shares) = ERC4626_deposit(assets, receiver)
-    set_new_deposit_unlock_time(receiver, lock_time)
+    let (shares : Uint256) = ERC4626_deposit(assets, receiver)
+    let (seconds : felt) = days_to_seconds(lock_time)
+    set_new_deposit_unlock_time(receiver, seconds)
     let (underlying_asset : felt) = asset()
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
     return (shares)
 end
 
-## `input` should be the amount of tokens in case of an ERC20 or the id in case of ERC721
+# `lock_time` number of days days
 @external
 func depositLP{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
@@ -686,7 +687,7 @@ end
 
 func calculate_withdraw_lp_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt, lp_token : felt, sharesAmount : Uint256) -> (amount : Uint256):
-    # TODO: calculate user return
+    
     return (sharesAmount)
 end
 
