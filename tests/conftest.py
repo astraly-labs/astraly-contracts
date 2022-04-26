@@ -54,11 +54,6 @@ def unserialize_contract(starknet_state, serialized_contract):
     return StarknetContract(state=starknet_state, **serialized_contract)
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    return asyncio.new_event_loop()
-
-
 async def build_copyable_deployment():
     starknet = await Starknet.empty()
 

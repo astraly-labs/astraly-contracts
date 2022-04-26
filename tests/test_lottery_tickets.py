@@ -68,13 +68,6 @@ UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
 
 
-# Fixtures
-
-@pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
 @pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def(account_path)
