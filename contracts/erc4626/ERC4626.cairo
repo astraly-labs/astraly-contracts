@@ -1,4 +1,3 @@
-# https://github.com/milancermak/cairo-4626/blob/master/contracts/erc4626/ERC4626.cairo commit hash 01e52cf
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
@@ -6,7 +5,7 @@ from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf,
-    ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom)
+    ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom, ERC20_mint, ERC20_burn)
 
 from openzeppelin.utils.constants import TRUE
 
@@ -16,14 +15,7 @@ from contracts.erc4626.library import (
     ERC4626_maxDeposit, ERC4626_previewDeposit, ERC4626_deposit,
     ERC4626_maxMint, ERC4626_previewMint, ERC4626_mint,
     ERC4626_maxWithdraw, ERC4626_previewWithdraw, ERC4626_withdraw,
-    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem)
-
-@constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, asset_addr : felt):
-    ERC4626_initializer(name, symbol, asset_addr)
-    return ()
-end
+    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem, decrease_allowance_by_amount)
 
 #
 # ERC 20
@@ -73,30 +65,7 @@ func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return (remaining)
 end
 
-#
-# Externals
-#
 
-@external
-func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        recipient : felt, amount : Uint256) -> (success : felt):
-    ERC20_transfer(recipient, amount)
-    return (TRUE)
-end
-
-@external
-func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
-    ERC20_transferFrom(sender, recipient, amount)
-    return (TRUE)
-end
-
-@external
-func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        spender : felt, amount : Uint256) -> (success : felt):
-    ERC20_approve(spender, amount)
-    return (TRUE)
-end
 
 #
 # ERC 4626
@@ -144,13 +113,6 @@ func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     return (shares)
 end
 
-@external
-func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256, receiver : felt) -> (shares : Uint256):
-    let (shares) = ERC4626_deposit(assets, receiver)
-    return (shares)
-end
-
 @view
 func maxMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         receiver : felt) -> (maxShares : Uint256):
@@ -162,13 +124,6 @@ end
 func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         shares : Uint256) -> (assets : Uint256):
     let (assets) = ERC4626_previewMint(shares)
-    return (assets)
-end
-
-@external
-func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256, receiver : felt) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_mint(shares, receiver)
     return (assets)
 end
 
@@ -186,13 +141,6 @@ func previewWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     return (shares)
 end
 
-@external
-func withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
-    return (shares)
-end
-
 @view
 func maxRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt) -> (
         maxShares : Uint256):
@@ -204,12 +152,5 @@ end
 func previewRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         shares : Uint256) -> (assets : Uint256):
     let (assets : Uint256) = ERC4626_previewRedeem(shares)
-    return (assets)
-end
-
-@external
-func redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
-    let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     return (assets)
 end
