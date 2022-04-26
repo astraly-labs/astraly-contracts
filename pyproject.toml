@@ -18,6 +18,7 @@ pytest-xdist = "^2.4.0"
 openzeppelin-cairo-contracts = "0.1.0"
 pytest-order = "^1.0.1"
 wheel = "^0.37.1"
+amarna = {git = "https://github.com/crytic/amarna.git", rev = "main"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
