@@ -1340,7 +1340,7 @@ async def test_claim_twice_fail(full_factory):
     await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
 
     # Attempt to claim again
-    assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
                   *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
 
 
@@ -1373,7 +1373,7 @@ async def test_claim_no_tickets(full_factory):
     assert stake_info.result.balance == UINT_ZERO
 
     # Try to claim with a user with no xZKP tokens
-    assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
+    await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
                   *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
 
 
