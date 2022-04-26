@@ -22,7 +22,7 @@ jobs:
           pip install poetry
           if [ -f pyproject.toml ]; then poetry install; fi
       - name: Run Amarna static analysis
-        run: amarna contracts/ -o out.sarif
+        run: poetry run amarna contracts/ -o out.sarif
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v1
         with:
