@@ -200,12 +200,13 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     # Get number of tickets to be claimed
     let (xzkp_address) = xzkp_contract_address.read()
     let (xzkp_balance : Uint256) = IERC20.balanceOf(xzkp_address, caller)
-    let (amount_to_claim : Uint256) = _balance_to_tickets(xzkp_balance)
-
-    let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))
+    
+    let (has_tickets) = uint256_le(xzkp_balance, Uint256(0, 0))
     with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
         assert_not_zero(1 - has_tickets)
     end
+
+    let (amount_to_claim : Uint256) = _balance_to_tickets(xzkp_balance)
 
     # Mint the tickets to the caller
     ERC1155_mint(caller, id, amount_to_claim, data_len, data)
