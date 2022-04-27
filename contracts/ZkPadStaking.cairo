@@ -40,6 +40,9 @@ const IERC721_ID = 0x80ac58cd
 
 @contract_interface
 namespace IMintCalculator:
+    func getPoolAddress() -> (address : felt):
+    end
+    
     func getAmountToMint(input : Uint256) -> (amount : Uint256):
     end
 end
