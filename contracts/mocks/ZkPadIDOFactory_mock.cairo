@@ -20,6 +20,10 @@ end
 func random_number_generator_address() -> (res : felt):
 end
 
+@storage_var
+func lottery_ticket_contract_address() -> (res : felt):
+end
+
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         id : felt) -> (launch_date : felt):
@@ -43,6 +47,12 @@ func get_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : Has
     return (res = rnd_nbr_gen_adr)
 end
 
+@view
+func get_lottery_ticket_contract_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (ltry_tckt_addr) = lottery_ticket_contract_address.read()
+    return (res = ltry_tckt_addr)
+end
+
 @external
 func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt):
     alloc_locals
@@ -55,5 +65,11 @@ end
 @external
 func set_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(rnd_nbr_gen_adr : felt):
     random_number_generator_address.write(rnd_nbr_gen_adr)
+    return()
+end
+
+@external
+func set_lottery_ticket_contract_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_lottery_ticket_contract_address : felt):
+    lottery_ticket_contract_address.write(_lottery_ticket_contract_address)
     return()
 end

@@ -12,6 +12,9 @@ from contracts.utils.ZkPadUtils import get_is_equal
 from starkware.starknet.common.syscalls import (get_block_timestamp)
 from openzeppelin.utils.constants import FALSE, TRUE
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+from starkware.cairo.common.uint256 import (
+    Uint256, uint256_add, uint256_le, uint256_lt, uint256_check)
+from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
 struct Sale:
     # Token being sold (interface)
@@ -504,8 +507,9 @@ func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_
 end
 
 @external
-func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: felt, account: felt) -> (res: felt):
+func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount: Uint256, account: felt) -> (res: felt):
     alloc_locals
+    let (amount_felt) = _uint_to_felt(amount)
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
     let (the_sale) = sale.read()
@@ -524,7 +528,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         assert_not_zero(account)
     end
     with_attr error_message("ZkPadIDOContract::register_user allocation claim amount not greater than 0"):
-        assert_lt(0, amount)
+        assert_lt(0, amount_felt)
     end
     with_attr error_message("ZkPadIDOContract::register_user Registration window is closed"):
         assert_le(the_reg.registration_time_starts, block_timestamp)
@@ -549,7 +553,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         tempvar range_check_ptr = range_check_ptr
     end
 
-    let (adjusted_amount) = get_adjusted_amount(_amount=amount, _cap=the_sale.lottery_tickets_burn_cap)
+    let (adjusted_amount) = get_adjusted_amount(_amount=amount_felt, _cap=the_sale.lottery_tickets_burn_cap)
     let (current_winning) = user_to_winning_lottery_tickets.read(account)
     let (new_winning) = draw_winning_tickets(tickets_burnt=adjusted_amount, account=account)
     user_to_winning_lottery_tickets.write(account, current_winning + new_winning)
@@ -609,8 +613,10 @@ end
 # for now will return the same number as burnt tickets. i.e. all tickets are winners!
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(tickets_burnt: felt, account: felt) -> (res: felt):
     let (rnd) = get_random_number()
-    # do something with this random number to come up with the number of winning tickets.
-    return (res=tickets_burnt)
+    const max_denominator = 18446744073709551615 #0xffffffffffffffff
+    let num = tickets_burnt * rnd
+    let (winning, _) = unsigned_div_rem(num, max_denominator) 
+    return (res=winning)
 end
 
 func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}() -> (rnd : felt):
