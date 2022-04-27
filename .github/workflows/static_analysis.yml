@@ -1,4 +1,4 @@
-name: Cairo Static Analysis
+name: Tests
 
 on:
   push:
