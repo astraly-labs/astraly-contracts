@@ -124,14 +124,17 @@ async def erc1155_init(contract_defs):
         ],
     )
 
-    zk_pad_stake = await starknet.deploy(
-        contract_def=zk_pad_stake_def,
-        constructor_calldata=[
-            str_to_felt("xZkPad"),
-            str_to_felt("xZKP"),
-            zk_pad_token.contract_address,
-        ],
-    )
+    zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
+
+    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
+                                               constructor_calldata=[zk_pad_stake_implementation.contract_address])
+    await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
+        str_to_felt("xZkPad"),
+        str_to_felt("xZKP"),
+        zk_pad_token.contract_address,
+        account1.contract_address
+    ])
 
     return (
         starknet.state,
@@ -141,7 +144,7 @@ async def erc1155_init(contract_defs):
         receiver,
         ido,
         zk_pad_token,
-        zk_pad_stake,
+        zk_pad_stake_proxy,
         factory,
         ido2
     )
@@ -1337,7 +1340,7 @@ async def test_claim_twice_fail(full_factory):
     await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
 
     # Attempt to claim again
-    assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
                   *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
 
 
@@ -1370,7 +1373,7 @@ async def test_claim_no_tickets(full_factory):
     assert stake_info.result.balance == UINT_ZERO
 
     # Try to claim with a user with no xZKP tokens
-    assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
+    await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
                   *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
 
 

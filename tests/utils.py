@@ -1,18 +1,18 @@
 """Utilities for testing Cairo contracts."""
-
+from collections import namedtuple
 from pathlib import Path
 import math
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
+from starkware.starknet.business_logic.state.state import BlockInfo
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
-from starkware.starknet.business_logic.transaction_execution_objects import Event
+from starkware.starknet.business_logic.execution.objects import Event
 
-
-MAX_UINT256 = (2**128 - 1, 2**128 - 1)
+MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
@@ -20,14 +20,17 @@ FALSE = 0
 
 TRANSACTION_VERSION = 0
 
-
 _root = Path(__file__).parent.parent
+
 
 def contract_path(name):
     if name.startswith("openzeppelin"):
         return site.getsitepackages()[0] + "/" + name
+    elif name.startswith("tests/"):
+        return str(_root / name)
     else:
         return str(_root / "contracts" / name)
+
 
 def str_to_felt(text):
     b_text = bytes(text, "ascii")
@@ -48,12 +51,17 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
 
 
 def uint(a):
-    return(a, 0)
+    return (a, 0)
 
 
 def to_uint(a):
     """Takes in value, returns uint256-ish tuple."""
     return (a & ((1 << 128) - 1), a >> 128)
+
+
+def to_uint_typed(a):
+    Uint256 = namedtuple("Uint256", "low high")
+    return Uint256(low=a & ((1 << 128) - 1), high=a >> 128)
 
 
 def from_uint(uint):
@@ -214,3 +222,13 @@ def hash_multicall(sender, calls, nonce, max_fee):
         TRANSACTION_VERSION
     ]
     return compute_hash_on_elements(message)
+
+
+def get_block_timestamp(starknet_state):
+    return starknet_state.state.block_info.block_timestamp
+
+
+def set_block_timestamp(starknet_state, timestamp):
+    starknet_state.state.block_info = BlockInfo.create_for_testing(
+        starknet_state.state.block_info.block_number, timestamp
+    )
