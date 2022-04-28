@@ -1,11 +1,8 @@
 import os
-import site
 
 from nile.nre import NileRuntimeEnvironment
 
 # Dummy values, should be replaced by env variables
-from starkware.starknet.testing.contract import StarknetContract
-
 os.environ["SIGNER"] = "123456"
 os.environ["USER_1"] = "12345654321"
 
@@ -60,6 +57,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed ZKP token to {zkp_token}")
 
+    # Deploy xZKP
     xzkp_token = None
     xzkp_token_implementation = None
     try:
@@ -80,10 +78,6 @@ def run(nre: NileRuntimeEnvironment):
             "OZProxy",
             arguments=[xzkp_token_implementation],
             alias="xzkp_token_proxy")
-
-        signer.send(zkp_token, "initializer", [
-            str(XZKP_NAME), str(XZKP_SYMBOL), xzkp_token, signer.address
-        ])
     except Exception as error:
         if "already exists" in str(error):
             xzkp_token, _ = nre.get_deployment("xzkp_token_proxy")
@@ -91,3 +85,23 @@ def run(nre: NileRuntimeEnvironment):
             print(f"DEPLOYMENT ERROR: {error}")
     finally:
         print(f"Deployed xZKP token proxy to {xzkp_token}")
+
+    signer.send(xzkp_token, "initializer", calldata=[
+        str(XZKP_NAME), str(XZKP_SYMBOL), int(xzkp_token, 16), int(signer.address, 16)
+    ])
+    print("xZKP token proxy initialized")
+
+    # Deploy AlphaRoad Wrapper
+    alpha_road = None
+
+    try:
+        alpha_road, _ = nre.deploy("AlphaRoadWrapper", arguments=["12345"], alias="alpha_road")
+    except Exception as error:
+        if "already exists" in str(error):
+            alpha_road, _ = nre.get_deployment("alpha_road")
+        else:
+            print(f"DEPLOYMENT ERROR: {error}")
+    finally:
+        print(f"Alpha Road wrapper deployed at {alpha_road}")
+
+    signer.send(xzkp_token, "addWhitelistedToken", ["12345", int(alpha_road, 16)])
