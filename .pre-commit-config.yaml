@@ -1,0 +1,4 @@
+-   repo: https://github.com/franalgaba/pre-commit-cairo
+    rev: main  # Use the ref you want to point at
+    hooks:
+    -   id: cairo-lint
