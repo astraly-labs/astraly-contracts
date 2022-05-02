@@ -23,8 +23,8 @@ DECIMALS = "18"
 NAME = str_to_felt("ZkPad")
 SYMBOL = str_to_felt("ZKP")
 
-XZKP_NAME = str_to_felt("ZkPad")
-XZKP_SYMBOL = str_to_felt("ZKP")
+XZKP_NAME = str_to_felt("xZkPad")
+XZKP_SYMBOL = str_to_felt("xZKP")
 
 
 def run(nre: NileRuntimeEnvironment):
@@ -42,7 +42,7 @@ def run(nre: NileRuntimeEnvironment):
             DECIMALS,
             INITIAL_SUPPLY,
             "0",
-            user_1.address,
+            "0x970e62cb92ae24fb6f1ea455407edf6cb0f3b739940b4dffbf976b65d7830a",
             signer.address,
             MAX_SUPPLY,
             "0",
@@ -87,7 +87,8 @@ def run(nre: NileRuntimeEnvironment):
         print(f"Deployed xZKP token proxy to {xzkp_token}")
 
     signer.send(xzkp_token, "initializer", calldata=[
-        str(XZKP_NAME), str(XZKP_SYMBOL), int(xzkp_token, 16), int(signer.address, 16)
+        str(XZKP_NAME), str(XZKP_SYMBOL), int(
+            zkp_token, 16), int(signer.address, 16)
     ])
     print("xZKP token proxy initialized")
 
@@ -95,7 +96,8 @@ def run(nre: NileRuntimeEnvironment):
     alpha_road = None
 
     try:
-        alpha_road, _ = nre.deploy("AlphaRoadWrapper", arguments=["12345"], alias="alpha_road")
+        alpha_road, _ = nre.deploy("AlphaRoadWrapper", arguments=[
+                                   "12345"], alias="alpha_road")
     except Exception as error:
         if "already exists" in str(error):
             alpha_road, _ = nre.get_deployment("alpha_road")
@@ -104,4 +106,5 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Alpha Road wrapper deployed at {alpha_road}")
 
-    signer.send(xzkp_token, "addWhitelistedToken", ["12345", int(alpha_road, 16)])
+    signer.send(xzkp_token, "addWhitelistedToken",
+                ["12345", int(alpha_road, 16)])
