@@ -13,8 +13,9 @@ from starkware.starknet.common.syscalls import (get_block_timestamp)
 from openzeppelin.utils.constants import FALSE, TRUE
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_add, uint256_le, uint256_lt, uint256_check)
+    Uint256, uint256_add, uint256_le, uint256_lt, uint256_check, uint256_unsigned_div_rem)
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
+from contracts.utils import uint256_is_zero
 
 struct Sale:
     # Token being sold (interface)
@@ -48,8 +49,8 @@ struct Sale:
 end
 
 struct Participation:
-    member amount_bought : felt
-    member amount_paid : felt
+    member amount_bought : Uint256
+    member amount_paid : Uint256
     member time_participated : felt
     # member round_id : felt
     member is_portion_withdrawn_array : felt # can't have arrays as members of the struct. Will use a felt with a bit mask
@@ -600,17 +601,16 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range
     end
     let (the_sale) = sale.read()
 
-    # Compute the allocation : total_tokens_sold / total_winning_tickets
-    let (the_allocation, _) = unsigned_div_rem(the_sale.total_tokens_sold, the_sale.total_winning_tickets)
+    # Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
+    let (the_allocation, _) = unsigned_div_rem(the_sale.amount_of_tokens_to_sell, the_sale.total_winning_tickets)
     with_attr error_message("ZkPadIDOContract::calculate_allocation calculation error"):
-        assert the_allocation * the_sale.total_winning_tickets = the_sale.total_tokens_sold
+        assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
     end
     ido_allocation.write(the_allocation)
     return()
 end
 
 # this function will call the VRF and determine the number of winning tickets (if any)
-# for now will return the same number as burnt tickets. i.e. all tickets are winners!
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(tickets_burnt: felt, account: felt) -> (res: felt):
     let (rnd) = get_random_number()
     const max_denominator = 18446744073709551615 #0xffffffffffffffff
@@ -632,5 +632,73 @@ func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_ch
     return (rnd)
 end
 
-# TODO: 1) Function to handle users who have guaranteed allocation (HOLD)
-# TODO: 2) Add Maximum Allocation to prevent whales from abusing the system
+@external
+func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,range_check_ptr}(
+        account: felt, 
+        number_of_tokens: Uint256,
+        amount_paid: Uint256) -> (res : felt):
+    alloc_locals
+
+    # Validations
+    let (block_timestamp) = get_block_timestamp()
+    let (the_round) = purchase_round.read()
+    with_attr error_message("ZkPadIDOContract::participate Purchase round has not started yet"):
+        assert_le(the_round.time_starts, block_timestamp)
+    end
+    with_attr error_message("ZkPadIDOContract::participate Purchase round is over"):
+        assert_le(block_timestamp, the_round.time_ends)
+    end
+    let (user_participated) = has_participated.read(account)
+    with_attr error_message("ZkPadIDOContract::participate user participated"):
+        assert user_participated = FALSE
+    end
+    with_attr error_message("ZkPadIDOContract::participate Account address is the zero address"):
+        assert_not_zero(account)
+    end
+    with_attr error_message("ZkPadIDOContract::participate Number of IDO tokens to purchase is zero"):
+        let (is_number_tokens_zero) = uint256_is_zero(number_of_tokens)
+        assert is_number_tokens_zero = FALSE
+    end
+    with_attr error_message("ZkPadIDOContract::participate Amount paid is zero"):
+        let (is_amount_paid_zero) = uint256_is_zero(amount_paid)
+        assert is_amount_paid_zero = FALSE
+    end
+    let (the_sale) = sale.read()
+    with_attr error_message("ZkPadIDOContract::participate the IDO token price is not set"):
+        assert_not_zero(the_sale.token_price)
+    end
+    let (token_price_uint) = _felt_to_uint(the_sale.token_price)
+    let (the_alloc) = ido_allocation.read()
+    with_attr error_message("ZkPadIDOContract::participate The IDO token allocation has not been calculated"):
+        assert_not_zero(the_alloc)
+    end
+    let (winning_tickets) = user_to_winning_lottery_tickets.read(account)
+    with_attr error_message("ZkPadIDOContract::participate account does not have any winning lottery tickets"):
+        assert_not_zero(winning_tickets)
+    end
+    let max_tokens_to_purchase = winning_tickets * the_alloc
+    let (max_tokens_to_purchase_uint) = _felt_to_uint(max_tokens_to_purchase)
+    let (number_of_tokens_byuing, _) = uint256_unsigned_div_rem(amount_paid, token_price_uint)
+    with_attr error_message("ZkPadIDOContract::participate Amount paid does not cover the number of tokens"):
+        let (is_tokens_buying_le_tokens) = uint256_le(number_of_tokens_byuing, number_of_tokens)
+        assert is_tokens_buying_le_tokens = TRUE
+    end
+    with_attr error_message ("ZkPadIDOContract::participate Can't buy more than maximum allocation"):
+        let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_byuing, max_tokens_to_purchase_uint)
+        assert is_tokens_buying_le_max = TRUE
+    end
+    
+    #Updates
+    let new_purchase = Participation(
+        amount_bought = number_of_tokens_byuing,
+        amount_paid = amount_paid,
+        time_participated = block_timestamp,
+        is_portion_withdrawn_array = 0
+    )
+    user_to_participation.write(account, new_purchase)
+    has_participated.write(account, TRUE)
+    let (nbr_participants) = number_of_participants.read()
+    number_of_participants.write(nbr_participants + 1) 
+
+    return(res = TRUE)
+end
