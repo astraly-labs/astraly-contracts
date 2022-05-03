@@ -120,14 +120,6 @@ func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     return (result)
 end
 
-@view
-func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    assets : Uint256, lock_time : felt) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_convertToShares(assets)
-    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
-    return (result)
-end
-
 func ERC4626_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         assets : Uint256, receiver : felt, lock_time_days : felt) -> (shares : Uint256):
     alloc_locals

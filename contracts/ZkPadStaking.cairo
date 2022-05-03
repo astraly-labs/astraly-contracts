@@ -32,8 +32,9 @@ from contracts.erc4626.ERC4626 import (
     asset, totalAssets, convertToShares, convertToAssets, maxDeposit, maxMint,
     maxWithdraw, previewWithdraw, maxRedeem, previewRedeem,
     ERC4626_withdraw, ERC4626_deposit, ERC4626_initializer, ERC4626_redeem, ERC4626_mint,
-    ERC4626_previewDeposit, ERC4626_previewMint,decrease_allowance_by_amount, set_default_lock_time,
-    days_to_seconds, calculate_lock_time_bonus, default_lock_time_days)
+    ERC4626_previewDeposit, ERC4626_previewMint, ERC4626_convertToShares, 
+    decrease_allowance_by_amount, set_default_lock_time, days_to_seconds,
+    calculate_lock_time_bonus, default_lock_time_days)
 from openzeppelin.token.erc20.library import ERC20_approve, ERC20_burn, ERC20_transfer, ERC20_transferFrom, ERC20_mint
 from contracts.utils import uint256_is_zero
 
@@ -128,6 +129,14 @@ func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     let (default_lock_period : felt) = default_lock_time_days.read()
     let (shares) = ERC4626_previewDeposit(assets, default_lock_period)
     return (shares)
+end
+
+@view
+func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    assets : Uint256, lock_time : felt) -> (shares : Uint256):
+    let (shares : Uint256) = ERC4626_convertToShares(assets)
+    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    return (result)
 end
 
 # Amount of xZKP a user will receive by providing LP token
