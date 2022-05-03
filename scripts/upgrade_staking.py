@@ -39,4 +39,4 @@ def run(nre: NileRuntimeEnvironment):
         print(
             f"xZKP token implementation deployed to {xzkp_token_implementation}")
 
-    signer.send(xzkp_token, 'upgrade', [xzkp_token_implementation])
+    signer.send(xzkp_token, 'upgrade', [int(xzkp_token_implementation, 16)])
