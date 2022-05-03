@@ -493,7 +493,7 @@ async def test_allowances(contracts_factory):
         [user2_account.contract_address, *MAX_UINT256],
     )
 
-    # approve user3 for 10K
+    # approve user3 for 10K SHARES
     await user1.send_transaction(
         user1_account,
         zk_pad_staking.contract_address,
@@ -502,7 +502,7 @@ async def test_allowances(contracts_factory):
     )
 
     #
-    # have user2 withdraw 20K assets from user1 vault position
+    # have user2 withdraw 20K ASSETS from user1 vault position
     #
     assert (
                await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
@@ -530,7 +530,7 @@ async def test_allowances(contracts_factory):
            ).result.balance == to_uint(0)
     assert (
                await zk_pad_token.balanceOf(user2_account.contract_address).invoke()
-           ).result.balance == to_uint(25_000)
+           ).result.balance == to_uint(20_000)
     assert (
                await zk_pad_staking.allowance(
                    user1_account.contract_address, user2_account.contract_address
@@ -538,7 +538,7 @@ async def test_allowances(contracts_factory):
            ).result.remaining == MAX_UINT256
 
     #
-    # have user3 withdraw 10K assets from user1 vault position
+    # have user3 withdraw 20K ASSETS from user1 vault position
     #
     assert (
                await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
@@ -551,19 +551,19 @@ async def test_allowances(contracts_factory):
         user3_account,
         zk_pad_staking.contract_address,
         "withdraw",
-        [*to_uint(10_000), user3_account.contract_address,
+        [*to_uint(20_000), user3_account.contract_address,
          user1_account.contract_address],
     )
 
     assert (
                await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(65_000)
+           ).result.balance == to_uint(30_000)
     assert (
                await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
            ).result.balance == to_uint(0)
     assert (
                await zk_pad_token.balanceOf(user3_account.contract_address).invoke()
-           ).result.balance == to_uint(10_000)
+           ).result.balance == to_uint(20_000)
     assert (
                await zk_pad_staking.allowance(
                    user1_account.contract_address, user3_account.contract_address

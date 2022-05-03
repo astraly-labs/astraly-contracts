@@ -350,6 +350,7 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
     return (shares)
 end
 
+# `lock_time_days` number of days
 @external
 func depositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
         assets : Uint256, receiver : felt, lock_time_days : felt) -> (shares : Uint256):
@@ -364,7 +365,7 @@ func depositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     return (shares)
 end
 
-# `lock_time` number of days days
+# `lock_time_days` number of days
 @external
 func depositLP{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
