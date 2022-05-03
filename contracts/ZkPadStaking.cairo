@@ -29,10 +29,11 @@ from contracts.openzeppelin.security.reentrancy_guard import (
     ReentrancyGuard_start, ReentrancyGuard_end)
 from contracts.erc4626.ERC4626 import (
     name, symbol, totalSupply, decimals, balanceOf, allowance,
-    asset, totalAssets, convertToShares, convertToAssets, maxDeposit, previewDeposit,
-    maxMint, previewMint, maxWithdraw, previewWithdraw, maxRedeem, previewRedeem,
+    asset, totalAssets, convertToShares, convertToAssets, maxDeposit,maxMint,
+    previewMint, maxWithdraw, previewWithdraw, maxRedeem, previewRedeem,
     ERC4626_withdraw, ERC4626_deposit, ERC4626_initializer, ERC4626_redeem, ERC4626_mint,
-    decrease_allowance_by_amount)
+    ERC4626_previewDeposit, decrease_allowance_by_amount, set_default_lock_time,
+    days_to_seconds, calculate_lock_time_bonus, default_lock_time_days)
 from openzeppelin.token.erc20.library import ERC20_approve, ERC20_burn, ERC20_transfer, ERC20_transferFrom, ERC20_mint
 from contracts.utils import uint256_is_zero
 
@@ -99,12 +100,9 @@ end
 
 # value is multiplied by 10 to store floating points number in felt type
 @storage_var
-func stake_boost() -> (boost : felt):
+func lp_stake_boost() -> (boost : felt):
 end
 
-@storage_var
-func default_lock_time() -> (lock_time : felt):
-end
 
 @storage_var
 func emergency_breaker() -> (address : felt):
@@ -141,17 +139,16 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         assert is_zero = FALSE
     end
     # convert to ZKP
-    let (amount_to_mint : Uint256) = IMintCalculator.getAmountToMint(
+    let (zkp_quote : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, assets)
-    let (converted_to_shares : Uint256) = convertToShares(amount_to_mint)
+    let (converted_to_shares : Uint256) = convertToShares(zkp_quote)
 
-    let (value_multiplied : Uint256) = uint256_checked_mul(converted_to_shares, Uint256(low=lock_time, high=0))
-    let (shares : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=730, high=0))
-    let (current_boost : felt) = stake_boost.read()
-    if current_boost == 0:
+    let (shares : Uint256) = calculate_lock_time_bonus(converted_to_shares, lock_time)
+    let (current_lp_boost : felt) = lp_stake_boost.read()
+    if current_lp_boost == 0:
         return (shares)
     end
-    let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(current_boost, 0))
+    let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(current_lp_boost, 0))
     let (res : Uint256, _) = uint256_checked_div_rem(applied_boost, Uint256(10, 0))
     return (res)
 end
@@ -159,7 +156,7 @@ end
 @view
 func getCurrentBoostValue{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         ) -> (res : felt):
-    let (res : felt) = stake_boost.read()
+    let (res : felt) = lp_stake_boost.read()
     return (res)
 end
 
@@ -184,11 +181,6 @@ func getTokensMask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return (bit_mask)
 end
 
-@view
-func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (lock_time : felt):
-    let (lock_time : felt) = default_lock_time.read()
-    return (lock_time)
-end
 
 @view
 func getEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
@@ -233,6 +225,12 @@ func previewWithdrawLP{
     let (output : Uint256) = IMintCalculator.getAmountToMint(whitelisted_token.mint_calculator_address, input)
     return (output)
 end
+
+@view
+func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (lock_time : felt):
+    let (lock_time : felt) = default_lock_time_days.read()
+    return (lock_time)
+end
 #
 # Externals
 #
@@ -245,9 +243,6 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     Proxy_initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
-
-    let (seconds : felt) = days_to_seconds(365)
-    default_lock_time.write(seconds)
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
@@ -326,7 +321,7 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
     Pausable_when_not_paused()
     let (shares : Uint256) = ERC4626_deposit(assets, receiver)
     let (underlying_asset : felt) = asset()
-    let (default_lock_period : felt) = default_lock_time.read()
+    let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
@@ -399,7 +394,7 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bit
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
 
     let (underlying_asset : felt) = asset()
-    let (default_lock_period : felt) = default_lock_time.read()
+    let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
@@ -561,17 +556,16 @@ func setStakeBoost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         new_boost_value : felt) -> ():
     Ownable_only_owner()
     assert_not_zero(new_boost_value)
-    stake_boost.write(new_boost_value)
+    lp_stake_boost.write(new_boost_value)
     return ()
 end
 
 # new_lock_time number of days
 @external
-func setDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time : felt) -> ():
+func setDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time_days : felt) -> ():
     alloc_locals
     Ownable_only_owner()
-    let (seconds : felt) = days_to_seconds(new_lock_time)
-    default_lock_time.write(seconds)
+    set_default_lock_time(new_lock_time_days)
     return ()
 end
 
@@ -694,13 +688,15 @@ func calculate_withdraw_lp_amount{syscall_ptr : felt*, pedersen_ptr : HashBuilti
     return (sharesAmount)
 end
 
-func set_new_deposit_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt, lock_time : felt) -> ():
+func set_new_deposit_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt, lock_time_days : felt) -> ():
+    alloc_locals
     let (current_block_timestamp : felt) = get_block_timestamp()
     let (unlock_time : felt) = deposit_unlock_time.read(user)
+    let (seconds : felt) = days_to_seconds(lock_time_days)
     with_attr error_message("new deadline should be higher or equal to the old deposit"):
-        assert_le(unlock_time, current_block_timestamp + lock_time)
+        assert_le(unlock_time, current_block_timestamp + seconds)
     end
-    deposit_unlock_time.write(user, current_block_timestamp + lock_time)
+    deposit_unlock_time.write(user, current_block_timestamp + seconds)
     return ()
 end
 
@@ -754,24 +750,4 @@ func remove_from_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
     return ()
-end
-
-func days_to_seconds{syscall_ptr : felt*, range_check_ptr}(days : felt) -> (seconds : felt):
-    let (hours : felt) = safe_multiply(days, 24)
-    let (minutes : felt) = safe_multiply(hours, 60)
-    let (seconds : felt) = safe_multiply(minutes, 60)
-    return (seconds)
-end
-
-func safe_multiply{syscall_ptr : felt*, range_check_ptr}(a : felt, b : felt) -> (result : felt):
-    if a == 0:
-        return (0)
-    end
-    if b == 0:
-        return (0)
-    end
-    let res : felt = a * b
-    assert_le(a, res)
-    assert_le(b, res)
-    return (res)
 end

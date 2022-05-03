@@ -1,7 +1,9 @@
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
+from starkware.cairo.common.math import assert_le
+from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import (
     ALL_ONES, Uint256, uint256_eq, uint256_add, uint256_mul, uint256_sub, uint256_unsigned_div_rem,
     uint256_le)
@@ -9,7 +11,7 @@ from starkware.cairo.common.uint256 import (
 from openzeppelin.token.erc20.library import (
     ERC20_initializer, ERC20_totalSupply, ERC20_mint, ERC20_burn, ERC20_balanceOf, ERC20_allowances)
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.utils.constants import FALSE, TRUE
+from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
 
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
@@ -27,17 +29,25 @@ end
 func ERC4626_asset_addr() -> (addr : felt):
 end
 
+@storage_var
+func default_lock_time_days() -> (lock_time : felt):
+end
+
 #
 # Initializer
 #
 
 func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         name : felt, symbol : felt, asset_addr : felt):
+    alloc_locals
     let (decimals) = IERC20.decimals(contract_address=asset_addr)
     ERC20_initializer(name, symbol, decimals)
     ERC4626_asset_addr.write(asset_addr)
+
+    default_lock_time_days.write(365)
     return ()
 end
+
 
 #
 # ERC4626
@@ -104,7 +114,17 @@ end
 func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         assets : Uint256) -> (shares : Uint256):
     let (shares) = ERC4626_convertToShares(assets)
-    return (shares)
+    let (lock_time : felt) = default_lock_time_days.read()
+    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    return (result)
+end
+
+@view
+func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    assets : Uint256, lock_time : felt) -> (shares : Uint256):
+    let (shares : Uint256) = ERC4626_convertToShares(assets)
+    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    return (result)
 end
 
 func ERC4626_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -325,6 +345,44 @@ func decrease_allowance_by_amount{syscall_ptr : felt*, pedersen_ptr : HashBuilti
 
     return ()
 end
+
+#
+# Setters
+#
+
+# new_lock_time number of days
+func set_default_lock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_lock_time_days : felt) -> ():
+    default_lock_time_days.write(new_lock_time_days)
+    return ()
+end
+
+func days_to_seconds{syscall_ptr : felt*, range_check_ptr}(days : felt) -> (seconds : felt):
+    let (hours : felt) = safe_multiply(days, 24)
+    let (minutes : felt) = safe_multiply(hours, 60)
+    let (seconds : felt) = safe_multiply(minutes, 60)
+    return (seconds)
+end
+
+func safe_multiply{syscall_ptr : felt*, range_check_ptr}(a : felt, b : felt) -> (result : felt):
+    if a == 0:
+        return (0)
+    end
+    if b == 0:
+        return (0)
+    end
+    let res : felt = a * b
+    assert_le(a, res)
+    assert_le(b, res)
+    return (res)
+end
+
+func calculate_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        shares : Uint256, lock_time : felt) -> (res : Uint256):
+    let (value_multiplied : Uint256) = uint256_checked_mul(shares, Uint256(low=lock_time, high=0))
+    let (res : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=730, high=0))
+    return (res)
+end
+
 
 #
 # Uint256 helper functions

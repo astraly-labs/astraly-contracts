@@ -5,7 +5,8 @@ from starkware.cairo.common.uint256 import Uint256
 
 from openzeppelin.token.erc20.library import (
     ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf,
-    ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom, ERC20_mint, ERC20_burn)
+    ERC20_allowance, ERC20_initializer, ERC20_approve, ERC20_transfer, ERC20_transferFrom, 
+    ERC20_mint, ERC20_burn)
 
 from openzeppelin.utils.constants import TRUE
 
@@ -15,7 +16,9 @@ from contracts.erc4626.library import (
     ERC4626_maxDeposit, ERC4626_previewDeposit, ERC4626_deposit,
     ERC4626_maxMint, ERC4626_previewMint, ERC4626_mint,
     ERC4626_maxWithdraw, ERC4626_previewWithdraw, ERC4626_withdraw,
-    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem, decrease_allowance_by_amount)
+    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem, 
+    decrease_allowance_by_amount, set_default_lock_time,
+    days_to_seconds, calculate_lock_time_bonus, default_lock_time_days)
 
 #
 # ERC 20
@@ -104,13 +107,6 @@ func maxDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
         receiver : felt) -> (maxAssets : Uint256):
     let (maxAssets : Uint256) = ERC4626_maxDeposit(receiver)
     return (maxAssets)
-end
-
-@view
-func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256) -> (shares : Uint256):
-    let (shares) = ERC4626_previewDeposit(assets)
-    return (shares)
 end
 
 @view
