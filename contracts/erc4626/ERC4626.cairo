@@ -16,7 +16,7 @@ from contracts.erc4626.library import (
     ERC4626_maxDeposit, ERC4626_previewDeposit, ERC4626_deposit,
     ERC4626_maxMint, ERC4626_previewMint, ERC4626_mint,
     ERC4626_maxWithdraw, ERC4626_previewWithdraw, ERC4626_withdraw,
-    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem, 
+    ERC4626_maxRedeem, ERC4626_previewRedeem, ERC4626_redeem, previewDepositForTime, 
     decrease_allowance_by_amount, set_default_lock_time,
     days_to_seconds, calculate_lock_time_bonus, default_lock_time_days)
 

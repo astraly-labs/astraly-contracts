@@ -122,6 +122,14 @@ func isTokenWhitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     return (TRUE)
 end
 
+@view
+func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        assets : Uint256) -> (shares : Uint256):
+    let (default_lock_period : felt) = default_lock_time_days.read()
+    let (shares) = ERC4626_previewDeposit(assets, default_lock_period)
+    return (shares)
+end
+
 # Amount of xZKP a user will receive by providing LP token
 # lp_token Address of the ZKP/ETH LP token
 # assets Amount of LP tokens or the NFT id
@@ -332,7 +340,8 @@ func deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, 
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (shares : Uint256) = ERC4626_deposit(assets, receiver)
+    let (default_lock_time : felt) = default_lock_time_days.read()
+    let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
@@ -343,13 +352,12 @@ end
 
 @external
 func depositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*}(
-        assets : Uint256, receiver : felt, lock_time : felt) -> (shares : Uint256):
+        assets : Uint256, receiver : felt, lock_time_days : felt) -> (shares : Uint256):
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (shares : Uint256) = ERC4626_deposit(assets, receiver)
-    let (seconds : felt) = days_to_seconds(lock_time)
-    set_new_deposit_unlock_time(receiver, seconds)
+    let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
+    set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
@@ -361,14 +369,13 @@ end
 func depositLP{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
         bitwise_ptr : BitwiseBuiltin*}(
-        lp_token : felt, assets : Uint256, receiver : felt, lock_time : felt) -> (shares : Uint256):
+        lp_token : felt, assets : Uint256, receiver : felt, lock_time_days : felt) -> (shares : Uint256):
     alloc_locals
     Pausable_when_not_paused()
     ReentrancyGuard_start()
     different_than_underlying(lp_token)
     only_whitelisted_token(lp_token)
-    let (seconds : felt) = days_to_seconds(lock_time)
-    set_new_deposit_unlock_time(receiver, seconds)
+    set_new_deposit_unlock_time(receiver, lock_time_days)
 
     let (caller_address : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
@@ -389,7 +396,7 @@ func depositLP{
         tempvar range_check_ptr = range_check_ptr
     end
 
-    let (shares : Uint256) = previewDepositLP(lp_token, assets, lock_time)
+    let (shares : Uint256) = previewDepositLP(lp_token, assets, lock_time_days)
     ERC20_mint(receiver, shares)
     update_user_after_deposit(receiver, lp_token, shares)
     Deposit_lp.emit(caller_address, receiver, lp_token, assets, shares)

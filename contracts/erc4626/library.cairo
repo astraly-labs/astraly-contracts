@@ -13,6 +13,8 @@ from openzeppelin.token.erc20.library import (
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
 
+from contracts.utils import uint256_is_zero
+
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
 end
@@ -127,11 +129,10 @@ func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
 end
 
 func ERC4626_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256, receiver : felt) -> (shares : Uint256):
+        assets : Uint256, receiver : felt, lock_time_days : felt) -> (shares : Uint256):
     alloc_locals
 
-    let (default_lock_time : felt) = default_lock_time_days.read()
-    let (shares : Uint256) = ERC4626_previewDeposit(assets, default_lock_time)
+    let (shares : Uint256) = ERC4626_previewDeposit(assets, lock_time_days)
     let (shares_is_zero : felt) = uint256_is_zero(shares)
     with_attr error_message("zero shares"):
         assert shares_is_zero = FALSE
@@ -387,6 +388,10 @@ end
 
 func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         shares : Uint256, lock_time : felt) -> (res : Uint256):
+    let (is_zero : felt) = uint256_is_zero(shares)
+    if is_zero == TRUE:
+        return (shares)
+    end
     let (value_multiplied : Uint256) = uint256_checked_mul(shares, Uint256(low=730, high=0))
     let (res : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=lock_time, high=0))
     return (res)
@@ -395,12 +400,6 @@ end
 #
 # Uint256 helper functions
 #
-
-func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
-    let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
-    return (yesno)
-end
-
 func uint256_max() -> (res : Uint256):
     return (Uint256(low=ALL_ONES, high=ALL_ONES))
 end
