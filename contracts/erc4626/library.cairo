@@ -112,9 +112,8 @@ func ERC4626_maxDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 end
 
 func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        assets : Uint256) -> (shares : Uint256):
+        assets : Uint256, lock_time : felt) -> (shares : Uint256):
     let (shares) = ERC4626_convertToShares(assets)
-    let (lock_time : felt) = default_lock_time_days.read()
     let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
     return (result)
 end
@@ -131,7 +130,8 @@ func ERC4626_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assets : Uint256, receiver : felt) -> (shares : Uint256):
     alloc_locals
 
-    let (shares : Uint256) = ERC4626_previewDeposit(assets)
+    let (default_lock_time : felt) = default_lock_time_days.read()
+    let (shares : Uint256) = ERC4626_previewDeposit(assets, default_lock_time)
     let (shares_is_zero : felt) = uint256_is_zero(shares)
     with_attr error_message("zero shares"):
         assert shares_is_zero = FALSE
@@ -165,17 +165,18 @@ func ERC4626_maxMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 func ERC4626_previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256) -> (assets : Uint256):
+        shares : Uint256, lock_time : felt) -> (assets : Uint256):
     alloc_locals
 
     let (total_supply : Uint256) = ERC20_totalSupply()
     let (is_total_supply_zero : felt) = uint256_is_zero(total_supply)
+    let (bonus_removed : Uint256) = remove_lock_time_bonus(shares, lock_time)
 
     if is_total_supply_zero == TRUE:
-        return (shares)
+        return (bonus_removed)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_mul_checked(shares, total_assets)
+        let (product : Uint256) = uint256_mul_checked(bonus_removed, total_assets)
         let (assets) = uint256_unsigned_div_rem_up(product, total_supply)
         return (assets)
     end
@@ -184,8 +185,9 @@ end
 func ERC4626_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         shares : Uint256, receiver : felt) -> (assets : Uint256):
     alloc_locals
-
-    let (assets : Uint256) = ERC4626_previewMint(shares)
+    
+    let (default_lock_time : felt ) = default_lock_time_days.read()
+    let (assets : Uint256) = ERC4626_previewMint(shares, default_lock_time)
 
     let (asset : felt) = ERC4626_asset()
     let (caller : felt) = get_caller_address()
@@ -383,6 +385,12 @@ func calculate_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     return (res)
 end
 
+func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        shares : Uint256, lock_time : felt) -> (res : Uint256):
+    let (value_multiplied : Uint256) = uint256_checked_mul(shares, Uint256(low=730, high=0))
+    let (res : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=lock_time, high=0))
+    return (res)
+end
 
 #
 # Uint256 helper functions

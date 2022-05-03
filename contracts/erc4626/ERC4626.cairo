@@ -117,13 +117,6 @@ func maxMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 end
 
 @view
-func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        shares : Uint256) -> (assets : Uint256):
-    let (assets) = ERC4626_previewMint(shares)
-    return (assets)
-end
-
-@view
 func maxWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         owner : felt) -> (maxAssets : Uint256):
     let (maxWithdraw : Uint256) = ERC4626_maxWithdraw(owner)
