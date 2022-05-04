@@ -20,6 +20,7 @@ from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.registers import get_label_location
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_contract_address,
@@ -142,6 +143,14 @@ struct WhitelistedToken:
     member is_NFT : felt
 end
 
+# # @notice Data for a given strategy.
+# # @param trusted Whether the strategy is trusted.
+# # @param balance The amount of underlying tokens held in the strategy.
+struct StrategyData:
+    member trusted : felt  # 0 (false) or 1 (true)
+    member balance : felt
+end
+
 #
 # Events
 #
@@ -168,7 +177,6 @@ end
 
 @event
 func HarvestRewards(user : felt, harvestAmount : Uint256):
-end
 
 #
 # Storage variables
@@ -234,6 +242,69 @@ end
 
 @storage_var
 func harvest_task_contract() -> (address : felt):
+end
+
+func base_unit() -> (unit : felt):
+end
+
+@storage_var
+func fee_percent() -> (fee : felt):
+end
+
+@storage_var
+func harvest_window() -> (window : felt):
+end
+
+@storage_var
+func harvest_delay() -> (delay : felt):
+end
+
+@storage_var
+func next_harvest_delay() -> (delay : felt):
+end
+
+# # @notice The desired float percentage of holdings.
+# # @dev A fixed point number where 1e18 represents 100% and 0 represents 0%.
+@storage_var
+func target_float_percent() -> (percent : Uint256):
+end
+
+# # @notice The total amount of underlying tokens held in strategies at the time of the last harvest.
+# # @dev Includes maxLockedProfit, must be correctly subtracted to compute available/free holdings.
+@storage_var
+func total_strategy_holdings() -> (holdings : Uint256):
+end
+
+# # @notice Maps strategies to data the Vault holds on them.
+@storage_var
+func strategy_data(strategy : felt) -> (data : StrategyData):
+end
+
+# # @notice A timestamp representing when the first harvest in the most recent harvest window occurred.
+# # @dev May be equal to lastHarvest if there was/has only been one harvest in the most last/current window.
+@storage_var
+func last_harvest_window_start() -> (start : felt):
+end
+
+# # @notice A timestamp representing when the most recent harvest occurred.
+@storage_var
+func last_harvest() -> (harvest : felt):
+end
+
+# # @notice The amount of locked profit at the end of the last harvest.
+@storage_var
+func max_locked_profit() -> (profit : felt):
+end
+
+# # @notice An ordered array of strategies representing the withdrawal queue.
+# # @dev The queue is processed in descending order.
+# # @dev Returns a tupled-array of (array_len, Strategy[])
+@storage_var
+func withdrawal_queue(index : felt) -> (strategy_address : felt):
+end
+
+@storage_var
+func withdrawal_queue_length() -> (length : felt):
 end
 
 #
@@ -552,6 +623,9 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     setStakeBoost(25)
     setFeePercent(1)  # TODO : Check division later
 
+    let (decimals : felt) = IERC20.decimals(asset_addr)
+    let (asset_base_unit : felt) = pow(10, decimals)
+    base_unit.write(asset_base_unit)
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
     whitelisted_tokens_mask.write(1)
@@ -1381,14 +1455,14 @@ func update_user_after_deposit{
     return ()
 end
 
-# remove user staked tokens from the bit mask if new balance is 0
+# remove user staked tokens from the bit mask is new balance is 0
 func remove_from_deposit{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
-}(user : felt, token : felt, withdrawned_amount : Uint256):
+}(user : felt, token : felt, withdraw_amount : Uint256):
     alloc_locals
     let (current_user_deposit_amount : Uint256) = deposits.read(user, token)
-    let (withdraw_all : felt) = uint256_le(current_user_deposit_amount, withdrawned_amount)  # can withdraw more than
-    if withdraw_all == TRUE:
+    let (withdraw_all_tokens : felt) = uint256_lt(current_user_deposit_amount, withdraw_amount)
+    if withdraw_all_tokens == TRUE:
         deposits.write(user, token, Uint256(0, 0))
         let (user_current_tokens_mask : felt) = user_staked_tokens.read(user)
         let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(token)
@@ -1398,8 +1472,8 @@ func remove_from_deposit{
         user_staked_tokens.write(user, new_user_tokens_mask)
         return ()
     else:
-        let (new_user_deposit_amount : Uint256) = uint256_checked_sub_lt(
-            current_user_deposit_amount, withdrawned_amount
+        let (new_user_deposit_amount : Uint256) = uint256_checked_sub_le(
+            current_user_deposit_amount, withdraw_amount
         )
         deposits.write(user, token, new_user_deposit_amount)
         return ()
