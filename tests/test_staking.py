@@ -708,7 +708,7 @@ async def test_deposit_lp(contracts_factory):
     assert from_uint(vault_balance_before_redeem) == from_uint(
         vault_balance_after_redeem) + from_uint(preview_deposit)
 
-    assert_event_emitted(redeem_tx, zk_pad_staking.contract_address, "Redeem_lp", [
+    assert_event_emitted(redeem_tx, zk_pad_staking.contract_address, "RedeemLP", [
         user1_account.contract_address,
         user1_account.contract_address,
         mock_lp_token.contract_address,
