@@ -199,6 +199,22 @@ async def test_setup_sale_success_with_events(contracts_factory):
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
     
+    # tx = await admin1.send_transaction(
+    #     admin_user,
+    #     ido.contract_address,
+    #     "set_sale_params",
+    #     [
+    #         zkp_token.contract_address,
+    #         owner.contract_address,
+    #         100,
+    #         1000000,
+    #         int(sale_end.timestamp()),
+    #         int(token_unlock.timestamp()),
+    #         1000,
+    #         10000
+    #     ]
+    # )
+
     tx = await admin1.send_transaction(
         admin_user,
         ido.contract_address,
@@ -206,19 +222,19 @@ async def test_setup_sale_success_with_events(contracts_factory):
         [
             zkp_token.contract_address,
             owner.contract_address,
-            100,
-            100,
+            *to_uint(100),
+            *to_uint(1000000),
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
-            1000,
-            10000
+            *to_uint(1000),
+            *to_uint(10000)
         ]
     )
 
     assert_event_emitted(tx, ido.contract_address, "sale_created", data=[
         owner.contract_address,
-        100,
-        100,
+        *to_uint(100),
+        *to_uint(1000000),
         int(sale_end.timestamp()),
         int(token_unlock.timestamp())
     ])
@@ -307,9 +323,4 @@ async def test_setup_sale_success_with_events(contracts_factory):
     my_event = next((x for x in tx.raw_events if get_selector_from_name("user_registered") in x.keys), None)
     pp(my_event)
     assert my_event is not None
-
-    # assert_event_emitted(tx, ido.contract_address, "user_registered", data=[
-    #     participant.contract_address,
-    #     1
-    # ])    
 

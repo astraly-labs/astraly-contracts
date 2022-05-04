@@ -41,6 +41,9 @@ namespace IZKPadIDOFactory:
 
     func get_random_number_generator_address() -> (random_number_generator_address : felt):
     end
+
+    func get_payment_token_address() -> (payment_token_address : felt):
+    end
 end
 
 @contract_interface
