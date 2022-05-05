@@ -210,4 +210,7 @@ namespace ITask:
     # # still be called even if `probeTask` returns 0 and needs to be protected accordingly.
     func executeTask() -> ():
     end
+
+    func setIDOContractAddress(address : felt) -> ():
+    end
 end

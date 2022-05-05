@@ -6,7 +6,7 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.starknet.common.syscalls import get_block_timestamp
 
 from openzeppelin.utils.constants import TRUE, FALSE
-from InterfaceAll import IZkPadIDOContract
+from InterfaceAll import IZkPadIDOContract, ITask
 
 @storage_var
 func ido_contract_addresses(id : felt) -> (address : felt):
@@ -21,12 +21,17 @@ func random_number_generator_address() -> (res : felt):
 end
 
 @storage_var
+func task_address() -> (res : felt):
+end
+
+@storage_var
 func lottery_ticket_contract_address() -> (res : felt):
 end
 
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        id : felt) -> (launch_date : felt):
+    id : felt
+) -> (launch_date : felt):
     let (the_address : felt) = ido_contract_addresses.read(id)
     let (launch_date) = IZkPadIDOContract.get_ido_launch_date(contract_address=the_address)
     return (launch_date)
@@ -34,7 +39,8 @@ end
 
 @view
 func get_ido_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        id : felt) -> (address : felt):
+    id : felt
+) -> (address : felt):
     alloc_locals
     let (the_address : felt) = ido_contract_addresses.read(id)
 
@@ -42,15 +48,19 @@ func get_ido_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 @view
-func get_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+func get_random_number_generator_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> (res : felt):
     let (rnd_nbr_gen_adr) = random_number_generator_address.read()
-    return (res = rnd_nbr_gen_adr)
+    return (res=rnd_nbr_gen_adr)
 end
 
 @view
-func get_lottery_ticket_contract_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+func get_lottery_ticket_contract_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> (res : felt):
     let (ltry_tckt_addr) = lottery_ticket_contract_address.read()
-    return (res = ltry_tckt_addr)
+    return (res=ltry_tckt_addr)
 end
 
 @external
@@ -58,18 +68,32 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     alloc_locals
     let (_id) = current_id.read()
     ido_contract_addresses.write(_id, address)
+    let (task_addr : felt) = task_address.read()
+    ITask.setIDOContractAddress(task_addr, address)
     current_id.write(_id + 1)
     return ()
 end
 
 @external
-func set_random_number_generator_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(rnd_nbr_gen_adr : felt):
+func set_random_number_generator_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(rnd_nbr_gen_adr : felt):
     random_number_generator_address.write(rnd_nbr_gen_adr)
-    return()
+    return ()
 end
 
 @external
-func set_lottery_ticket_contract_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_lottery_ticket_contract_address : felt):
+func set_task_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    task_addr : felt
+):
+    task_address.write(task_addr)
+    return ()
+end
+
+@external
+func set_lottery_ticket_contract_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(_lottery_ticket_contract_address : felt):
     lottery_ticket_contract_address.write(_lottery_ticket_contract_address)
-    return()
+    return ()
 end
