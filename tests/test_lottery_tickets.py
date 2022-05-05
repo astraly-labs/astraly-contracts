@@ -84,12 +84,13 @@ def contract_defs():
     factory_def = get_contract_def(factory_path)
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
-    return account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def
+    task_def = get_contract_def('ZkPadTask.cairo')
+    return account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def
 
 
 @pytest.fixture(scope='module')
 async def erc1155_init(contract_defs):
-    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def = contract_defs
     starknet = await Starknet.empty()
     account1 = await starknet.deploy(
         contract_def=account_def,
@@ -102,6 +103,7 @@ async def erc1155_init(contract_defs):
     ido = await starknet.deploy(contract_def=ido_def)
     ido2 = await starknet.deploy(contract_def=ido_def)
     factory = await starknet.deploy(contract_def=factory_def)
+    task = await starknet.deploy(contract_def=task_def, constructor_calldata=[factory.contract_address])
     erc1155 = await starknet.deploy(
         contract_def=erc1155_def,
         constructor_calldata=[
@@ -136,6 +138,8 @@ async def erc1155_init(contract_defs):
         account1.contract_address
     ])
 
+    await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
+
     return (
         starknet.state,
         account1,
@@ -152,7 +156,7 @@ async def erc1155_init(contract_defs):
 
 @pytest.fixture
 def erc1155_factory(contract_defs, erc1155_init):
-    account_def, erc1155_def, receiver_def, ido_def, _, _, _ = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, _, _, _, _ = contract_defs
     state, account1, account2, erc1155, receiver, ido, _, _, _, _ = erc1155_init
     _state = state.copy()
     account1 = cached_contract(_state, account_def, account1)
@@ -165,7 +169,7 @@ def erc1155_factory(contract_defs, erc1155_init):
 
 @pytest.fixture(scope='module')
 async def erc1155_minted_init(contract_defs, erc1155_init):
-    account_def, erc1155_def, receiver_def, ido_def, _, _, factory_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, _, _, factory_def, _ = contract_defs
     state, owner, account, erc1155, receiver, ido, _, _, factory, _ = erc1155_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
@@ -192,7 +196,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
 
 @pytest.fixture
 def erc1155_minted_factory(contract_defs, erc1155_minted_init):
-    account_def, erc1155_def, receiver_def, ido_def, _, _, _ = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, _, _, _, _ = contract_defs
     state, erc1155, owner, account, receiver, ido = erc1155_minted_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
@@ -206,7 +210,7 @@ def erc1155_minted_factory(contract_defs, erc1155_minted_init):
 
 @pytest.fixture(scope='module')
 async def full_init(contract_defs, erc1155_init):
-    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, _ = contract_defs
     state, owner, account, erc1155, receiver, ido, zk_pad_token, zk_pad_stake, factory, ido2 = erc1155_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
@@ -1341,7 +1345,7 @@ async def test_claim_twice_fail(full_factory):
 
     # Attempt to claim again
     await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
-                  *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
+        *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
 
 
 @pytest.mark.asyncio
@@ -1374,7 +1378,7 @@ async def test_claim_no_tickets(full_factory):
 
     # Try to claim with a user with no xZKP tokens
     await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
-                  *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
+        *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
 
 
 @pytest.mark.asyncio

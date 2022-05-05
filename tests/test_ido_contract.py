@@ -27,12 +27,13 @@ rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 
 deployer = Signer(1234321)
-admin1   = Signer(2345432)
-staking  = Signer(3456543)
+admin1 = Signer(2345432)
+staking = Signer(3456543)
 sale_owner = Signer(4567654)
 sale_participant = Signer(5678)
 zkp_recipient = Signer(123456789987654321)
 zkp_owner = Signer(123456789876543210)
+
 
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
@@ -40,14 +41,18 @@ def advance_clock(starknet_state, num_seconds):
             starknet_state) + num_seconds
     )
 
+
 def days_to_seconds(days: int):
     return days * 24 * 60 * 60
+
 
 @pytest.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()
-    set_block_timestamp(starknet.state, int(datetime.today().timestamp()))  #time.time()
+    set_block_timestamp(starknet.state, int(
+        datetime.today().timestamp()))  # time.time()
     return starknet
+
 
 @pytest.fixture(scope='module')
 def contract_defs():
@@ -58,12 +63,14 @@ def contract_defs():
     erc1155_def = get_contract_def(erc1155_path)
     zk_pad_ido_def = get_contract_def('ZkPadIDOContract.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
-    return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def
+    task_def = get_contract_def('ZkPadTask.cairo')
+    return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def
+
 
 @pytest.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
-    account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def = contract_defs
+    account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def = contract_defs
 
     deployer_account = await starknet.deploy(
         contract_def=account_def,
@@ -91,7 +98,7 @@ async def contacts_init(contract_defs, get_starknet):
         contract_def=account_def,
         constructor_calldata=[zkp_recipient.public_key]
     )
-    
+
     zkp_owner_account = await starknet.deploy(
         contract_def=account_def,
         constructor_calldata=[zkp_owner.public_key]
@@ -106,12 +113,12 @@ async def contacts_init(contract_defs, get_starknet):
     )
 
     rnd_nbr_gen = await starknet.deploy(
-        contract_def = rnd_nbr_gen_def,
+        contract_def=rnd_nbr_gen_def,
         constructor_calldata=[RND_NBR_GEN_SEED],
     )
 
     zk_pad_ido_factory = await starknet.deploy(
-        contract_def = zk_pad_ido_factory_def,
+        contract_def=zk_pad_ido_factory_def,
         constructor_calldata=[],
     )
 
@@ -149,10 +156,20 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
+    task = await starknet.deploy(
+        contract_def=task_def,
+        constructor_calldata=[
+            zk_pad_ido_factory.contract_address,
+        ],
+    )
+
+    await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_task_address",
+                                    [task.contract_address])
+
     await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "create_ido", [zk_pad_ido.contract_address])
 
-    await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_lottery_ticket_contract_address", 
-            [erc1155.contract_address])
+    await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_lottery_ticket_contract_address",
+                                    [erc1155.contract_address])
 
     return (
         deployer_account,
@@ -170,9 +187,10 @@ async def contacts_init(contract_defs, get_starknet):
         zk_pad_ido
     )
 
+
 @pytest.fixture
 def contracts_factory(contract_defs, contacts_init, get_starknet):
-    account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def = contract_defs
+    account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def, task_def = contract_defs
     deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido = contacts_init
     _state = get_starknet.state.copy()
     admin_cached = cached_contract(_state, zk_pad_admin_def, zk_pad_admin)
@@ -180,13 +198,16 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     admin1_cached = cached_contract(_state, account_def, admin1_account)
     staking_cached = cached_contract(_state, account_def, staking_account)
     owner_cached = cached_contract(_state, account_def, sale_owner_account)
-    participant_cached = cached_contract(_state, account_def, sale_participant_account)
+    participant_cached = cached_contract(
+        _state, account_def, sale_participant_account)
     zkp_token_cached = cached_contract(_state, zk_pad_token_def, zk_pad_token)
     ido_cached = cached_contract(_state, zk_pad_ido_def, zk_pad_ido)
     rnd_nbr_gen_cached = cached_contract(_state, rnd_nbr_gen_def, rnd_nbr_gen)
-    ido_factory_cached = cached_contract(_state, zk_pad_ido_factory_def, zk_pad_ido_factory)
+    ido_factory_cached = cached_contract(
+        _state, zk_pad_ido_factory_def, zk_pad_ido_factory)
     erc1155_cached = cached_contract(_state, erc1155_def, erc1155)
     return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, _state
+
 
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
@@ -198,7 +219,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
-    
+
     # tx = await admin1.send_transaction(
     #     admin_user,
     #     ido.contract_address,
@@ -238,7 +259,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         int(sale_end.timestamp()),
         int(token_unlock.timestamp())
     ])
-    
+
     reg_start = day + timeDeltaOneDay
     reg_end = reg_start + timeDeltaOneWeek
 
@@ -291,8 +312,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
     ])
 
     await deployer.send_transaction(
-        deployer_account, 
-        erc1155.contract_address, 
+        deployer_account,
+        erc1155.contract_address,
         'mint',
         [
             participant.contract_address,
@@ -320,7 +341,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     pp(tx.raw_events)
 
-    my_event = next((x for x in tx.raw_events if get_selector_from_name("user_registered") in x.keys), None)
+    my_event = next((x for x in tx.raw_events if get_selector_from_name(
+        "user_registered") in x.keys), None)
     pp(my_event)
     assert my_event is not None
-
