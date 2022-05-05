@@ -258,7 +258,7 @@ async def full_init(contract_defs, erc1155_init):
 
 @pytest.fixture
 def full_factory(contract_defs, full_init):
-    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, _ = contract_defs
+    account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, _, _ = contract_defs
     state, erc1155, owner, account, receiver, ido, zk_pad_token, zk_pad_stake = full_init
     _state = state.copy()
     owner = cached_contract(_state, account_def, owner)
