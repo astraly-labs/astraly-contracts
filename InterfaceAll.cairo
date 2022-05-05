@@ -13,12 +13,33 @@
 %lang starknet
 from starkware.cairo.common.uint256 import Uint256
 
+struct Purchase_Round:
+    member time_starts : felt
+    member time_ends : felt
+    member number_of_purchases : Uint256
+end
+
+struct Registration:
+    member registration_time_starts : felt
+    member registration_time_ends : felt
+    member number_of_registrants : Uint256
+end
+
 @contract_interface
 namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
     func register_user(amount : Uint256, account : felt) -> (res : felt):
+    end
+
+    func get_purchase_round() -> (res : Purchase_Round):
+    end
+
+    func get_registration() -> (res : Registration):
+    end
+
+    func calculate_allocation():
     end
 end
 
@@ -49,13 +70,20 @@ end
 @contract_interface
 namespace IERC1155_Receiver:
     func onERC1155Received(
-            operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt,
-            data : felt*) -> (selector : felt):
+        operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt, data : felt*
+    ) -> (selector : felt):
     end
 
     func onERC1155BatchReceived(
-            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, values_len : felt,
-            values : Uint256*, data_len : felt, data : felt*) -> (selector : felt):
+        operator : felt,
+        _from : felt,
+        ids_len : felt,
+        ids : Uint256*,
+        values_len : felt,
+        values : Uint256*,
+        data_len : felt,
+        data : felt*,
+    ) -> (selector : felt):
     end
 
     func supportsInterface(interfaceId : felt) -> (success : felt):
@@ -70,20 +98,13 @@ end
 
 @contract_interface
 namespace IZkStakingVault:
-    func redistribute(
-        pool_id : felt, 
-        user_address : felt,
-        amount_to_burn : felt):
+    func redistribute(pool_id : felt, user_address : felt, amount_to_burn : felt):
     end
 
     func deposited(pool_id : felt, user_address : felt) -> (res : felt):
     end
 
-    func set_tokens_unlock_time(
-        pool_id : felt,
-        user_address : felt,
-        token_unlock_time : felt
-    ):
+    func set_tokens_unlock_time(pool_id : felt, user_address : felt, token_unlock_time : felt):
     end
 end
 
@@ -178,15 +199,15 @@ end
 
 @contract_interface
 namespace ITask:
-    ## @notice Called by task automators to see if task needs to be executed.
-    ## @dev Do not return other values as keeper behavior is undefined.
-    ## @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
-    func probeTask() -> (taskReady: felt):
+    # # @notice Called by task automators to see if task needs to be executed.
+    # # @dev Do not return other values as keeper behavior is undefined.
+    # # @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
+    func probeTask() -> (taskReady : felt):
     end
 
-    ## @notice Main endpoint for task execution. Task automators call this to execute your task.
-    ## @dev This function should not have access restrictions. However, this function could
-    ## still be called even if `probeTask` returns 0 and needs to be protected accordingly.
+    # # @notice Main endpoint for task execution. Task automators call this to execute your task.
+    # # @dev This function should not have access restrictions. However, this function could
+    # # still be called even if `probeTask` returns 0 and needs to be protected accordingly.
     func executeTask() -> ():
     end
 end

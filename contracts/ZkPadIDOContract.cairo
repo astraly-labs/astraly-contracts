@@ -257,6 +257,77 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
+#############################################
+# #                 GETTERS                 ##
+#############################################
+
+@view
+func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : felt
+):
+    let (the_reg) = registration.read()
+    return (res=the_reg.registration_time_starts)
+end
+
+@view
+func get_current_sale{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Sale
+):
+    let (the_sale) = sale.read()
+    return (res=the_sale)
+end
+
+@view
+func get_user_info{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    account : felt
+) -> (
+    participation : Participation,
+    tickets : Uint256,
+    allocations : Uint256,
+    is_registered : felt,
+    has_participated : felt,
+):
+    let (_participation) = user_to_participation.read(account)
+    let (_winning_tickets) = user_to_winning_lottery_tickets.read(account)
+    let (_allocations) = address_to_allocations.read(account)
+    let (_is_registered) = is_registered.read(account)
+    let (_has_participated) = has_participated.read(account)
+    return (
+        participation=_participation,
+        tickets=_winning_tickets,
+        allocations=_allocations,
+        is_registered=_is_registered,
+        has_participated=_has_participated,
+    )
+end
+
+@view
+func get_purchase_round{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Purchase_Round
+):
+    let (round) = purchase_round.read()
+    return (res=round)
+end
+
+@view
+func get_registration{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Registration
+):
+    let (_registration) = registration.read()
+    return (res=_registration)
+end
+
+@view
+func get_distribution_round{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> (res : Distribution_Round):
+    let (round) = disctribution_round.read()
+    return (res=round)
+end
+
+#############################################
+# #                 EXTERNALS               ##
+#############################################
+
 @external
 func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _unlocking_times_len : felt,
@@ -532,14 +603,6 @@ func set_dist_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     disctribution_round.write(upd_dist)
     distribtion_round_time_set.emit(dist_time_starts=_dist_time_starts)
     return ()
-end
-
-@view
-func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    res : felt
-):
-    let (the_reg) = registration.read()
-    return (res=the_reg.registration_time_starts)
 end
 
 @external
