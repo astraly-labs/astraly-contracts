@@ -25,12 +25,13 @@ account_path = 'openzeppelin/account/Account.cairo'
 ido_factory_path = 'mocks/ZkPadIDOFactory_mock.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
+erc20_eth_path = 'mocks/ZkPad_ETH_ERC20_mock.cairo'
 
 deployer = Signer(1234321)
 admin1 = Signer(2345432)
 staking = Signer(3456543)
 sale_owner = Signer(4567654)
-sale_participant = Signer(5678)
+sale_participant = Signer(5678765)
 zkp_recipient = Signer(123456789987654321)
 zkp_owner = Signer(123456789876543210)
 
@@ -64,13 +65,14 @@ def contract_defs():
     zk_pad_ido_def = get_contract_def('ZkPadIDOContract.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     task_def = get_contract_def('ZkPadTask.cairo')
-    return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def
+    erc20_eth_def = get_contract_def(erc20_eth_path)
 
+    return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def
 
 @pytest.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
-    account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def = contract_defs
+    account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
 
     deployer_account = await starknet.deploy(
         contract_def=account_def,
@@ -171,6 +173,18 @@ async def contacts_init(contract_defs, get_starknet):
     await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_lottery_ticket_contract_address",
                                     [erc1155.contract_address])
 
+    erc20_eth_token = await starknet.deploy(
+        contract_def=erc20_eth_def,
+        constructor_calldata=[
+            deployer_account.contract_address,
+            deployer_account.contract_address
+        ],
+    )
+
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer", 
+        [sale_participant_account.contract_address, *to_uint(10000)]
+    )
+
     return (
         deployer_account,
         admin1_account,
@@ -184,14 +198,15 @@ async def contacts_init(contract_defs, get_starknet):
         zk_pad_ido_factory,
         erc1155,
         zk_pad_token,
-        zk_pad_ido
+        zk_pad_ido,
+        erc20_eth_token
     )
 
 
 @pytest.fixture
 def contracts_factory(contract_defs, contacts_init, get_starknet):
-    account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def, task_def = contract_defs
-    deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido = contacts_init
+    account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
+    deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido, erc20_eth_token = contacts_init
     _state = get_starknet.state.copy()
     admin_cached = cached_contract(_state, zk_pad_admin_def, zk_pad_admin)
     deployer_cached = cached_contract(_state, account_def, deployer_account)
@@ -219,23 +234,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
-
-    # tx = await admin1.send_transaction(
-    #     admin_user,
-    #     ido.contract_address,
-    #     "set_sale_params",
-    #     [
-    #         zkp_token.contract_address,
-    #         owner.contract_address,
-    #         100,
-    #         1000000,
-    #         int(sale_end.timestamp()),
-    #         int(token_unlock.timestamp()),
-    #         1000,
-    #         10000
-    #     ]
-    # )
-
+    
     tx = await admin1.send_transaction(
         admin_user,
         ido.contract_address,
