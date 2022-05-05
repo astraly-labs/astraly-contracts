@@ -20,7 +20,6 @@ from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.cairo.common.registers import get_label_location
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_contract_address,
@@ -141,14 +140,6 @@ struct WhitelistedToken:
     member bit_mask : felt
     member mint_calculator_address : felt
     member is_NFT : felt
-end
-
-# # @notice Data for a given strategy.
-# # @param trusted Whether the strategy is trusted.
-# # @param balance The amount of underlying tokens held in the strategy.
-struct StrategyData:
-    member trusted : felt  # 0 (false) or 1 (true)
-    member balance : felt
 end
 
 #
@@ -626,6 +617,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let (decimals : felt) = IERC20.decimals(asset_addr)
     let (asset_base_unit : felt) = pow(10, decimals)
     base_unit.write(asset_base_unit)
+
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
     whitelisted_tokens_mask.write(1)
