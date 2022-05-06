@@ -11,21 +11,26 @@ from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.security.safemath import uint256_checked_add, uint256_checked_sub_le, uint256_checked_sub_lt, uint256_checked_div_rem
+from openzeppelin.security.safemath import (
+    uint256_checked_add,
+    uint256_checked_sub_le,
+    uint256_checked_sub_lt,
+    uint256_checked_div_rem,
+)
 
-from contracts.utils import get_array
+from contracts.utils import get_array, uint256_is_zero
 from contracts.erc4626.ERC4626 import asset
 
 @contract_interface
-namespace Strategy:
-   func redeemUnderlying(amount : felt) -> (res : Uint256):
-   end
-   func balanceOfUnderlying(user : felt) -> (res : Uint256):
-   end
-   func underlying() -> (address : felt):
-   end
-   func mint(amount : Uint256) -> (res : Uint256):
-   end
+namespace IStrategy:
+    func redeemUnderlying(amount : felt) -> (res : Uint256):
+    end
+    func balanceOfUnderlying(user : felt) -> (res : Uint256):
+    end
+    func underlying() -> (address : felt):
+    end
+    func mint(amount : Uint256) -> (res : Uint256):
+    end
 end
 
 # # @notice Data for a given strategy.
@@ -33,7 +38,7 @@ end
 # # @param balance The amount of underlying tokens held in the strategy.
 struct StrategyData:
     member trusted : felt  # 0 (false) or 1 (true)
-    member balance : felt
+    member balance : Uint256
 end
 
 ####################################################################################
@@ -70,6 +75,14 @@ end
 
 @event
 func Harvest(user : felt, strategies_len : felt, strategies : felt*):
+end
+
+# @notice Emitted after the Vault deposits into a strategy contract.
+# @param user The authorized user who triggered the deposit.
+# @param strategy The strategy that was deposited into.
+# @param underlyingAmount The amount of underlying tokens that were deposited.
+@event
+func StrategyDeposit(user : felt, strategy_address : felt, underlying_amount : Uint256):
 end
 
 ####################################################################################
@@ -278,6 +291,15 @@ namespace ZkPadInvestment:
         return ()
     end
 
+    func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        token : felt
+    ):
+        let (decimals : felt) = IERC20.decimals(token)
+        let (asset_base_unit : felt) = pow(10, decimals)
+        base_unit.write(asset_base_unit)
+        return ()
+    end
+
     # @notice Harvest a set of trusted strategies.
     # @param strategies The trusted strategies to harvest.
     # @dev Will always revert if called outside of an active
@@ -320,17 +342,17 @@ namespace ZkPadInvestment:
             strategies_len, strategies, 0, 0, old_total_strategy_holdings
         )
         let (fee_percent : felt) = fee_percent.read()
-        let (fees_accrued : Uin256) = uint256_checked_div_rem(total_profit_accrued, Uint256(fee_percent * (1 ** 18), 0))
+        let (fees_accrued : Uin256) = uint256_checked_div_rem(
+            total_profit_accrued, Uint256(fee_percent * (1 ** 18), 0)
+        )
 
+        # ## TODO: MINT xZKP
 
-        ### TODO: MINT xZKP
-
-        let (current_locked_profit :felt) = lockedProfit()
+        let (current_locked_profit : felt) = lockedProfit()
         max_locked_profit.write(current_locked_profit + total_profit_accrued - fees_accrued)
 
         total_strategy_holdings.write(new_total_strategy_holdings)
         last_harvest.write(block_timestamp)
-
 
         let (new_harvest_delay : felt) = next_harvest_delay.read()
         if new_harvest_delay != 0:
@@ -338,7 +360,6 @@ namespace ZkPadInvestment:
             next_harvest_delay.write(0)
             HarvestDelayUpdated.emit(caller, new_harvest_delay)
         end
-
 
         let (caller : felt) = get_caller_address()
         Harvest.emit(caller, strategies_len, strategies)
@@ -362,17 +383,19 @@ namespace ZkPadInvestment:
         end
         let (underlying_asset : felt) = asset()
         let (balance_last_harvest : Uint256) = current_strategy_data.balance
-        let (balance_this_harvest : Uint256) = IERC20.balanceOf(
-            underlying_asset, strategies[index]
-        )
+        let (balance_this_harvest : Uint256) = IERC20.balanceOf(underlying_asset, strategies[index])
 
         strategy_data.write(strategies[index], TRUE, balance_this_harvest)
 
         local new_total_profit_accrued : Uint256
 
-        let (is_last_harvest_balance_lt : felt) = uint256_lt(balance_last_harvest, balance_this_harvest)
+        let (is_last_harvest_balance_lt : felt) = uint256_lt(
+            balance_last_harvest, balance_this_harvest
+        )
         if is_last_harvest_balance_lt == TRUE:
-            let (profit : Uin256) = uint256_checked_sub_lt(balance_this_harvest, balance_last_harvest)
+            let (profit : Uin256) = uint256_checked_sub_lt(
+                balance_this_harvest, balance_last_harvest
+            )
             new_total_profit_accrued = uint256_checked_add(total_profit_accrued, profit)
         else:
             new_total_profit_accrued = total_profit_accrued
@@ -386,4 +409,33 @@ namespace ZkPadInvestment:
             new_total_strategy_holdings + balance_this_harvest - balance_last_harvest,
         )
     end
+end
+
+func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt, underlying_amount : Uint256
+):
+    alloc_locals
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
+    with_attr error_message("UNTRUSTED_STRATEGY"):
+        assert current_strategy_data.trusted = TRUE
+    end
+
+    let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
+    let (new_total_strategy_holdings : Uint256) = uint256_checked_add(
+        current_total_strategy_holdings, underlying_amount
+    )
+    total_strategy_holdings.write(new_total_strategy_holdings)
+    strategy_data.write(strategy_address, StrategyData(TRUE, new_total_strategy_holdings))
+
+    let (underlying_asset : felt) = asset()
+    IERC20.approve(underlying_asset, strategy_address, underlying_amount)
+
+    let (minted : Uint256) = IStrategy.mint(strategy_address, underlying_amount)
+    with_attr error_message("MINT_FAILED"):
+        let (minted_zero_tokens : felt) = uint256_is_zero(minted)
+        assert minted_zero_tokens = FALSE
+    end
+    let (caller : felt) = get_caller_address()
+    StrategyDeposit.emit(caller, strategy_address, underlying_amount)
+    return ()
 end
