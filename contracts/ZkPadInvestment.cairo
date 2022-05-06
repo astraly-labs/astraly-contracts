@@ -8,7 +8,7 @@ from starkware.cairo.common.registers import get_label_location
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp
+from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, get_contract_address
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.security.safemath import (
@@ -100,6 +100,10 @@ end
 
 @event
 func StrategyDistrusted(user : felt, strategy_address : felt):
+end
+
+@event
+func FeesClaimed(user : felt, amount : Uint256):
 end
 
 ####################################################################################
@@ -520,5 +524,17 @@ func Only_trusted_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     with_attr error_message("UNTRUSTED_STRATEGY"):
         assert current_strategy_data.trusted = TRUE
     end
+    return ()
+end
+
+
+##############################################################################
+#                     FEE CLAIM LOGIC
+##############################################################################
+func claim_fees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
+    let (contract_address : felt) = get_contract_address()
+    let (caller : felt) = get_caller_address()
+    IERC20.transfer(contract_address, caller, amount)
+    FeesClaimed.emit(caller, amount)
     return ()
 end
