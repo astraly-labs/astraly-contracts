@@ -104,6 +104,8 @@ from contracts.ZkPadInvestment import (
     harvest_investment,
     deposit_into_strategy,
     withdraw_from_strategy,
+    trust_strategy,
+    distrust_strategy,
 )
 from contracts.utils import uint256_is_zero
 
@@ -758,10 +760,28 @@ end
 
 @external
 func withdrawFromStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    strategy_address : felt, underlying_amount : felt
+    strategy_address : felt, underlying_amount : Uint256
 ):
     Ownable_only_owner()
     withdraw_from_strategy(strategy_address, underlying_amount)
+    return ()
+end
+
+@external
+func trustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    Ownable_only_owner()
+    trust_strategy(strategy_address)
+    return ()
+end
+
+@external
+func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    Ownable_only_owner()
+    distrust_strategy(strategy_address)
     return ()
 end
 

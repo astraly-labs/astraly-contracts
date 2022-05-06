@@ -24,7 +24,7 @@ from contracts.erc4626.ERC4626 import asset
 
 @contract_interface
 namespace IStrategy:
-    func redeemUnderlying(amount : felt) -> (res : Uint256):
+    func redeemUnderlying(amount : Uint256) -> (res : Uint256):
     end
     func balanceOfUnderlying(user : felt) -> (res : Uint256):
     end
@@ -84,6 +84,22 @@ end
 # @param underlyingAmount The amount of underlying tokens that were deposited.
 @event
 func StrategyDeposit(user : felt, strategy_address : felt, underlying_amount : Uint256):
+end
+
+# @notice Emitted after the Vault withdraws funds from a strategy contract.
+# @param user The authorized user who triggered the withdrawal.
+# @param strategy The strategy that was withdrawn from.
+# @param underlyingAmount The amount of underlying tokens that were withdrawn.
+@event
+func StrategyWithdrawal(user : felt, strategy_address : felt, underlying_amount : Uint256):
+end
+
+@event
+func StrategyTrusted(user : felt, strategy_address : felt):
+end
+
+@event
+func StrategyDistrusted(user : felt, strategy_address : felt):
 end
 
 ####################################################################################
@@ -297,6 +313,10 @@ func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return ()
 end
 
+
+##############################################################################
+#                     HARVEST LOGIC
+##############################################################################
 # @notice Harvest a set of trusted strategies.
 # @param strategies The trusted strategies to harvest.
 # @dev Will always revert if called outside of an active
@@ -381,10 +401,8 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     if index == strategies_len:
         return (total_profit_accrued, total_strategy_holdings)
     end
+    Only_trusted_strategy(strategies[index])
     let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
-    with_attr error_message("UNTRUSTED_STRATEGY"):
-        assert current_strategy_data.trusted = TRUE
-    end
     let (underlying_asset : felt) = asset()
     let balance_last_harvest : Uint256 = current_strategy_data.balance
     let (balance_this_harvest : Uint256) = IERC20.balanceOf(underlying_asset, strategies[index])
@@ -412,14 +430,14 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     end
 end
 
+##############################################################################
+#                     STRATEGY DEPOSIT/WITHDRAWAL LOGIC
+##############################################################################
 func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
 ):
     alloc_locals
-    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
-    with_attr error_message("UNTRUSTED_STRATEGY"):
-        assert current_strategy_data.trusted = TRUE
-    end
+    Only_trusted_strategy(strategy_address)
 
     let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
     let (new_total_strategy_holdings : Uint256) = uint256_checked_add(
@@ -441,6 +459,66 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     return ()
 end
 
-func withdraw_from_strategy{}(strategy_address : felt, underlying_amount : felt):
+func withdraw_from_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt, underlying_amount : Uint256
+):
+    alloc_locals
+    Only_trusted_strategy(strategy_address)
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
+    let (new_strategy_balance : Uint256) = uint256_checked_sub_le(
+        current_strategy_data.balance, underlying_amount
+    )
+    strategy_data.write(strategy_address, StrategyData(TRUE, new_strategy_balance))
+
+    let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
+    let (new_total_strategy_holdings : Uint256) = uint256_checked_sub_le(
+        current_total_strategy_holdings, underlying_amount
+    )
+    total_strategy_holdings.write(new_total_strategy_holdings)
+
+    let (caller : felt) = get_caller_address()
+    StrategyWithdrawal.emit(caller, strategy_address, underlying_amount)
+    let (withdrawed_amount : Uint256) = IStrategy.redeemUnderlying(
+        strategy_address, underlying_amount
+    )
+    let (is_zero : felt) = uint256_is_zero(withdrawed_amount)
+    with_attr error_message("REDEEM_FAILED"):
+        assert is_zero = FALSE
+    end
+
+    return ()
+end
+
+##############################################################################
+#                     STRATEGY TRUST/DISTRUST LOGIC
+##############################################################################
+
+func trust_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
+    strategy_data.write(strategy_address, StrategyData(TRUE, current_strategy_data.balance))
+    let (caller : felt) = get_caller_address()
+    StrategyTrusted.emit(caller, strategy_address)
+    return ()
+end
+
+func distrust_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
+    strategy_data.write(strategy_address, StrategyData(FALSE, current_strategy_data.balance))
+    let (caller : felt) = get_caller_address()
+    StrategyDistrusted.emit(caller, strategy_address)
+    return ()
+end
+
+func Only_trusted_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
+    with_attr error_message("UNTRUSTED_STRATEGY"):
+        assert current_strategy_data.trusted = TRUE
+    end
     return ()
 end
