@@ -1,101 +1,129 @@
 %lang starknet
 
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
-from starkware.cairo.common.syscalls import get_caller_address, get_block_timestamp
-from openzeppelin.token.erc20.library import ERC20_mint
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_block_number,
+    get_block_timestamp,
+    get_contract_address,
+)
 from starkware.cairo.common.math_cmp import is_le
-
-from openzeppelin.utils.constants import TRUE,FALSE
-
+from InterfaceAll import IERC20
+from openzeppelin.utils.constants import TRUE, FALSE
 
 #
-#Sorage 
+# Sorage
 #
-@storage_var 
-func faucet_unlock_time(user : felt)->(unlock_time: felt) : 
+@storage_var
+func faucet_unlock_time(user : felt) -> (unlock_time : felt):
 end
 
 @storage_var
-func wait_time()->(wait_time : felt):
-end 
-
-@storage_var 
-func withdrawal_amount()->(withdraw_value : felt):
+func wait_time() -> (wait_time : felt):
 end
 
+@storage_var
+func token_address() -> (address : felt):
+end
+
+@storage_var
+func withdrawal_amount() -> (withdraw_value : Uint256):
+end
 
 #
-#Getters
+# Getters
 #
 
 @view
-func get_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
-    let (res : felt) = withdrawal_amount.read()
+func get_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Uint256
+):
+    let (res : Uint256) = withdrawal_amount.read()
     return (res)
 end
 
 @view
-func get_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res :felt):
+func get_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
     let (res : felt) = wait_time.read()
     return (res)
 end
 
 #
-#Setters
+# Setters
 #
 
-@external 
-func set_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount :felt)->() : 
-	let (withdraw_amount : felt) = amount
-	withdrawal_amount.write(withdraw_amount)
-	return()
+@constructor
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _token_address : felt
+):
+    token_address.write(_token_address)
+    return ()
+end
+@external
+func set_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    amount : Uint256
+) -> ():
+    withdrawal_amount.write(amount)
+    return ()
 end
 
-@external 
-func set_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(wait :felt)->() : 
-	let (waiting : felt) = wait
-	wait_time.write(waiting)
-	return()
+@external
+func set_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(wait : felt) -> ():
+    wait_time.write(wait)
+    return ()
 end
 
 #
-#External
+# External
 #
 
 @external
-func faucet_transfer{
-        syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }() -> (success: felt):
-    let (caller_address) = get_caller_address()
-	let ( withdraw_value: Uint256)  = withdrawal_amount.read()
-	if (allowedToWithdraw(caller_address)) : 
-    	let (timestamp: felt) = get_block_timestamp()
- 		faucet_unlock_time.write(caller_address, timestamp + wait_time.read())
-		return(TRUE)
-	end
+func faucet_transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    success : felt
+):
+    alloc_locals
+    let (caller_address : felt) = get_caller_address()
+    let (this_address : felt) = get_contract_address()
+    let (withdraw_value : Uint256) = withdrawal_amount.read()
+    let (_is_allowed : felt) = allowedToWithdraw(caller_address)
+    if _is_allowed == TRUE:
+        let (timestamp : felt) = get_block_timestamp()
+        let (_wait_time : felt) = wait_time.read()
+        faucet_unlock_time.write(caller_address, timestamp + _wait_time)
+        let (token : felt) = token_address.read()
+        let (success : felt) = IERC20.transferFrom(
+            contract_address=token,
+            sender=this_address,
+            recipient=caller_address,
+            amount=withdraw_value,
+        )
+        with_attr error_message("transfer failed"):
+            assert success = TRUE
+        end
+        return (TRUE)
+    end
     return (FALSE)
 end
 
 #
-#View
+# View
 #
 
 @view
-func allowedToWithdraw{
-	syscall_ptr : felt*, 
-        pedersen_ptr : HashBuiltin*,
-        range_check_ptr
-    }(address : felt) -> (success :felt) : 
-	if (faucet_unlock_time.read(address) == 0) :
-		return(TRUE)
-	end 
-	let (timestamp: felt) = get_block_timestamp()
-    let (unlock_time: felt) = faucet_unlock_time.read(address)
-	if is_le(unlock_time, timestamp):
-	     return (TRUE)
-	end
-	return (FALSE)
-end 
-    
+func allowedToWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    address : felt
+) -> (success : felt):
+    alloc_locals
+    let (_unlock_time : felt) = faucet_unlock_time.read(address)
+    if _unlock_time == 0:
+        return (TRUE)
+    end
+    let (timestamp : felt) = get_block_timestamp()
+    let (unlock_time : felt) = faucet_unlock_time.read(address)
+    let (_is_valid : felt) = is_le(unlock_time, timestamp)
+    if _is_valid == TRUE:
+        return (TRUE)
+    end
+    return (FALSE)
+end
