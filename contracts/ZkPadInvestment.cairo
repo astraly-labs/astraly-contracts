@@ -3,7 +3,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.math import assert_not_zero, assert_le
-from starkware.cairo.common.uint256 import Uint256, uint256_check, uint256_lt
+from starkware.cairo.common.uint256 import Uint256, uint256_check, uint256_lt, uint256_sub
 from starkware.cairo.common.registers import get_label_location
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.pow import pow
@@ -16,6 +16,7 @@ from openzeppelin.security.safemath import (
     uint256_checked_sub_le,
     uint256_checked_sub_lt,
     uint256_checked_div_rem,
+    uint256_checked_mul,
 )
 
 from contracts.utils import get_array, uint256_is_zero
@@ -139,7 +140,7 @@ end
 
 # # @notice The amount of locked profit at the end of the last harvest.
 @storage_var
-func max_locked_profit() -> (profit : felt):
+func max_locked_profit() -> (profit : Uint256):
 end
 
 # # @notice An ordered array of strategies representing the withdrawal queue.
@@ -153,260 +154,260 @@ end
 func withdrawal_queue_length() -> (length : felt):
 end
 
-namespace ZkPadInvestment:
-    ####################################################################################
-    #                                  View Functions
-    ####################################################################################
-    # # @notice Gets the full withdrawal queue.
-    # # @return An ordered array of strategies representing the withdrawal queue.
-    @view
-    func getWithdrawalQueue{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        ) -> (queue_len : felt, queue : felt*):
-        alloc_locals
-        let (length : felt) = withdrawal_queue_length.read()
-        let (mapping_ref : felt) = get_label_location(withdrawal_queue.read)
-        let (array : felt*) = alloc()
+####################################################################################
+#                                  View Functions
+####################################################################################
+# # @notice Gets the full withdrawal queue.
+# # @return An ordered array of strategies representing the withdrawal queue.
+@view
+func getWithdrawalQueue{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    queue_len : felt, queue : felt*
+):
+    alloc_locals
+    let (length : felt) = withdrawal_queue_length.read()
+    let (mapping_ref : felt) = get_label_location(withdrawal_queue.read)
+    let (array : felt*) = alloc()
 
-        get_array(length, array, mapping_ref)
-        return (length, array)
+    get_array(length, array, mapping_ref)
+    return (length, array)
+end
+
+@view
+func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    float : Uint256
+):
+    let (current_float_percent : Uint256) = target_float_percent.read()
+    return (current_float_percent)
+end
+
+# @notice Calculates the current amount of locked profit.
+# @return The current amount of locked profit.
+@view
+func lockedProfit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Uint256
+):
+    alloc_locals
+    let (previous_harvest : felt) = last_harvest.read()
+    let (harvest_interval : felt) = harvest_delay.read()
+    let (block_timestamp : felt) = get_block_timestamp()
+
+    let (harvest_delay_passed : felt) = is_le(previous_harvest + harvest_interval, block_timestamp)
+    # If the harvest delay has passed, there is no locked profit.
+    # Cannot overflow on human timescales since harvestInterval is capped.
+    if harvest_delay_passed == TRUE:
+        return (Uint256(0, 0))
     end
 
-    @view
-    func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        float : Uint256
-    ):
-        let (current_float_percent : Uint256) = target_float_percent.read()
-        return (current_float_percent)
+    let (maximum_locked_profit : Uint256) = max_locked_profit.read()
+
+    # Compute how much profit remains locked based on the last harvest and harvest delay.
+    # It's impossible for the previous harvest to be in the future, so this will never underflow.
+    # maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
+    let sub : felt = block_timestamp - previous_harvest
+    let (mul : Uint256) = uint256_checked_mul(maximum_locked_profit, Uint256(sub, 0))
+    let (div : Uint256, _) = uint256_checked_div_rem(mul, Uint256(harvest_interval, 0))
+    let (res : Uint256) = uint256_checked_sub_le(maximum_locked_profit, div)
+    return (res)
+end
+
+# @notice Calculates the total amount of underlying tokens the Vault holds.
+# @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
+@view
+func totalHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    total_underlying_held : Uint256
+):
+    let (locked_profit : Uint256) = lockedProfit()
+    let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
+    let (total_underlying_held : Uint256) = uint256_checked_sub_le(
+        current_total_strategy_holdings, locked_profit
+    )
+    let (total_float : Uint256) = totalFloat()
+    let (add_float : Uint256) = uint256_checked_add(total_underlying_held, total_float)
+    return (add_float)
+end
+
+####################################################################################
+#                                  External Functions
+####################################################################################
+func set_fee_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(fee : felt):
+    assert_not_zero(fee)
+    fee_percent.write(fee)
+    let (caller : felt) = get_caller_address()
+    FeePercentUpdated.emit(caller, fee)
+    return ()
+end
+
+# # @notice Sets a new harvest window.
+# # @param newHarvestWindow The new harvest window.
+# # @dev harvest_delay must be set before calling.
+func set_harvest_window{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    window : felt
+):
+    let (delay) = harvest_delay.read()
+    assert_le(window, delay)
+    harvest_window.write(window)
+    let (caller : felt) = get_caller_address()
+    HarvestDelayUpdated.emit(caller, window)
+    return ()
+end
+
+# # @notice Sets a new harvest delay.
+# # @param newHarvestDelay The new harvest delay.
+func set_harvest_delay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_delay : felt
+):
+    alloc_locals
+
+    let (local delay) = harvest_delay.read()
+    assert_not_zero(new_delay)
+    assert_le(new_delay, 31536000)  # 31,536,000 = 365 days = 1 year
+
+    let (caller : felt) = get_caller_address()
+    # If the previous delay is 0, we should set immediately
+    if delay == 0:
+        harvest_delay.write(new_delay)
+        HarvestDelayUpdated.emit(caller, new_delay)
+    else:
+        next_harvest_delay.write(new_delay)
+        HarvestDelayUpdateScheduled.emit(caller, new_delay)
     end
+    return ()
+end
 
-    # @notice Calculates the current amount of locked profit.
-    # @return The current amount of locked profit.
-    @view
-    func lockedProfit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        res : felt
-    ):
-        alloc_locals
-        let (previous_harvest : felt) = last_harvest.read()
-        let (harvest_interval : felt) = harvest_delay.read()
-        let (block_timestamp : felt) = get_block_timestamp()
+# # @notice Sets a new target float percentage.
+func set_target_float_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_float : Uint256
+):
+    alloc_locals
 
-        let (harvest_delay_passed : felt) = is_le(
-            previous_harvest + harvest_interval, block_timestamp
-        )
-        # If the harvest delay has passed, there is no locked profit.
-        # Cannot overflow on human timescales since harvestInterval is capped.
-        if harvest_delay_passed == TRUE:
-            return (0)
-        end
+    uint256_check(new_float)
+    let (local lt : felt) = uint256_lt(new_float, Uint256(2 ** 128 - 1, 2 ** 128 - 1))
+    assert lt = 1
+    target_float_percent.write(new_float)
+    let (caller : felt) = get_caller_address()
+    TargetFloatPercentUpdated.emit(caller, new_float)
+    return ()
+end
 
-        let (maximum_locked_profit : felt) = max_locked_profit.read()
+func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(token : felt):
+    alloc_locals
+    let (decimals : felt) = IERC20.decimals(token)
+    let (asset_base_unit : felt) = pow(10, decimals)
+    base_unit.write(asset_base_unit)
+    return ()
+end
 
-        # Compute how much profit remains locked based on the last harvest and harvest delay.
-        # It's impossible for the previous harvest to be in the future, so this will never underflow.
-        # maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
-        let sub = block_timestamp - previous_harvest
-        let mul = maximum_locked_profit * sub
-        let div = mul / harvest_interval
-        return (maximum_locked_profit - div)
-    end
+# @notice Harvest a set of trusted strategies.
+# @param strategies The trusted strategies to harvest.
+# @dev Will always revert if called outside of an active
+# harvest window or before the harvest delay has passed.
+func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategies_len : felt, strategies : felt*
+):
+    alloc_locals
+    let (previous_harvest : felt) = last_harvest.read()
+    let (harvest_interval : felt) = harvest_delay.read()
+    let (block_timestamp : felt) = get_block_timestamp()
 
-    # @notice Calculates the total amount of underlying tokens the Vault holds.
-    # @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
-    @view
-    func totalHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        total_underlying_held : Uint256
-    ):
-        let (locked_profit : felt) = lockedProfit()
-        let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
-        let (total_underlying_held : Uint256) = uint256_checked_sub_le(
-            current_total_strategy_holdings, Uint256(locked_profit, 0)
-        )
-        let (total_float : Uint256) = totalFloat()
-        let (add_float : Uint256) = uint256_checked_add(total_underlying_held, total_float)
-        return (add_float)
-    end
-
-    ####################################################################################
-    #                                  External Functions
-    ####################################################################################
-    func set_fee_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        fee : felt
-    ):
-        assert_not_zero(fee)
-        fee_percent.write(fee)
-        let (caller : felt) = get_caller_address()
-        FeePercentUpdated.emit(caller, fee)
-        return ()
-    end
-
-    # # @notice Sets a new harvest window.
-    # # @param newHarvestWindow The new harvest window.
-    # # @dev harvest_delay must be set before calling.
-    func set_harvest_window{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        window : felt
-    ):
-        let (delay) = harvest_delay.read()
-        assert_le(window, delay)
-        harvest_window.write(window)
-        let (caller : felt) = get_caller_address()
-        HarvestDelayUpdated.emit(caller, window)
-        return ()
-    end
-
-    # # @notice Sets a new harvest delay.
-    # # @param newHarvestDelay The new harvest delay.
-    func set_harvest_delay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        new_delay : felt
-    ):
-        alloc_locals
-
-        let (local delay) = harvest_delay.read()
-        assert_not_zero(new_delay)
-        assert_le(new_delay, 31536000)  # 31,536,000 = 365 days = 1 year
-
-        let (caller : felt) = get_caller_address()
-        # If the previous delay is 0, we should set immediately
-        if delay == 0:
-            harvest_delay.write(new_delay)
-            HarvestDelayUpdated.emit(caller, new_delay)
-        else:
-            next_harvest_delay.write(new_delay)
-            HarvestDelayUpdateScheduled.emit(caller, new_delay)
-        end
-        return ()
-    end
-
-    # # @notice Sets a new target float percentage.
-    func set_target_float_percent{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-    }(new_float : Uint256):
-        alloc_locals
-
-        uint256_check(new_float)
-        let (local lt : felt) = uint256_lt(new_float, Uint256(2 ** 128 - 1, 2 ** 128 - 1))
-        assert lt = 1
-        target_float_percent.write(new_float)
-        let (caller : felt) = get_caller_address()
-        TargetFloatPercentUpdated.emit(caller, new_float)
-        return ()
-    end
-
-    func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        token : felt
-    ):
-        let (decimals : felt) = IERC20.decimals(token)
-        let (asset_base_unit : felt) = pow(10, decimals)
-        base_unit.write(asset_base_unit)
-        return ()
-    end
-
-    # @notice Harvest a set of trusted strategies.
-    # @param strategies The trusted strategies to harvest.
-    # @dev Will always revert if called outside of an active
-    # harvest window or before the harvest delay has passed.
-    func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        strategies_len : felt, strategies : felt*
-    ):
-        alloc_locals
-        let (previous_harvest : felt) = last_harvest.read()
-        let (harvest_interval : felt) = harvest_delay.read()
-        let (block_timestamp : felt) = get_block_timestamp()
-
-        let (harvest_delay_passed : felt) = is_le(
-            previous_harvest + harvest_interval, block_timestamp
-        )
-        # If this is the first harvest after the last window:
-        if harvest_delay_passed == TRUE:
-            last_harvest_window_start.write(block_timestamp)
-            tempvar syscall_ptr : felt* = syscall_ptr
-            tempvar range_check_ptr = range_check_ptr
-            tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        else:
-            let (current_last_harvest_window_start_value : felt) = last_harvest_window_start.read()
-            let (current_harvest_window : felt) = harvest_window.read()
-            with_attr error_message("BAD_HARVEST_TIME"):
-                # We know this harvest is not the first in the window so we need to ensure it's within it.
-                assert_le(
-                    block_timestamp,
-                    current_last_harvest_window_start_value + current_harvest_window,
-                )
-            end
-            tempvar syscall_ptr : felt* = syscall_ptr
-            tempvar range_check_ptr = range_check_ptr
-            tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        end
-
-        let (old_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
-        let (total_profit_accrued : Uin256,
-            new_total_strategy_holdings : Uint256) = _check_strategies(
-            strategies_len, strategies, 0, 0, old_total_strategy_holdings
-        )
-        let (fee_percent : felt) = fee_percent.read()
-        let (fees_accrued : Uin256) = uint256_checked_div_rem(
-            total_profit_accrued, Uint256(fee_percent * (1 ** 18), 0)
-        )
-
-        # ## TODO: MINT xZKP
-
-        let (current_locked_profit : felt) = lockedProfit()
-        max_locked_profit.write(current_locked_profit + total_profit_accrued - fees_accrued)
-
-        total_strategy_holdings.write(new_total_strategy_holdings)
-        last_harvest.write(block_timestamp)
-
-        let (new_harvest_delay : felt) = next_harvest_delay.read()
-        if new_harvest_delay != 0:
-            harvest_delay.write(new_harvest_delay)
-            next_harvest_delay.write(0)
-            HarvestDelayUpdated.emit(caller, new_harvest_delay)
-        end
-
-        let (caller : felt) = get_caller_address()
-        Harvest.emit(caller, strategies_len, strategies)
-        return ()
-    end
-
-    func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        strategies_len : felt,
-        strategies : felt*,
-        index,
-        total_profit_accrued : Uint256,
-        new_total_strategy_holdings : Uint256,
-    ) -> (new_total_strategy_holdings : Uint256):
-        alloc_locals
-        if index == strategies_len:
-            return (total_profit_accrued, new_total_strategy_holdings)
-        end
-        let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
-        with_attr error_message("UNTRUSTED_STRATEGY"):
-            assert current_strategy_data.trusted = TRUE
-        end
-        let (underlying_asset : felt) = asset()
-        let (balance_last_harvest : Uint256) = current_strategy_data.balance
-        let (balance_this_harvest : Uint256) = IERC20.balanceOf(underlying_asset, strategies[index])
-
-        strategy_data.write(strategies[index], TRUE, balance_this_harvest)
-
-        local new_total_profit_accrued : Uint256
-
-        let (is_last_harvest_balance_lt : felt) = uint256_lt(
-            balance_last_harvest, balance_this_harvest
-        )
-        if is_last_harvest_balance_lt == TRUE:
-            let (profit : Uin256) = uint256_checked_sub_lt(
-                balance_this_harvest, balance_last_harvest
+    let (harvest_delay_passed : felt) = is_le(previous_harvest + harvest_interval, block_timestamp)
+    # If this is the first harvest after the last window:
+    if harvest_delay_passed == TRUE:
+        last_harvest_window_start.write(block_timestamp)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        let (current_last_harvest_window_start_value : felt) = last_harvest_window_start.read()
+        let (current_harvest_window : felt) = harvest_window.read()
+        with_attr error_message("BAD_HARVEST_TIME"):
+            # We know this harvest is not the first in the window so we need to ensure it's within it.
+            assert_le(
+                block_timestamp, current_last_harvest_window_start_value + current_harvest_window
             )
-            new_total_profit_accrued = uint256_checked_add(total_profit_accrued, profit)
-        else:
-            new_total_profit_accrued = total_profit_accrued
         end
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
 
+    let (old_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
+
+    let (total_profit_accrued : Uint256, new_total_strategy_holdings : Uint256) = _check_strategies(
+        strategies_len, strategies, 0, Uint256(0, 0), old_total_strategy_holdings
+    )
+    let (current_fee_percent : felt) = fee_percent.read()
+    let (fees_accrued : Uint256, _) = uint256_checked_div_rem(
+        total_profit_accrued, Uint256(current_fee_percent * (1 ** 18), 0)
+    )
+
+    # ## TODO: MINT xZKP
+
+    let (current_locked_profit : Uint256) = lockedProfit()
+    let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
+    let (new_max_locked_profit : Uint256) = uint256_sub(sum, fees_accrued)
+    max_locked_profit.write(new_max_locked_profit)
+
+    total_strategy_holdings.write(new_total_strategy_holdings)
+    last_harvest.write(block_timestamp)
+    let (caller : felt) = get_caller_address()
+
+    let (new_harvest_delay : felt) = next_harvest_delay.read()
+    if new_harvest_delay != 0:
+        harvest_delay.write(new_harvest_delay)
+        next_harvest_delay.write(0)
+        HarvestDelayUpdated.emit(caller, new_harvest_delay)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+    local pedersen_ptr : HashBuiltin* = pedersen_ptr
+
+    Harvest.emit(caller, strategies_len, strategies)
+    return ()
+end
+
+func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategies_len : felt,
+    strategies : felt*,
+    index,
+    total_profit_accrued : Uint256,
+    total_strategy_holdings : Uint256,
+) -> (total_profit_accrued : Uint256, total_strategy_holdings : Uint256):
+    alloc_locals
+    if index == strategies_len:
+        return (total_profit_accrued, total_strategy_holdings)
+    end
+    let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
+    with_attr error_message("UNTRUSTED_STRATEGY"):
+        assert current_strategy_data.trusted = TRUE
+    end
+    let (underlying_asset : felt) = asset()
+    let balance_last_harvest : Uint256 = current_strategy_data.balance
+    let (balance_this_harvest : Uint256) = IERC20.balanceOf(underlying_asset, strategies[index])
+
+    strategy_data.write(strategies[index], StrategyData(TRUE, balance_this_harvest))
+
+    let (is_last_harvest_balance_lt : felt) = uint256_lt(balance_last_harvest, balance_this_harvest)
+
+    let (sum : Uint256) = uint256_checked_add(total_strategy_holdings, balance_this_harvest)
+    let (new_total_strategy_holdings : Uint256) = uint256_checked_sub_le(sum, balance_last_harvest)
+    if is_last_harvest_balance_lt == TRUE:
+        let (profit : Uint256) = uint256_checked_sub_lt(balance_this_harvest, balance_last_harvest)
+        let (new_total_profit_accrued : Uint256) = uint256_checked_add(total_profit_accrued, profit)
         return _check_strategies(
             strategies_len,
             strategies,
             index + 1,
             new_total_profit_accrued,
-            new_total_strategy_holdings + balance_this_harvest - balance_last_harvest,
+            new_total_strategy_holdings,
+        )
+    else:
+        return _check_strategies(
+            strategies_len, strategies, index + 1, total_profit_accrued, new_total_strategy_holdings
         )
     end
 end
@@ -437,5 +438,9 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     end
     let (caller : felt) = get_caller_address()
     StrategyDeposit.emit(caller, strategy_address, underlying_amount)
+    return ()
+end
+
+func withdraw_from_strategy{}(strategy_address : felt, underlying_amount : felt):
     return ()
 end
