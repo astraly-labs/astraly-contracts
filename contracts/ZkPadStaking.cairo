@@ -106,6 +106,7 @@ from contracts.ZkPadInvestment import (
     withdraw_from_strategy,
     trust_strategy,
     distrust_strategy,
+    claim_fees
 )
 from contracts.utils import uint256_is_zero
 
@@ -782,6 +783,15 @@ func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 ):
     Ownable_only_owner()
     distrust_strategy(strategy_address)
+    return ()
+end
+
+@external
+func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    amount : Uint256
+):
+    Ownable_only_owner()
+    claim_fees(amount)
     return ()
 end
 
