@@ -91,7 +91,20 @@ from contracts.erc4626.ERC4626 import (
     calculate_lock_time_bonus,
     default_lock_time_days,
 )
-from contracts.ZkPadInvestment import ZkPadInvestment
+from contracts.ZkPadInvestment import (
+    getWithdrawalQueue,
+    totalFloat,
+    lockedProfit,
+    totalHoldings,
+    set_fee_percent,
+    set_harvest_window,
+    set_harvest_delay,
+    set_target_float_percent,
+    set_base_unit,
+    harvest_investment,
+    deposit_into_strategy,
+    withdraw_from_strategy,
+)
 from contracts.utils import uint256_is_zero
 
 # from contracts.ZkPadStrategyManager import constructor
@@ -736,10 +749,19 @@ end
 
 @external
 func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    strategy_address : felt
+    strategy_address : felt, underlying_amount : Uint256
 ):
     Ownable_only_owner()
-    deposit_into_strategy(strategy_address)
+    deposit_into_strategy(strategy_address, underlying_amount)
+    return ()
+end
+
+@external
+func withdrawFromStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt, underlying_amount : felt
+):
+    Ownable_only_owner()
+    withdraw_from_strategy(strategy_address, underlying_amount)
     return ()
 end
 
