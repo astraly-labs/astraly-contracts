@@ -137,7 +137,6 @@ func WithdrawLP(
 ):
 end
 
-
 #
 # Storage variables
 #
@@ -353,10 +352,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     Proxy_initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
-
-    let (decimals : felt) = IERC20.decimals(asset_addr)
-    let (asset_base_unit : felt) = pow(10, decimals)
-    base_unit.write(asset_base_unit)
+    set_base_unit(asset_addr)
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
@@ -696,9 +692,7 @@ func setStakeBoost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
 end
 
 @external
-func setFeePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    fee : felt
-):
+func setFeePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(fee : felt):
     Ownable_only_owner()
     set_fee_percent(fee)
     return ()
@@ -732,9 +726,20 @@ func setTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
 end
 
 @external
-func harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(strategies_len : felt, strategies : felt*):
+func harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategies_len : felt, strategies : felt*
+):
     Ownable_only_owner()
     harvest_investment(strategies_len, strategies)
+    return ()
+end
+
+@external
+func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    Ownable_only_owner()
+    deposit_into_strategy(strategy_address)
     return ()
 end
 
