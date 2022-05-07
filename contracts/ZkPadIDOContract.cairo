@@ -65,6 +65,8 @@ struct Sale:
     member tokens_unlock_time : felt
     # Cap on the number of lottery tickets to burn when registring
     member lottery_tickets_burn_cap : Uint256
+    # Number of users participated in the sale
+    member number_of_participants : Uint256
 end
 
 struct Participation:
@@ -107,11 +109,6 @@ end
 
 @storage_var
 func disctribution_round() -> (res : Distribution_Round):
-end
-
-# Number of users participated in the sale.
-@storage_var
-func number_of_participants() -> (res : Uint256):
 end
 
 # Mapping user to his participation
@@ -467,6 +464,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         sale_end=_sale_end_time,
         tokens_unlock_time=_tokens_unlock_time,
         lottery_tickets_burn_cap=_lottery_tickets_burn_cap,
+        number_of_participants=Uint256(0,0)
     )
     sale.write(new_sale)
     # Set portion vesting precision
@@ -503,6 +501,7 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants
     )
     sale.write(upd_sale)
     return ()
@@ -691,6 +690,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants
     )
     sale.write(upd_sale)
 
@@ -767,7 +767,7 @@ end
 
 @external
 func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt, number_of_tokens : Uint256, amount_paid : Uint256
+    account : felt, amount_paid : Uint256
 ) -> (res : felt):
     alloc_locals
     let (address_this : felt) = get_contract_address()
@@ -788,11 +788,6 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     end
     with_attr error_message("ZkPadIDOContract::participate Account address is the zero address"):
         assert_not_zero(account)
-    end
-    with_attr error_message(
-            "ZkPadIDOContract::participate Number of IDO tokens to purchase is zero"):
-        let (number_tokens_check : felt) = uint256_lt(Uint256(0, 0), number_of_tokens)
-        assert number_tokens_check = TRUE
     end
     with_attr error_message("ZkPadIDOContract::participate Amount paid is zero"):
         let (amount_paid_check : felt) = uint256_lt(Uint256(0, 0), amount_paid)
@@ -817,11 +812,6 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     end
     let (max_tokens_to_purchase : Uint256) = uint256_checked_mul(winning_tickets, the_alloc)
     let (number_of_tokens_byuing, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
-    with_attr error_message(
-            "ZkPadIDOContract::participate Amount paid does not cover the number of tokens"):
-        let (is_tokens_buying_le_tokens) = uint256_le(number_of_tokens_byuing, number_of_tokens)
-        assert is_tokens_buying_le_tokens = TRUE
-    end
     with_attr error_message("ZkPadIDOContract::participate Can't buy more than maximum allocation"):
         let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_byuing, max_tokens_to_purchase)
         assert is_tokens_buying_le_max = TRUE
@@ -833,6 +823,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     )
 
     let (local total_raised_sum : Uint256) = uint256_checked_add(the_sale.total_raised, amount_paid)
+    let (local number_of_participants_sum : Uint256) = uint256_checked_add(the_sale.number_of_participants, Uint256(1,0))
 
     let upd_sale = Sale(
         token=the_sale.token,
@@ -849,6 +840,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=number_of_participants_sum
     )
     sale.write(upd_sale)
 
@@ -861,13 +853,6 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     user_to_participation.write(account, new_purchase)
 
     has_participated.write(account, TRUE)
-
-    let (nbr_participants) = number_of_participants.read()
-    let (local nbr_participants_sum : Uint256) = uint256_checked_add(
-        nbr_participants, Uint256(low=1, high=0)
-    )
-
-    number_of_participants.write(nbr_participants_sum)
 
     let (factory_address) = ido_factory_contract_address.read()
     let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
