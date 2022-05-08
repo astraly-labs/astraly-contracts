@@ -385,10 +385,10 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ]
     )
 
-    my_event = next((x for x in tx.raw_events if get_selector_from_name(
+    user_registered_event = next((x for x in tx.raw_events if get_selector_from_name(
         "user_registered") in x.keys), None)
-    pp(my_event)
-    assert my_event is not None
+    pp(user_registered_event)
+    assert user_registered_event is not None
 
     # advance block timestamp to be inside the purchase round
     # advance_clock(starknet_state, days_to_seconds(7) + 1)
@@ -418,7 +418,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ido.contract_address,
         'participate',
         [
-            participant.contract_address,
             *to_uint(2000)
         ]
     )
@@ -439,7 +438,13 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ido.contract_address,
         'participate',
         [
-            participant_2.contract_address,
             *to_uint(1000)
         ]
     )
+
+    tokens_sold_event = next((x for x in tx.raw_events if get_selector_from_name(
+        "tokens_sold") in x.keys), None)
+    pp(tokens_sold_event)
+    assert tokens_sold_event is not None
+
+

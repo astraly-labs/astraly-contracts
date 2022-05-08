@@ -255,7 +255,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 #############################################
-# #                 GETTERS                 ##
+##                 GETTERS                 ##
 #############################################
 
 @view
@@ -767,9 +767,10 @@ end
 
 @external
 func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt, amount_paid : Uint256
+    amount_paid : Uint256
 ) -> (res : felt):
     alloc_locals
+    let (account : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (the_sale) = sale.read()
     let (block_timestamp) = get_block_timestamp()
@@ -868,5 +869,6 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         assert pmt_success = TRUE
     end
 
+    tokens_sold.emit(user_address = account, amount = number_of_tokens_byuing)
     return (res=TRUE)
 end
