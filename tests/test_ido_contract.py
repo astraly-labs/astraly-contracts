@@ -447,4 +447,14 @@ async def test_setup_sale_success_with_events(contracts_factory):
     pp(tokens_sold_event)
     assert tokens_sold_event is not None
 
+    participant_1_info = await ido.get_user_info(participant.contract_address).invoke()
+    pp(participant_1_info)
+    assert participant_1_info.result.is_registered == TRUE
+    assert participant_1_info.result.has_participated == TRUE
+    assert from_uint(participant_1_info.result.tickets) > 0
+    assert from_uint(participant_1_info.result.participation.amount_bought) > 0
+    assert from_uint(participant_1_info.result.participation.amount_paid) > 0
+
+
+
 
