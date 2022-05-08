@@ -28,6 +28,10 @@ end
 func lottery_ticket_contract_address() -> (res : felt):
 end
 
+@storage_var
+func payment_token_address() -> (res : felt):
+end
+
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     id : felt
@@ -63,6 +67,14 @@ func get_lottery_ticket_contract_address{
     return (res=ltry_tckt_addr)
 end
 
+@view
+func get_payment_token_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> (payment_token_address : felt):
+    let (pmt_tkn_addr) = payment_token_address.read()
+    return (payment_token_address=pmt_tkn_addr)
+end
+
 @external
 func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt):
     alloc_locals
@@ -95,5 +107,13 @@ func set_lottery_ticket_contract_address{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(_lottery_ticket_contract_address : felt):
     lottery_ticket_contract_address.write(_lottery_ticket_contract_address)
+    return ()
+end
+
+@external
+func set_payment_token_address{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(_pmt_tkn_addr : felt):
+    payment_token_address.write(_pmt_tkn_addr)
     return ()
 end

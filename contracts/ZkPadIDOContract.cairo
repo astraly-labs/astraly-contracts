@@ -718,7 +718,7 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (current_allocation) = ido_allocation.read()
     with_attr error_message("ZkPadIDOContract::calculate_allocation allocation already calculated"):
         let (allocation_check : felt) = uint256_eq(current_allocation, Uint256(0, 0))
-        assert allocation_check = FALSE
+        assert allocation_check = TRUE
     end
     let (the_sale) = sale.read()
 
