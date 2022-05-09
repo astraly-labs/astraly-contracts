@@ -967,6 +967,10 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     if amt_withdrawing_check == TRUE:
         let token_address = the_sale.token
         let (token_transfer_success : felt) = IERC20.transferFrom(token_address, address_this, address_caller, amt_withdrawing)
+        with_attr error_message("ZkPadIDOContract::withdraw_tokens token transfer failed"):
+            assert token_transfer_success = TRUE
+        end
+
         tokens_withdrawn.emit(user_address=address_caller, amount=amt_withdrawing)
 
         return ()
