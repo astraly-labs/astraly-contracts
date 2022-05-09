@@ -137,10 +137,6 @@ func DepositLP(
 end
 
 @event
-func RedeemLP(receiver : felt, owner : felt, lp_token : felt, assets : Uint256, shares : Uint256):
-end
-
-@event
 func WithdrawLP(
     caller : felt,
     receiver : felt,
@@ -324,7 +320,6 @@ func previewRedeemLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     alloc_locals
     only_whitelisted_token(lp_token)
     let (caller_address : felt) = get_caller_address()
-    assert_not_before_unlock_time(caller_address)
     let (lp_withdraw_amount : Uint256) = calculate_withdraw_lp_amount(
         caller_address, lp_token, shares
     )
@@ -337,7 +332,6 @@ func previewWithdrawLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 ) -> (amount : Uint256):
     only_whitelisted_token(lp_token)
     let (caller_address : felt) = get_caller_address()
-    assert_not_before_unlock_time(caller_address)
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     let (output : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, input
@@ -595,7 +589,7 @@ func redeemLP{
 
     let (success : felt) = IERC20.transfer(lp_token, receiver, lp_withdraw_amount)
     assert success = TRUE
-    RedeemLP.emit(receiver, owner, lp_token, lp_withdraw_amount, shares)
+    WithdrawLP.emit(caller, receiver, owner, lp_token, lp_withdraw_amount, shares)
     ReentrancyGuard_end()
     return (lp_withdraw_amount)
 end
