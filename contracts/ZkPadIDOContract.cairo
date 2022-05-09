@@ -74,7 +74,7 @@ struct Participation:
     member amount_paid : Uint256
     member time_participated : felt
     # member round_id : felt
-    member is_portion_withdrawn_array : felt  # can't have arrays as members of the struct. Will use a felt with a bit mask
+    member last_portion_withdrawn : felt
 end
 
 struct Registration:
@@ -362,7 +362,8 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     max_vesting_time_shift.write(_max_vesting_time_shift)
 
     local percent_sum : Uint256 = Uint256(0, 0)
-    local array_index = 0
+    ## local array_index = 0
+    local array_index = 1
 
     populate_vesting_params_rec(
         _unlocking_times_len, _unlocking_times, _percents_len, _percents, percent_sum, array_index
@@ -849,7 +850,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         amount_bought=number_of_tokens_byuing,
         amount_paid=amount_paid,
         time_participated=block_timestamp,
-        is_portion_withdrawn_array=0,
+        last_portion_withdrawn=0,
     )
     user_to_participation.write(account, new_purchase)
 
@@ -872,3 +873,106 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     tokens_sold.emit(user_address = account, amount = number_of_tokens_byuing)
     return (res=TRUE)
 end
+
+@external
+func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    only_sale_owner()
+    let (address_caller : felt) = get_caller_address()
+    let (address_this : felt) = get_contract_address()
+    let (the_sale) = sale.read()
+    with_attr error_message("ZkPadIDOContract::deposit_tokens Tokens deposit can be done only once"):
+        assert the_sale.tokens_deposited = FALSE
+    end
+    let upd_sale = Sale(
+        token=the_sale.token,
+        is_created=the_sale.is_created,
+        raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
+        leftover_withdrawn=the_sale.leftover_withdrawn,
+        tokens_deposited=TRUE,
+        sale_owner=the_sale.sale_owner,
+        token_price=the_sale.token_price,
+        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold=the_sale.total_tokens_sold,
+        total_winning_tickets=the_sale.total_winning_tickets,
+        total_raised=the_sale.total_raised,
+        sale_end=the_sale.sale_end,
+        tokens_unlock_time=the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants
+    )
+    sale.write(upd_sale)
+
+    let token_address = the_sale.token
+    let tokens_to_transfer = the_sale.amount_of_tokens_to_sell
+    let (transfer_success : felt) = IERC20.transferFrom(
+        token_address, address_caller, address_this, tokens_to_transfer
+    )
+    with_attr error_message("ZkPadIDOContract::deposit_tokens token transfer failed"):
+        assert transfer_success = TRUE
+    end
+    return ()
+end
+
+@external
+func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt):
+    alloc_locals
+    let (address_caller : felt) = get_caller_address()
+    let (address_this : felt) = get_contract_address()
+    let (the_sale) = sale.read()
+    let (block_timestamp) = get_block_timestamp()
+    let (participation) = user_to_participation.read(address_caller)
+
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens portion id can't be zero"):
+        assert_not_zero(portion_id)
+    end
+
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens Tokens can not be withdrawn yet"):
+        assert_le(the_sale.tokens_unlock_time, block_timestamp)
+    end
+
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens Invlaid portion id"):
+        assert_le(participation.last_portion_withdrawn, portion_id)
+    end
+
+    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(portion_id) 
+    
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens invalid portion vesting unlock time"): 
+        assert_not_zero(vesting_portions_unlock_time)
+    end
+    
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens Portion has not been unlocked yet"):
+        assert_le(vesting_portions_unlock_time, block_timestamp)
+    end
+
+    let (vesting_portion_percent) = vesting_percent_per_portion_array.read(portion_id)
+
+    with_attr error_message("ZkPadIDOContract::withdraw_tokens invlaid vestion portion percent"):
+        uint256_lt(Uint256(0,0), vesting_portion_percent)
+    end
+
+    let participation_upd = Participation(
+        amount_bought=participation.amount_bought,
+        amount_paid=participation.amount_paid,
+        time_participated=participation.time_participated,
+        last_portion_withdrawn=portion_id,
+    )
+    user_to_participation.write(address_caller, participation_upd)
+
+    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(participation.amount_bought, vesting_portion_percent)
+    let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
+    let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
+
+    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0,0), amt_withdrawing)
+    if amt_withdrawing_check == TRUE:
+        let token_address = the_sale.token
+        let (token_transfer_success : felt) = IERC20.transferFrom(token_address, address_this, address_caller, amt_withdrawing)
+        tokens_withdrawn.emit(user_address=address_caller, amount=amt_withdrawing)
+
+        return ()
+    else:
+        return ()
+    end
+
+end
+
