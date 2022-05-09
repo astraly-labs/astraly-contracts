@@ -91,20 +91,3 @@ def run(nre: NileRuntimeEnvironment):
             zkp_token, 16), int(signer.address, 16)
     ])
     print("xZKP token proxy initialized")
-
-    # Deploy AlphaRoad Wrapper
-    alpha_road = None
-
-    try:
-        alpha_road, _ = nre.deploy("AlphaRoadWrapper", arguments=[
-                                   "12345"], alias="alpha_road")
-    except Exception as error:
-        if "already exists" in str(error):
-            alpha_road, _ = nre.get_deployment("alpha_road")
-        else:
-            print(f"DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Alpha Road wrapper deployed at {alpha_road}")
-
-    signer.send(xzkp_token, "addWhitelistedToken",
-                ["12345", int(alpha_road, 16)])
