@@ -41,6 +41,6 @@ def run(nre: NileRuntimeEnvironment):
         print(f"Alpha Road wrapper deployed at {alpha_road}")
 
     addTx = signer.send(xzkp_token, "addWhitelistedToken",
-                        [int(alpha_road_pool, 16), int(alpha_road, 16)])
+                        [int(alpha_road_pool, 16), int(alpha_road, 16), False])
 
     print(addTx)
