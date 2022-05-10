@@ -12,7 +12,6 @@ from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address, get_block_timestamp)
 
 from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
-from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
@@ -38,8 +37,6 @@ from contracts.erc4626.ERC4626 import (
 from openzeppelin.token.erc20.library import ERC20_approve, ERC20_burn, ERC20_transfer, ERC20_transferFrom, ERC20_mint
 from contracts.utils import uint256_is_zero
 
-const IERC721_ID = 0x80ac58cd
-
 @contract_interface
 namespace IMintCalculator:
     func getPoolAddress() -> (address : felt):
@@ -52,6 +49,7 @@ end
 struct WhitelistedToken:
     member bit_mask : felt
     member mint_calculator_address : felt
+    member is_NFT : felt
 end
 #
 # Events
@@ -277,7 +275,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
     whitelisted_tokens_mask.write(1)
-    whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0))
+    whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0, FALSE))
     return ()
 end
 
@@ -291,7 +289,7 @@ end
 @external
 func addWhitelistedToken{
         syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
-        bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt) -> (
+        bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt, is_NFT : felt) -> (
         token_mask : felt):
     alloc_locals
     Ownable_only_owner()
@@ -313,7 +311,7 @@ func addWhitelistedToken{
     let (tokens_masks : felt) = whitelisted_tokens_mask.read()
 
     let (token_mask : felt) = get_next_available_bit_in_mask(0, tokens_masks)
-    whitelisted_tokens.write(lp_token, WhitelistedToken(token_mask, mint_calculator_address))
+    whitelisted_tokens.write(lp_token, WhitelistedToken(token_mask, mint_calculator_address, is_NFT))
     token_mask_addresses.write(token_mask, lp_token)
     let (new_tokens_masks : felt) = bitwise_or(tokens_masks, token_mask)
     whitelisted_tokens_mask.write(new_tokens_masks)
@@ -330,7 +328,7 @@ func removeWhitelistedToken{
     let (new_tokens_masks : felt) = bitwise_xor(whitelisted_token.bit_mask, all_token_masks)
     whitelisted_tokens_mask.write(new_tokens_masks)
 
-    whitelisted_tokens.write(lp_token, WhitelistedToken(0, 0))
+    whitelisted_tokens.write(lp_token, WhitelistedToken(0, 0, FALSE))
     token_mask_addresses.write(whitelisted_token.bit_mask, 0)
     return ()
 end
@@ -389,9 +387,10 @@ func depositLP{
 
     let (caller_address : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
-    let (is_nft : felt) = IERC165.supportsInterface(lp_token, IERC721_ID)
 
-    if is_nft == FALSE:
+    let (token_details : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+
+    if token_details.is_NFT == FALSE:
         let (success : felt) = IERC20.transferFrom(lp_token, caller_address, address_this, assets)
         assert success = TRUE
         tempvar syscall_ptr : felt* = syscall_ptr
