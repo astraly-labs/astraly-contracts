@@ -14,7 +14,7 @@ FALSE = 0
 NAME = str_to_felt("ZkPad")
 SYMBOL = str_to_felt("ZKP")
 DECIMALS = 18
-INIT_SUPPLY = to_uint(1000)
+INIT_SUPPLY = to_uint(1000000)
 CAP = to_uint(1000)
 RND_NBR_GEN_SEED = 76823
 TOKEN_ID = uint(0)
@@ -158,8 +158,8 @@ async def contacts_init(contract_defs, get_starknet):
             SYMBOL,
             DECIMALS,
             *INIT_SUPPLY,
-            zkp_recipient_account.contract_address,        # recipient
-            zkp_owner_account.contract_address,
+            sale_owner_account.contract_address,        # recipient
+            sale_owner_account.contract_address,
             *CAP,
             123124
         ],
@@ -376,6 +376,29 @@ async def test_setup_sale_success_with_events(contracts_factory):
         int(dist_round_start.timestamp())
     ])
 
+    tx = await sale_owner.send_transaction(
+        owner,
+        zkp_token.contract_address,
+        'approve',
+        [
+            ido.contract_address,
+            *INIT_SUPPLY
+        ]
+    )
+
+    ido_contract_zkp_bal = await zkp_token.balanceOf(ido.contract_address).invoke()
+    assert from_uint(ido_contract_zkp_bal.result.balance) == 0
+
+    tx = await sale_owner.send_transaction(
+        owner,
+        ido.contract_address,
+        'deposit_tokens',
+        []
+    )
+
+    ido_contract_zkp_bal = await zkp_token.balanceOf(ido.contract_address).invoke()
+    assert ido_contract_zkp_bal.result.balance == INIT_SUPPLY
+
     await deployer.send_transaction(
         deployer_account,
         erc1155.contract_address,
@@ -437,7 +460,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert user_registered_event is not None
 
     # advance block timestamp to be inside the purchase round
-    # advance_clock(starknet_state, days_to_seconds(7) + 1)
     set_block_timestamp(starknet_state, int(purchase_round_start.timestamp()) + 60)
 
     # calculate the allocation
@@ -500,6 +522,33 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert from_uint(participant_1_info.result.tickets) > 0
     assert from_uint(participant_1_info.result.participation.amount_bought) > 0
     assert from_uint(participant_1_info.result.participation.amount_paid) > 0
+
+    participant_1_zkp_bal = await zkp_token.balanceOf(participant.contract_address).invoke()
+    assert from_uint(participant_1_zkp_bal.result.balance) == 0
+
+    # advance block time stamp to one minute after portion 1 vesting unlock time
+    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
+
+    tx = await sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_tokens',
+        [
+            1
+        ]
+    )
+
+    tokens_withdrawn_event = next((x for x in tx.raw_events if get_selector_from_name(
+        "tokens_withdrawn") in x.keys), None)
+    pp(tokens_withdrawn_event)
+    assert tokens_withdrawn_event is not None
+
+    participant_1_zkp_bal = await zkp_token.balanceOf(participant.contract_address).invoke()
+    assert from_uint(participant_1_zkp_bal.result.balance) > 0
+
+
+
+
 
 
 
