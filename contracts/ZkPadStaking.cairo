@@ -96,6 +96,10 @@ from contracts.ZkPadInvestment import (
     totalFloat,
     lockedProfit,
     totalHoldings,
+    feePercent,
+    harvestDelay,
+    harvestWindow,
+    targetFloatPercent,
     set_fee_percent,
     set_harvest_window,
     set_harvest_delay,
@@ -118,6 +122,33 @@ namespace IMintCalculator:
     end
 
     func getAmountToMint(input : Uint256) -> (amount : Uint256):
+    end
+end
+
+@contract_interface
+namespace IVault:
+    func feePercent() -> (fee_percent : felt):
+    end
+
+    func harvestDelay() -> (harvest_delay : felt):
+    end
+
+    func harvestWindow() -> (harvest_window : felt):
+    end
+
+    func targetFloatPercent() -> (float_percent : felt):
+    end
+
+    func setFeePercent(new_fee_percent : felt):
+    end
+
+    func setHarvestDelay(new_harvest_delay : felt):
+    end
+
+    func setHarvestWindow(new_harvest_window : felt):
+    end
+
+    func setTargetFloatPercent(float_percent : felt):
     end
 end
 
@@ -728,7 +759,7 @@ end
 
 @external
 func setTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_float : Uint256
+    new_float : felt
 ):
     Ownable_only_owner()
     set_target_float_percent(new_float)

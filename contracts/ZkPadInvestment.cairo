@@ -71,7 +71,7 @@ end
 # @param user The authorized user who triggered the update.
 # @param newTargetFloatPercent The new target float percentage.
 @event
-func TargetFloatPercentUpdated(user : felt, newTargetFloatPercent : Uint256):
+func TargetFloatPercentUpdated(user : felt, newTargetFloatPercent : felt):
 end
 
 @event
@@ -133,7 +133,7 @@ end
 # # @notice The desired float percentage of holdings.
 # # @dev A fixed point number where 1e18 represents 100% and 0 represents 0%.
 @storage_var
-func target_float_percent() -> (percent : Uint256):
+func target_float_percent() -> (percent : felt):
 end
 
 # # @notice The total amount of underlying tokens held in strategies at the time of the last harvest.
@@ -196,8 +196,11 @@ end
 func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     float : Uint256
 ):
-    let (current_float_percent : Uint256) = target_float_percent.read()
-    return (current_float_percent)
+    let (underlying : felt) = asset()
+    let (address_this : felt) = get_contract_address()
+    let (balance_of_this : Uint256) = IERC20.balanceOf(underlying, address_this)
+    
+    return (balance_of_this)
 end
 
 # @notice Calculates the current amount of locked profit.
@@ -244,6 +247,30 @@ func totalHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (total_float : Uint256) = totalFloat()
     let (add_float : Uint256) = uint256_checked_add(total_underlying_held, total_float)
     return (add_float)
+end
+
+@view
+func feePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (res : felt) = fee_percent.read()
+    return (res)
+end
+
+@view
+func harvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (delay : felt):
+    let (delay : felt) = harvest_delay.read()
+    return (delay)
+end
+
+@view
+func harvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (window : felt):
+    let (window : felt) = harvest_window.read()
+    return (window)
+end
+
+@view
+func targetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (percent : felt):
+    let (percent : felt) = target_float_percent.read()
+    return (percent)
 end
 
 ####################################################################################
@@ -296,13 +323,9 @@ end
 
 # # @notice Sets a new target float percentage.
 func set_target_float_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_float : Uint256
+    new_float : felt
 ):
     alloc_locals
-
-    uint256_check(new_float)
-    let (local lt : felt) = uint256_lt(new_float, Uint256(2 ** 128 - 1, 2 ** 128 - 1))
-    assert lt = 1
     target_float_percent.write(new_float)
     let (caller : felt) = get_caller_address()
     TargetFloatPercentUpdated.emit(caller, new_float)
