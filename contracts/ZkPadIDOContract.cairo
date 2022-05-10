@@ -151,6 +151,10 @@ end
 func vesting_percent_per_portion_array(i : felt) -> (res : Uint256):
 end
 
+@storage_var
+func number_of_vesting_portions() -> (res : felt):
+end
+
 # Precision for percent for portion vesting
 @storage_var
 func portion_vesting_precision() -> (res : Uint256):
@@ -321,8 +325,26 @@ func get_distribution_round{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     return (res=round)
 end
 
+@view
+func get_vesting_portion_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt) -> (res : Uint256):
+    let (percent) = vesting_percent_per_portion_array.read(portion_id)
+    return (res = percent)
+end
+
+@view
+func get_vestion_portion_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt) -> (res : felt):
+    let (unlock_time) = vesting_portions_unlock_time_array.read(portion_id)
+    return (res = unlock_time)
+end
+
+@view
+func get_number_of_vesting_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (nbr_of_portions) = number_of_vesting_portions.read()
+    return (res = nbr_of_portions)
+end
+
 #############################################
-# #                 EXTERNALS               ##
+##                 EXTERNALS               ##
 #############################################
 
 @external
@@ -331,7 +353,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     _unlocking_times : felt*,
     _percents_len : felt,
     _percents : Uint256*,
-    _max_vesting_time_shift : felt,
+    _max_vesting_time_shift : felt
 ):
     alloc_locals
     only_admin()
@@ -347,7 +369,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         assert _unlocking_times_len = _percents_len
     end
 
-    let (_portion_vesting_precision) = portion_vesting_precision.read()
+    let (local _portion_vesting_precision : Uint256) = portion_vesting_precision.read()
     with_attr error_message(
             "ZkPadIDOContract::set_vesting_params portion vesting precision is zero"):
         let (percision_check : felt) = uint256_lt(Uint256(0, 0), _portion_vesting_precision)
@@ -360,17 +382,21 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     end
 
     max_vesting_time_shift.write(_max_vesting_time_shift)
+    number_of_vesting_portions.write(_percents_len)
 
-    local percent_sum : Uint256 = Uint256(0, 0)
+    let percent_sum = Uint256(0, 0)
     ## local array_index = 0
-    local array_index = 1
+    let array_index = 1
 
     populate_vesting_params_rec(
-        _unlocking_times_len, _unlocking_times, _percents_len, _percents, percent_sum, array_index
+        _unlocking_times_len, _unlocking_times, _percents_len, _percents, array_index
     )
 
-    with_attr error_message("ZkPadIDOContract::set_vesting_params Percent distribution issue"):
-        assert percent_sum = _portion_vesting_precision
+    let (percent_sum) = array_sum(_percents, _percents_len)
+    let (percent_sum_check) = uint256_eq(percent_sum, _portion_vesting_precision)
+
+    with_attr error_message("ZkPadIDOContract::set_vesting_params Vesting percentages do not add up"):
+        assert percent_sum_check = TRUE
     end
 
     return ()
@@ -381,8 +407,7 @@ func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
     _unlocking_times : felt*,
     _percents_len : felt,
     _percents : Uint256*,
-    _percents_sum : Uint256,
-    _array_index : felt,
+    _array_index : felt
 ):
     alloc_locals
     assert _unlocking_times_len = _percents_len
@@ -391,19 +416,33 @@ func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
         return ()
     end
 
-    local percent0 : Uint256 = _percents[0]
+    let percent0 = _percents[0]
     vesting_portions_unlock_time_array.write(_array_index, _unlocking_times[0])
     # vesting_percent_per_portion_array.write(_array_index, _percents[0])
     vesting_percent_per_portion_array.write(_array_index, percent0)
-    let (local percent_sum0 : Uint256) = uint256_checked_add(_percents_sum, percent0)
     return populate_vesting_params_rec(
         _unlocking_times_len=_unlocking_times_len - 1,
         _unlocking_times=_unlocking_times + 1,
         _percents_len=_percents_len - 1,
         _percents=_percents + Uint256.SIZE,
-        _percents_sum=percent_sum0,
-        _array_index=_array_index + 1,
+        _array_index=_array_index + 1
     )
+end
+
+func array_sum{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(arr : Uint256*, size : felt) -> (sum : Uint256):
+    if size == 0:
+        #parenthesis required for return statement
+        return (sum=Uint256(0,0))
+    end
+
+    # recursive call to array_sum, arr = arr[0], 
+    let (sum_of_rest) = array_sum(arr=arr + Uint256.SIZE, size=size - 1)
+    #[...] dereferences to value of memory address which is first element of arr
+    # recurisvely calls array_sum with arr+1 which is next element in arr
+    # recursion stops when size == 0
+    # return (sum=[arr] + sum_of_rest)
+    let (the_sum) = uint256_checked_add([arr], sum_of_rest)
+    return (sum=the_sum)
 end
 
 @external
@@ -415,7 +454,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _sale_end_time : felt,
     _tokens_unlock_time : felt,
     _portion_vesting_precision : Uint256,
-    _lottery_tickets_burn_cap : Uint256,
+    _lottery_tickets_burn_cap : Uint256
 ):
     alloc_locals
     only_admin()

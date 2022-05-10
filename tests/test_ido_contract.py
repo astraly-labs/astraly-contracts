@@ -36,6 +36,16 @@ sale_participant_2 = Signer(678909876)
 zkp_recipient = Signer(123456789987654321)
 zkp_owner = Signer(123456789876543210)
 
+def uint_array(l):
+    return list(map(uint, l))
+
+
+def uarr2cd(arr):
+    acc = [len(arr)]
+    for lo, hi in arr:
+        acc.append(lo)
+        acc.append(hi)
+    return acc
 
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
@@ -278,6 +288,42 @@ async def test_setup_sale_success_with_events(contracts_factory):
         int(sale_end.timestamp()),
         int(token_unlock.timestamp())
     ])
+
+    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
+
+    VESTING_TIMES_UNLOCKED = [
+        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60), 
+        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
+        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
+        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60)
+    ]
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_vesting_params",
+        [
+            4,
+            *VESTING_TIMES_UNLOCKED,
+            *uarr2cd(VESTING_PERCENTAGES),
+            0
+        ]
+    )
+
+    number_of_portions = await ido.get_number_of_vesting_portions().invoke()
+    assert number_of_portions.result.res == 4
+
+    portion_1 = await ido.get_vesting_portion_percent(1).invoke()
+    assert portion_1.result.res == uint(100)
+
+    portion_2 = await ido.get_vesting_portion_percent(2).invoke()
+    assert portion_2.result.res == uint(200)
+
+    portion_3 = await ido.get_vesting_portion_percent(3).invoke()
+    assert portion_3.result.res == uint(300)
+
+    portion_4 = await ido.get_vesting_portion_percent(4).invoke()
+    assert portion_4.result.res == uint(400)
+
 
     reg_start = day + timeDeltaOneDay
     reg_end = reg_start + timeDeltaOneWeek
