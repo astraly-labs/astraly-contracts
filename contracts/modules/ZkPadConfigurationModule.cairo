@@ -1,11 +1,11 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.math import assert_not_equal
 from starkware.starknet.common.syscalls import get_caller_address
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
-
-
+from contracts.ZkPadStaking import IVault
 
 ################################################################
 #                             Events
@@ -249,5 +249,119 @@ func setVaultCustomTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBu
     Ownable_only_owner()
     vault_custom_target_float_percent.write(vault, new_custom_target_float_percent)
     CustomTargetFloatPercentUpdated.emit(vault, new_custom_target_float_percent)
+    return ()
+end
+
+
+####### VAULT PARAMETER SYNC LOGIC
+
+# @notice Syncs a Vault's fee percentage with either the Vault's custom fee
+# percentage or the default fee percentage if a custom percentage is not set.
+# @param vault The Vault to sync the fee percentage for.
+@external
+func syncFeePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(vault : felt):
+    alloc_locals
+    let (custom_fee_percent : felt) = getVaultCustomFeePercent(vault)
+    tempvar new_fee_percent
+    if custom_fee_percent == 0:
+        let (current_default_fee_percent : felt) = defaultFeePercent()
+        new_fee_percent = current_default_fee_percent
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    else:
+        new_fee_percent = custom_fee_percent
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    end
+
+    let (current_vault_fee_percent : felt) = IVault.feePercent(vault)
+    with_attr error_message("ALREADY_SYNCED"):
+        assert_not_equal(current_vault_fee_percent, new_fee_percent)
+    end
+
+    IVault.setFeePercent(vault, new_fee_percent)
+    return ()
+end
+
+@external
+func syncHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(vault : felt):
+    alloc_locals
+    let (custom_harvest_delay : felt) = getVaultCustomHarvestDelay(vault)
+    tempvar new_harvest_delay
+    if custom_harvest_delay == 0:
+        let (current_default_harvest_delay : felt) = defaultHarvestDelay()
+        new_harvest_delay = current_default_harvest_delay
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    else:
+        new_harvest_delay = custom_harvest_delay
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    end
+
+    let (current_vault_harvest_delay : felt) = IVault.harvestDelay(vault)
+    with_attr error_message("ALREADY_SYNCED"):
+        assert_not_equal(current_vault_harvest_delay, new_harvest_delay)
+    end
+
+    IVault.setHarvestDelay(vault, new_harvest_delay)
+    return ()
+end
+
+@external
+func syncHarvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(vault : felt):
+    alloc_locals
+    let (custom_harvest_window : felt) = getVaultCustomHarvestWindow(vault)
+    tempvar new_harvest_window
+    if custom_harvest_window == 0:
+        let (current_default_harvest_window : felt) = defaultHarvestWindow()
+        new_harvest_window = current_default_harvest_window
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    else:
+        new_harvest_window = custom_harvest_window
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    end
+
+    let (current_vault_harvest_window : felt) = IVault.harvestWindow(vault)
+    with_attr error_message("ALREADY_SYNCED"):
+        assert_not_equal(current_vault_harvest_window, new_harvest_window)
+    end
+
+    IVault.setHarvestWindow(vault, new_harvest_window)
+    return ()
+end
+
+@external
+func syncTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(vault : felt):
+    alloc_locals
+    let (custom_target_float_percent : felt) = getVaultCustomTargetFloatPercent(vault)
+    tempvar new_target_float_percent
+    if custom_target_float_percent == 0:
+        let (current_default_target_float_percent : felt) = defaultTargetFloatPercent()
+        new_target_float_percent = current_default_target_float_percent
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    else:
+        new_target_float_percent = custom_target_float_percent
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+    end
+
+    let (current_target_float_percent : felt) = IVault.targetFloatPercent(vault)
+    with_attr error_message("ALREADY_SYNCED"):
+        assert_not_equal(current_target_float_percent, new_target_float_percent)
+    end
+
+    IVault.setTargetFloatPercent(vault, new_target_float_percent)
     return ()
 end
