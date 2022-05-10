@@ -1016,6 +1016,83 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     else:
         return ()
     end
-
 end
 
+@external
+func withdraw_multiple_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        portion_ids_len : felt, 
+        portion_ids : felt*):
+    alloc_locals
+    let (address_caller : felt) = get_caller_address()
+    let (address_this : felt) = get_contract_address()
+    let (the_sale) = sale.read()
+    let (block_timestamp) = get_block_timestamp()
+    let (participation) = user_to_participation.read(address_caller)
+
+    let (amt_withdrawn_sum : Uint256) = withdraw_multiple_portions_rec(portion_ids_len, portion_ids, block_timestamp, address_caller)
+    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0,0), amt_withdrawn_sum)
+    if amt_withdrawing_check == TRUE:
+        let token_address = the_sale.token
+        let (token_transfer_success : felt) = IERC20.transfer(token_address, address_caller, amt_withdrawn_sum)
+        with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
+            assert token_transfer_success = TRUE
+        end
+
+        tokens_withdrawn.emit(user_address=address_caller, amount=amt_withdrawn_sum)
+        return ()
+    else:
+        return ()
+    end
+end
+
+func withdraw_multiple_portions_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        _portion_ids_len : felt, 
+        _portion_ids : felt*,
+        _block_timestamp : felt,
+        _address_caller : felt
+) -> (amt_sum : Uint256):
+    alloc_locals
+
+    if _portion_ids_len == 0:
+        return (amt_sum=Uint256(0,0))
+    end
+
+    let current_portion = _portion_ids[0]
+    let (participation) = user_to_participation.read(_address_caller)
+    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec Invalid portion Id"):
+        assert_lt(participation.last_portion_withdrawn, current_portion)
+    end
+    let participation_upd = Participation(
+        amount_bought=participation.amount_bought,
+        amount_paid=participation.amount_paid,
+        time_participated=participation.time_participated,
+        last_portion_withdrawn=current_portion,
+    )
+    user_to_participation.write(_address_caller, participation_upd)
+
+    let (sum_of_portions) = withdraw_multiple_portions_rec(
+        _portion_ids_len=_portion_ids_len-1,
+        _portion_ids=_portion_ids+1,
+        _block_timestamp=_block_timestamp,
+        _address_caller=_address_caller)
+
+    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(current_portion)     
+    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec invalid portion vesting unlock time"): 
+        assert_not_zero(vesting_portions_unlock_time)
+    end    
+    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec Portion has not been unlocked yet"):
+        assert_le(vesting_portions_unlock_time, _block_timestamp)
+    end
+
+    let (vesting_portion_percent) = vesting_percent_per_portion_array.read(current_portion)
+    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec invlaid vestion portion percent"):
+        uint256_lt(Uint256(0,0), vesting_portion_percent)
+    end
+
+    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(participation.amount_bought, vesting_portion_percent)
+    let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
+    let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
+
+    let (the_sum) = uint256_checked_add(amt_withdrawing, sum_of_portions)
+    return (amt_sum=the_sum)
+end

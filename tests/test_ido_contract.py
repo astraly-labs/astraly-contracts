@@ -546,6 +546,26 @@ async def test_setup_sale_success_with_events(contracts_factory):
     participant_1_zkp_bal = await zkp_token.balanceOf(participant.contract_address).invoke()
     assert from_uint(participant_1_zkp_bal.result.balance) > 0
 
+    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (23 * 24 * 60 * 60))
+    OTHER_PORTION_IDS = [2,3,4]
+    tx = await sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_multiple_portions',
+        [
+            3,
+            *OTHER_PORTION_IDS
+        ]
+    )
+
+    tokens_withdrawn_event = next((x for x in tx.raw_events if get_selector_from_name(
+        "tokens_withdrawn") in x.keys), None)
+    pp(tokens_withdrawn_event)
+    assert tokens_withdrawn_event is not None
+
+    participant_1_zkp_bal_multiple = await zkp_token.balanceOf(participant.contract_address).invoke()
+    assert from_uint(participant_1_zkp_bal_multiple.result.balance) > from_uint(participant_1_zkp_bal.result.balance)
+
 
 
 
