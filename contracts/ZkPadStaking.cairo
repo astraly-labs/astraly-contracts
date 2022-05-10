@@ -150,6 +150,9 @@ namespace IVault:
 
     func setTargetFloatPercent(float_percent : felt):
     end
+
+    func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    end
 end
 
 struct WhitelistedToken:

@@ -46,32 +46,32 @@ end
 #                                   Events
 ####################################################################################
 @event
-func FeePercentUpdated(user : felt, newFeePercent : felt):
+func FeePercentUpdated(user : felt, new_fee_percent : felt):
 end
 
 @event
-func HarvestWindowUpdated(user : felt, newHarvestWindow : felt):
+func HarvestWindowUpdated(user : felt, new_harvest_window : felt):
 end
 
 # @notice Emitted when the harvest delay is updated.
 # @param user The authorized user who triggered the update.
-# @param newHarvestDelay The new harvest delay.
+# @param new_harvest_delay The new harvest delay.
 @event
-func HarvestDelayUpdated(user : felt, newHarvestDelay : felt):
+func HarvestDelayUpdated(user : felt, new_harvest_delay : felt):
 end
 
 # @notice Emitted when the harvest delay is scheduled to be updated next harvest.
 # @param user The authorized user who triggered the update.
-# @param newHarvestDelay The scheduled updated harvest delay.
+# @param new_harvest_delay The scheduled updated harvest delay.
 @event
-func HarvestDelayUpdateScheduled(user : felt, newHarvestDelay : felt):
+func HarvestDelayUpdateScheduled(user : felt, new_harvest_delay : felt):
 end
 
 # @notice Emitted when the target float percentage is updated.
 # @param user The authorized user who triggered the update.
-# @param newTargetFloatPercent The new target float percentage.
+# @param new_target_float_percent The new target float percentage.
 @event
-func TargetFloatPercentUpdated(user : felt, newTargetFloatPercent : felt):
+func TargetFloatPercentUpdated(user : felt, new_target_float_percent : felt):
 end
 
 @event

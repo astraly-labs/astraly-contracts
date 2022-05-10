@@ -1,11 +1,26 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.math import assert_not_equal
+from starkware.cairo.common.math import assert_not_equal, assert_not_zero
 from starkware.starknet.common.syscalls import get_caller_address
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 from contracts.ZkPadStaking import IVault
+
+@contract_interface
+namespace IConfigurationModule:
+    func syncFeePercent(vault : felt):
+    end
+    
+    func syncHarvestDelay(vault : felt):
+    end
+    
+    func syncHarvestWindow(vault : felt):
+    end
+
+    func syncTargetFloatPercent(vault : felt):
+    end
+end
 
 ################################################################
 #                             Events
@@ -128,9 +143,9 @@ end
 
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    let (caller : felt) = get_caller_address()
-    Ownable_initializer(caller)
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt):
+    assert_not_zero(owner)
+    Ownable_initializer(owner)
     return ()
 end
 
