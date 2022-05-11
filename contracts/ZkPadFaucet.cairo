@@ -49,6 +49,14 @@ func get_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     return (res)
 end
 
+@view
+func get_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    account : felt
+) -> (res : felt):
+    let (res : felt) = faucet_unlock_time.read(account)
+    return (res)
+end
+
 #
 # Setters
 #
