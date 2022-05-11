@@ -301,8 +301,8 @@ def verify_merkle_proof(leaf, proof):
 
 
 def get_leaf(recipient, amount):
-    amount_hash = pedersen_hash(amount, 0)
-    leaf = pedersen_hash(recipient, amount_hash)
+    # amount_hash = pedersen_hash(amount, 0)
+    leaf = pedersen_hash(recipient, amount)
     return leaf
 
 # creates the inital merkle leaf values to use
