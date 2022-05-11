@@ -235,7 +235,8 @@ def set_block_timestamp(starknet_state, timestamp):
         starknet_state.state.block_info.block_number, timestamp
     )
 
-def get_next_level(level: list[int]) -> list[int]:
+
+def get_next_level(level):
     next_level = []
 
     for i in range(0, len(level), 2):
@@ -249,7 +250,8 @@ def get_next_level(level: list[int]) -> list[int]:
 
     return next_level
 
-def generate_proof_helper(level: list[int], index: int, proof: list[int]) -> list[int]:
+
+def generate_proof_helper(level, index, proof):
     if len(level) == 1:
         return proof
     if len(level) % 2 != 0:
@@ -268,10 +270,12 @@ def generate_proof_helper(level: list[int], index: int, proof: list[int]) -> lis
 
     return generate_proof_helper(next_level, index_parent, proof)
 
-def generate_merkle_proof(values: list[int], index: int) -> list[int]:
+
+def generate_merkle_proof(values, index):
     return generate_proof_helper(values, index, [])
 
-def generate_merkle_root(values: list[int]) -> int:
+
+def generate_merkle_root(values):
     if len(values) == 1:
         return values[0]
 
@@ -281,7 +285,8 @@ def generate_merkle_root(values: list[int]) -> int:
     next_level = get_next_level(values)
     return generate_merkle_root(next_level)
 
-def verify_merkle_proof(leaf: int, proof: list[int]) -> bool:
+
+def verify_merkle_proof(leaf, proof):
     root = proof[len(proof)-1]
     proof = proof[:-1]
     curr = leaf
@@ -294,13 +299,16 @@ def verify_merkle_proof(leaf: int, proof: list[int]) -> bool:
 
     return curr == root
 
+
 def get_leaf(recipient, amount):
     amount_hash = pedersen_hash(amount, 0)
     leaf = pedersen_hash(recipient, amount_hash)
     return leaf
 
 # creates the inital merkle leaf values to use
-def get_leaves(recipients: list[int], amounts: list[int]) -> list[tuple[int, int, int]]:
+
+
+def get_leaves(recipients, amounts):
     values = []
     for i in range(0, len(recipients)):
         leaf = get_leaf(recipients[i], amounts[i])
