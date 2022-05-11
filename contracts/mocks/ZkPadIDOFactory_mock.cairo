@@ -32,6 +32,10 @@ end
 func payment_token_address() -> (res : felt):
 end
 
+@storage_var
+func merkle_root(id : felt) -> (root : felt):
+end
+
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     id : felt
@@ -68,11 +72,18 @@ func get_lottery_ticket_contract_address{
 end
 
 @view
-func get_payment_token_address{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}() -> (payment_token_address : felt):
+func get_payment_token_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> (payment_token_address : felt):
     let (pmt_tkn_addr) = payment_token_address.read()
     return (payment_token_address=pmt_tkn_addr)
+end
+
+@view
+func get_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    id : felt
+) -> (merkle_root : felt):
+    let (res : felt) = merkle_root.read(id)
+    return (merkle_root=res)
 end
 
 @external
@@ -111,9 +122,18 @@ func set_lottery_ticket_contract_address{
 end
 
 @external
-func set_payment_token_address{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(_pmt_tkn_addr : felt):
+func set_payment_token_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _pmt_tkn_addr : felt
+):
     payment_token_address.write(_pmt_tkn_addr)
+    return ()
+end
+
+@external
+func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _merkle_root : felt
+):
+    let (_id) = current_id.read()
+    merkle_root.write(_id, _merkle_root)
     return ()
 end

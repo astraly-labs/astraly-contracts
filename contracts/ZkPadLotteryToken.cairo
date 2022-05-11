@@ -51,6 +51,10 @@ from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
 from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory
 
+from starkware.cairo.common.hash import hash2
+
+from starkware.cairo.common.math_cmp import is_le_felt
+
 @storage_var
 func ido_factory_address() -> (res : felt):
 end
@@ -316,7 +320,7 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         contract_address=factory_address, id=felt_id
     )
     let (success : felt) = IZkPadIDOContract.register_user(
-        contract_address=ido_address, amount=amount, account=_from
+        contract_address=ido_address, amount=amount, account=_from, nb_quest=0
     )
     with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
@@ -324,6 +328,77 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     return ()
 end
 
+@external
+func burn_with_quest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _from : felt,
+    id : Uint256,
+    amount : Uint256,
+    nb_quest : felt,
+    merkle_proof_len : felt,
+    merkle_proof : felt*,
+):
+    alloc_locals
+    owner_or_approved(owner=_from)
+    let (factory_address : felt) = ido_factory_address.read()
+    let (leaf) = hash2{hash_ptr=pedersen_ptr}(_from, nb_quest)
+    let (_id : felt) = _uint_to_felt(id)
+    let (merkle_root : felt) = IZKPadIDOFactory.get_merkle_root(
+        contract_address=factory_address, id=_id
+    )
+    let (_valid : felt) = merkle_verify(leaf, merkle_root, merkle_proof_len, merkle_proof)
+    with_attr error_message("ZkPadLotteryToken::Error in the number of quests done"):
+        assert _valid = 1
+    end
+    ERC1155_burn(_from, id, amount)
+    # Spin up VRF and update allocation accordingly
+    let (ido_address : felt) = IZKPadIDOFactory.get_ido_address(
+        contract_address=factory_address, id=_id
+    )
+    let (success : felt) = IZkPadIDOContract.register_user(
+        contract_address=ido_address, amount=amount, account=_from, nb_quest=nb_quest
+    )
+    with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
+        assert success = TRUE
+    end
+    return ()
+end
+
+func merkle_verify{pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    leaf : felt, root : felt, proof_len : felt, proof : felt*
+) -> (res : felt):
+    let (calc_root) = calc_merkle_root(leaf, proof_len, proof)
+    # check if calculated root is equal to expected
+    if calc_root == root:
+        return (1)
+    else:
+        return (0)
+    end
+end
+
+func calc_merkle_root{pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    curr : felt, proof_len : felt, proof : felt*
+) -> (res : felt):
+    alloc_locals
+
+    if proof_len == 0:
+        return (curr)
+    end
+
+    local node
+    local proof_elem = [proof]
+    let (le) = is_le_felt(curr, proof_elem)
+
+    if le == 1:
+        let (n) = hash2{hash_ptr=pedersen_ptr}(curr, proof_elem)
+        node = n
+    else:
+        let (n) = hash2{hash_ptr=pedersen_ptr}(proof_elem, curr)
+        node = n
+    end
+
+    let (res) = calc_merkle_root(node, proof_len - 1, proof + 1)
+    return (res)
+end
 # @external
 # func burnBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 #         _from : felt, ids_len : felt, ids : Uint256*, amounts_len : felt, amounts : Uint256*):
