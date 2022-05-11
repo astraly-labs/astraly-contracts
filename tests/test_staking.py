@@ -588,10 +588,10 @@ async def test_permissions(contracts_factory):
 
     await assert_revert(
         user1.send_transaction(
-            user1_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123]),
+            user1_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123, False]),
         "Ownable: caller is not the owner")
 
-    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123, False])
 
     await assert_revert(
         user1.send_transaction(
@@ -634,7 +634,8 @@ async def test_deposit_lp(contracts_factory):
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken", [
         mock_lp_token.contract_address,
-        mint_calculator.contract_address
+        mint_calculator.contract_address,
+        False
     ])
 
     assert (

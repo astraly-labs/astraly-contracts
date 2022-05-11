@@ -126,6 +126,11 @@ end
 func address_to_allocations(user_address : felt) -> (res : Uint256):
 end
 
+# Merkle root of the user quests tri
+@storage_var
+func user_quests_root() -> (root : felt):
+end
+
 # total allocations given
 @storage_var
 func total_allocations_given() -> (res : Uint256):
@@ -253,7 +258,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 #############################################
-##                 GETTERS                 ##
+# #                 GETTERS                 ##
 #############################################
 
 @view
@@ -320,25 +325,31 @@ func get_distribution_round{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
 end
 
 @view
-func get_vesting_portion_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt) -> (res : Uint256):
+func get_vesting_portion_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    portion_id : felt
+) -> (res : Uint256):
     let (percent) = vesting_percent_per_portion_array.read(portion_id)
-    return (res = percent)
+    return (res=percent)
 end
 
 @view
-func get_vestion_portion_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt) -> (res : felt):
+func get_vestion_portion_unlock_time{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(portion_id : felt) -> (res : felt):
     let (unlock_time) = vesting_portions_unlock_time_array.read(portion_id)
-    return (res = unlock_time)
+    return (res=unlock_time)
 end
 
 @view
-func get_number_of_vesting_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+func get_number_of_vesting_portions{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> (res : felt):
     let (nbr_of_portions) = number_of_vesting_portions.read()
-    return (res = nbr_of_portions)
+    return (res=nbr_of_portions)
 end
 
 #############################################
-##                 EXTERNALS               ##
+# #                 EXTERNALS               ##
 #############################################
 
 @external
@@ -347,7 +358,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     _unlocking_times : felt*,
     _percents_len : felt,
     _percents : Uint256*,
-    _max_vesting_time_shift : felt
+    _max_vesting_time_shift : felt,
 ):
     alloc_locals
     only_admin()
@@ -379,7 +390,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     number_of_vesting_portions.write(_percents_len)
 
     let percent_sum = Uint256(0, 0)
-    ## local array_index = 0
+    # # local array_index = 0
     let array_index = 1
 
     populate_vesting_params_rec(
@@ -389,7 +400,8 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     let (percent_sum) = array_sum(_percents, _percents_len)
     let (percent_sum_check) = uint256_eq(percent_sum, _portion_vesting_precision)
 
-    with_attr error_message("ZkPadIDOContract::set_vesting_params Vesting percentages do not add up"):
+    with_attr error_message(
+            "ZkPadIDOContract::set_vesting_params Vesting percentages do not add up"):
         assert percent_sum_check = TRUE
     end
 
@@ -401,7 +413,7 @@ func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
     _unlocking_times : felt*,
     _percents_len : felt,
     _percents : Uint256*,
-    _array_index : felt
+    _array_index : felt,
 ):
     alloc_locals
     assert _unlocking_times_len = _percents_len
@@ -419,19 +431,21 @@ func populate_vesting_params_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
         _unlocking_times=_unlocking_times + 1,
         _percents_len=_percents_len - 1,
         _percents=_percents + Uint256.SIZE,
-        _array_index=_array_index + 1
+        _array_index=_array_index + 1,
     )
 end
 
-func array_sum{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(arr : Uint256*, size : felt) -> (sum : Uint256):
+func array_sum{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    arr : Uint256*, size : felt
+) -> (sum : Uint256):
     if size == 0:
-        #parenthesis required for return statement
-        return (sum=Uint256(0,0))
+        # parenthesis required for return statement
+        return (sum=Uint256(0, 0))
     end
 
-    # recursive call to array_sum, arr = arr[0], 
+    # recursive call to array_sum, arr = arr[0],
     let (sum_of_rest) = array_sum(arr=arr + Uint256.SIZE, size=size - 1)
-    #[...] dereferences to value of memory address which is first element of arr
+    # [...] dereferences to value of memory address which is first element of arr
     # recurisvely calls array_sum with arr+1 which is next element in arr
     # recursion stops when size == 0
     # return (sum=[arr] + sum_of_rest)
@@ -448,7 +462,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _sale_end_time : felt,
     _tokens_unlock_time : felt,
     _portion_vesting_precision : Uint256,
-    _lottery_tickets_burn_cap : Uint256
+    _lottery_tickets_burn_cap : Uint256,
 ):
     alloc_locals
     only_admin()
@@ -498,7 +512,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         sale_end=_sale_end_time,
         tokens_unlock_time=_tokens_unlock_time,
         lottery_tickets_burn_cap=_lottery_tickets_burn_cap,
-        number_of_participants=Uint256(0,0)
+        number_of_participants=Uint256(0, 0),
     )
     sale.write(new_sale)
     # Set portion vesting precision
@@ -511,6 +525,15 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         sale_end=_sale_end_time,
         tokens_unlock_time=_tokens_unlock_time,
     )
+    return ()
+end
+
+@external
+func update_user_quests_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    merkle_root: felt
+):
+    only_admin()
+    user_quests_root.write(merkle_root)
     return ()
 end
 
@@ -535,7 +558,7 @@ func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=the_sale.number_of_participants
+        number_of_participants=the_sale.number_of_participants,
     )
     sale.write(upd_sale)
     return ()
@@ -724,7 +747,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=the_sale.number_of_participants
+        number_of_participants=the_sale.number_of_participants,
     )
     sale.write(upd_sale)
 
@@ -858,7 +881,9 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     )
 
     let (local total_raised_sum : Uint256) = uint256_checked_add(the_sale.total_raised, amount_paid)
-    let (local number_of_participants_sum : Uint256) = uint256_checked_add(the_sale.number_of_participants, Uint256(1,0))
+    let (local number_of_participants_sum : Uint256) = uint256_checked_add(
+        the_sale.number_of_participants, Uint256(1, 0)
+    )
 
     let upd_sale = Sale(
         token=the_sale.token,
@@ -875,7 +900,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=number_of_participants_sum
+        number_of_participants=number_of_participants_sum,
     )
     sale.write(upd_sale)
 
@@ -903,7 +928,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         assert pmt_success = TRUE
     end
 
-    tokens_sold.emit(user_address = account, amount = number_of_tokens_byuing)
+    tokens_sold.emit(user_address=account, amount=number_of_tokens_byuing)
     return (res=TRUE)
 end
 
@@ -914,7 +939,8 @@ func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract::deposit_tokens Tokens deposit can be done only once"):
+    with_attr error_message(
+            "ZkPadIDOContract::deposit_tokens Tokens deposit can be done only once"):
         assert the_sale.tokens_deposited = FALSE
     end
     let upd_sale = Sale(
@@ -932,7 +958,7 @@ func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=the_sale.number_of_participants
+        number_of_participants=the_sale.number_of_participants,
     )
     sale.write(upd_sale)
 
@@ -948,7 +974,9 @@ func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 end
 
 @external
-func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(portion_id : felt):
+func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    portion_id : felt
+):
     alloc_locals
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
@@ -968,12 +996,13 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assert_le(participation.last_portion_withdrawn, portion_id)
     end
 
-    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(portion_id) 
-    
-    with_attr error_message("ZkPadIDOContract::withdraw_tokens invalid portion vesting unlock time"): 
+    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(portion_id)
+
+    with_attr error_message(
+            "ZkPadIDOContract::withdraw_tokens invalid portion vesting unlock time"):
         assert_not_zero(vesting_portions_unlock_time)
     end
-    
+
     with_attr error_message("ZkPadIDOContract::withdraw_tokens Portion has not been unlocked yet"):
         assert_le(vesting_portions_unlock_time, block_timestamp)
     end
@@ -981,7 +1010,7 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(portion_id)
 
     with_attr error_message("ZkPadIDOContract::withdraw_tokens invlaid vestion portion percent"):
-        uint256_lt(Uint256(0,0), vesting_portion_percent)
+        uint256_lt(Uint256(0, 0), vesting_portion_percent)
     end
 
     let participation_upd = Participation(
@@ -992,14 +1021,18 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     )
     user_to_participation.write(address_caller, participation_upd)
 
-    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(participation.amount_bought, vesting_portion_percent)
+    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(
+        participation.amount_bought, vesting_portion_percent
+    )
     let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
     let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
 
-    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0,0), amt_withdrawing)
+    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0, 0), amt_withdrawing)
     if amt_withdrawing_check == TRUE:
         let token_address = the_sale.token
-        let (token_transfer_success : felt) = IERC20.transfer(token_address, address_caller, amt_withdrawing)
+        let (token_transfer_success : felt) = IERC20.transfer(
+            token_address, address_caller, amt_withdrawing
+        )
         with_attr error_message("ZkPadIDOContract::withdraw_tokens token transfer failed"):
             assert token_transfer_success = TRUE
         end
@@ -1014,8 +1047,8 @@ end
 
 @external
 func withdraw_multiple_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        portion_ids_len : felt, 
-        portion_ids : felt*):
+    portion_ids_len : felt, portion_ids : felt*
+):
     alloc_locals
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
@@ -1023,12 +1056,17 @@ func withdraw_multiple_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
     let (block_timestamp) = get_block_timestamp()
     let (participation) = user_to_participation.read(address_caller)
 
-    let (amt_withdrawn_sum : Uint256) = withdraw_multiple_portions_rec(portion_ids_len, portion_ids, block_timestamp, address_caller)
-    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0,0), amt_withdrawn_sum)
+    let (amt_withdrawn_sum : Uint256) = withdraw_multiple_portions_rec(
+        portion_ids_len, portion_ids, block_timestamp, address_caller
+    )
+    let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0, 0), amt_withdrawn_sum)
     if amt_withdrawing_check == TRUE:
         let token_address = the_sale.token
-        let (token_transfer_success : felt) = IERC20.transfer(token_address, address_caller, amt_withdrawn_sum)
-        with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
+        let (token_transfer_success : felt) = IERC20.transfer(
+            token_address, address_caller, amt_withdrawn_sum
+        )
+        with_attr error_message(
+                "ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
             assert token_transfer_success = TRUE
         end
 
@@ -1039,16 +1077,15 @@ func withdraw_multiple_portions{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
     end
 end
 
-func withdraw_multiple_portions_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        _portion_ids_len : felt, 
-        _portion_ids : felt*,
-        _block_timestamp : felt,
-        _address_caller : felt
+func withdraw_multiple_portions_rec{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(
+    _portion_ids_len : felt, _portion_ids : felt*, _block_timestamp : felt, _address_caller : felt
 ) -> (amt_sum : Uint256):
     alloc_locals
 
     if _portion_ids_len == 0:
-        return (amt_sum=Uint256(0,0))
+        return (amt_sum=Uint256(0, 0))
     end
 
     let current_portion = _portion_ids[0]
@@ -1065,25 +1102,31 @@ func withdraw_multiple_portions_rec{syscall_ptr : felt*, pedersen_ptr : HashBuil
     user_to_participation.write(_address_caller, participation_upd)
 
     let (sum_of_portions) = withdraw_multiple_portions_rec(
-        _portion_ids_len=_portion_ids_len-1,
-        _portion_ids=_portion_ids+1,
+        _portion_ids_len=_portion_ids_len - 1,
+        _portion_ids=_portion_ids + 1,
         _block_timestamp=_block_timestamp,
-        _address_caller=_address_caller)
+        _address_caller=_address_caller,
+    )
 
-    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(current_portion)     
-    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec invalid portion vesting unlock time"): 
+    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(current_portion)
+    with_attr error_message(
+            "ZkPadIDOContract::withdraw_multiple_portions_rec invalid portion vesting unlock time"):
         assert_not_zero(vesting_portions_unlock_time)
-    end    
-    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec Portion has not been unlocked yet"):
+    end
+    with_attr error_message(
+            "ZkPadIDOContract::withdraw_multiple_portions_rec Portion has not been unlocked yet"):
         assert_le(vesting_portions_unlock_time, _block_timestamp)
     end
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(current_portion)
-    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions_rec invlaid vestion portion percent"):
-        uint256_lt(Uint256(0,0), vesting_portion_percent)
+    with_attr error_message(
+            "ZkPadIDOContract::withdraw_multiple_portions_rec invlaid vestion portion percent"):
+        uint256_lt(Uint256(0, 0), vesting_portion_percent)
     end
 
-    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(participation.amount_bought, vesting_portion_percent)
+    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(
+        participation.amount_bought, vesting_portion_percent
+    )
     let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
     let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
 

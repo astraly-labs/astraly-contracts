@@ -8,6 +8,9 @@
 
 _Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet. Learn more about it [here](https://wp.zkpad.io)._
 
+## Documentation
+You can find the latest technical documentation [here](https://zkpad.notion.site/Docs-fe24502e89aa479ebb8186c69c96c0c5)
+
 ## Contracts
 
 | Contract                                                 | Title          | Description                                                                                            |
