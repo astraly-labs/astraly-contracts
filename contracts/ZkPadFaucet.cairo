@@ -108,11 +108,8 @@ func faucet_transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         let (_wait_time : felt) = wait_time.read()
         faucet_unlock_time.write(caller_address, timestamp + _wait_time)
         let (token : felt) = token_address.read()
-        let (success : felt) = IERC20.transferFrom(
-            contract_address=token,
-            sender=this_address,
-            recipient=caller_address,
-            amount=withdraw_value,
+        let (success : felt) = IERC20.transfer(
+            contract_address=token, recipient=caller_address, amount=withdraw_value
         )
         with_attr error_message("transfer failed"):
             assert success = TRUE
