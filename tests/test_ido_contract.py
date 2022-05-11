@@ -169,7 +169,6 @@ async def contacts_init(contract_defs, get_starknet):
         contract_def=zk_pad_ido_def,
         constructor_calldata=[
             zk_pad_admin.contract_address,
-            staking_account.contract_address,
             zk_pad_ido_factory.contract_address
         ],
     )
