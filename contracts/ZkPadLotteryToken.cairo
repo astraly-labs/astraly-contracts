@@ -345,6 +345,7 @@ func burn_with_quest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (merkle_root : felt) = IZKPadIDOFactory.get_merkle_root(
         contract_address=factory_address, id=_id
     )
+    local root_loc = merkle_root
     let (_valid : felt) = merkle_verify(leaf, merkle_root, merkle_proof_len, merkle_proof)
     with_attr error_message("ZkPadLotteryToken::Error in the number of quests done"):
         assert _valid = 1

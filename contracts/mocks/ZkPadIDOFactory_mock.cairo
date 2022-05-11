@@ -131,9 +131,8 @@ end
 
 @external
 func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _merkle_root : felt
+    _merkle_root : felt, _id : felt
 ):
-    let (_id) = current_id.read()
     merkle_root.write(_id, _merkle_root)
     return ()
 end

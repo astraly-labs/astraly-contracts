@@ -3,7 +3,9 @@ import pytest
 import asyncio
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starknet.testing.starknet import Starknet, StarknetContract
+from starkware.cairo.lang.vm.crypto import pedersen_hash
 from utils import *
+from starkware.cairo.common.small_merkle_tree import MerkleTree
 
 signer = Signer(123456789987654321)
 account_path = 'openzeppelin/account/Account.cairo'
@@ -66,6 +68,8 @@ INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
+NB_QUEST = 2
+
 
 
 # Fixtures
@@ -137,8 +141,11 @@ async def erc1155_init(contract_defs):
         zk_pad_token.contract_address,
         account1.contract_address
     ])
+    MERKLE_INFO = get_leaves([account1.contract_address],[NB_QUEST])
 
     await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
+    root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
+    await signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
 
     return (
         starknet.state,
@@ -252,6 +259,11 @@ async def full_init(contract_defs, erc1155_init):
     # create 2 mock IDOs
     await signer.send_transaction(owner, factory.contract_address, "create_ido", [ido.contract_address])
     await signer.send_transaction(owner, factory.contract_address, "create_ido", [ido2.contract_address])
+    MERKLE_INFO = get_leaves([owner.contract_address],[NB_QUEST])
+
+    root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
+    await signer.send_transaction(owner, factory.contract_address, "set_merkle_root", [root, 0])
+
 
     return _state, erc1155, owner, account, receiver, ido, zk_pad_token, zk_pad_stake
 
@@ -570,13 +582,29 @@ async def test_burn_insufficient_balance(erc1155_factory):
     token_id = TOKEN_ID
     burn_amount = BURN_AMOUNT
 
-    # Burn non-0 amount w/ 0 balance
-    await assert_revert(
-        signer.send_transaction(
-            account, erc1155.contract_address, 'burn',
-            [subject, *token_id, *burn_amount]),
-        "ERC1155: burn amount exceeds balance"
+    await signer.send_transaction(
+        account, erc1155.contract_address, 'burn',
+        [subject, *token_id, *burn_amount]
     )
+
+    execution_info = await erc1155.balanceOf(subject, token_id).invoke()
+    assert execution_info.result.balance == sub_uint(MINT_AMOUNT, burn_amount)
+
+
+@pytest.mark.asyncio 
+async def test_burn_with_quest (full_factory):
+    erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
+    subject = owner.contract_address
+    token_id = TOKEN_ID
+    burn_amount = BURN_AMOUNT
+    MERKLE_INFO = get_leaves([owner.contract_address],[NB_QUEST])
+    leaves = list(map(lambda x: x[0], MERKLE_INFO))
+    proof = generate_merkle_proof(leaves, 0)
+
+    await signer.send_transaction(
+            owner, erc1155.contract_address, 'burn_with_quest',
+            [subject, *token_id, *burn_amount, NB_QUEST,len(proof), *proof])
+    
 
 # batch minting
 
