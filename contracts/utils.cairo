@@ -7,17 +7,6 @@ func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     return (yesno)
 end
 
-func uint256_mul_checked{range_check_ptr}(a : Uint256, b : Uint256) -> (product : Uint256):
-    alloc_locals
-
-    let (product, carry) = uint256_mul(a, b)
-    let (in_range) = uint256_is_zero(carry)
-    with_attr error_message("number too big"):
-        assert in_range = 1
-    end
-    return (product)
-end
-
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         array_len : felt, array : felt*, mapping_ref : felt) -> ():
 
@@ -34,4 +23,18 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     end
 
     return get_array(array_len - 1, array, mapping_ref)
+end
+
+func and{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
+    if lhs + rhs == 2:
+        return (1)
+    end
+    return (0)
+end
+
+func or{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
+    if (lhs-1) * (rhs-1) == 0:
+        return (1)
+    end
+    return (0)
 end

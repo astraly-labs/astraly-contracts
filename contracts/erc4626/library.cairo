@@ -79,7 +79,7 @@ func ERC4626_convertToShares{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     if is_total_supply_zero == TRUE:
         return (assets)
     else:
-        let (product : Uint256) = uint256_mul_checked(assets, total_supply)
+        let (product : Uint256) = uint256_checked_mul(assets, total_supply)
         let (total_assets : Uint256) = ERC4626_totalAssets()
         let (shares, _) = uint256_unsigned_div_rem(product, total_assets)
         return (shares)
@@ -97,7 +97,7 @@ func ERC4626_convertToAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
         return (shares)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_mul_checked(shares, total_assets)
+        let (product : Uint256) = uint256_checked_mul(shares, total_assets)
         let (assets, _) = uint256_unsigned_div_rem(product, total_supply)
         return (assets)
     end
@@ -169,8 +169,8 @@ func ERC4626_previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         return (bonus_removed)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_mul_checked(bonus_removed, total_assets)
-        let (assets) = uint256_unsigned_div_rem_up(product, total_supply)
+        let (product : Uint256) = uint256_checked_mul(bonus_removed, total_assets)
+        let (assets, _) = uint256_checked_div_rem(product, total_supply)
         return (assets)
     end
 end
@@ -221,8 +221,8 @@ func ERC4626_previewWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
         return (assets)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_mul_checked(assets, total_supply)
-        let (shares : Uint256) = uint256_unsigned_div_rem_up(product, total_assets)
+        let (product : Uint256) = uint256_checked_mul(assets, total_supply)
+        let (shares : Uint256, _) = uint256_checked_div_rem(product, total_assets)
         return (shares)
     end
 end
@@ -394,32 +394,4 @@ end
 #
 func uint256_max() -> (res : Uint256):
     return (Uint256(low=ALL_ONES, high=ALL_ONES))
-end
-
-func uint256_mul_checked{range_check_ptr}(a : Uint256, b : Uint256) -> (product : Uint256):
-    alloc_locals
-
-    let (product, carry) = uint256_mul(a, b)
-    let (in_range) = uint256_is_zero(carry)
-    with_attr error_message("number too big"):
-        assert in_range = TRUE
-    end
-    return (product)
-end
-
-func uint256_unsigned_div_rem_up{range_check_ptr}(a : Uint256, b : Uint256) -> (res : Uint256):
-    alloc_locals
-
-    let (q, r) = uint256_unsigned_div_rem(a, b)
-    let (reminder_is_zero : felt) = uint256_is_zero(r)
-
-    if reminder_is_zero == TRUE:
-        return (q)
-    else:
-        let (rounded_up, oof) = uint256_add(q, Uint256(low=1, high=0))
-        with_attr error_message("rounding overflow"):
-            assert oof = 0
-        end
-        return (rounded_up)
-    end
 end
