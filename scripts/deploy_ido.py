@@ -4,29 +4,12 @@ from datetime import datetime, timedelta
 
 from nile.nre import NileRuntimeEnvironment
 
-# Dummy values, should be replaced by env variables
-os.environ["SIGNER"]  = "123456"
-os.environ["USER_1"]  = "12345654321"
-
-os.environ["ADMIN_1"] = "23456765432"
-os.environ["ADMIN_2"] = "34567876543"
-os.environ["NUMBER_OF_ADMINS"] = "2"
-
-os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
-
-os.environ["IDO_TOKEN_PRICE"]               = "10000000000000000" # 0.01 ETH
-os.environ["IDO_TOKENS_TO_SELL"]            = "100000000000000000000000" # 100,000 TOKENS
-os.environ["IDO_PORTION_VESTING_PRECISION"] = "1000" # vestion portion percentages must add up to 1000 
-os.environ["IDO_LOTTERY_TOKENS_BURN_CAP"]   = "10000" # users can't burn more than 10000 lottery tickets
-
-
 def to_uint(a):
     """Takes in value, returns uint256-ish tuple."""
     return (a & ((1 << 128) - 1), a >> 128)
 
 def uint_array(l):
     return list(map(to_uint, l))
-
 
 def uarr2cd(arr):
     acc = [len(arr)]
@@ -35,9 +18,34 @@ def uarr2cd(arr):
         acc.append(hi)
     return acc
 
-def str_to_felt(text):
-    b_text = bytes(text, "ascii")
-    return int.from_bytes(b_text, "big")
+# Dummy values, should be replaced by env variables
+os.environ["SIGNER"]  = "123456"
+os.environ["USER_1"]  = "12345654321"
+
+os.environ["ADMIN_1"] = "23456765432"
+os.environ["ADMIN_2"] = "34567876543"
+os.environ["NUMBER_OF_ADMINS"] = "2"
+os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
+
+IDO_TOKEN_PRICE               = "10000000000000000" # 0.01 ETH
+IDO_TOKENS_TO_SELL            = "100000000000000000000000" # 100,000 TOKENS
+IDO_PORTION_VESTING_PRECISION = "1000" # vestion portion percentages must add up to 1000 
+IDO_LOTTERY_TOKENS_BURN_CAP   = "10000" # users can't burn more than 10000 lottery tickets
+
+day = datetime.today()
+timeDeltadays = timedelta(days=30)
+timeDeltaWeeks = timedelta(weeks=1)
+IDO_SALE_END        = day + timeDeltadays
+IDO_TOKEN_UNLOCK    = IDO_SALE_END + timeDeltaWeeks
+
+# VESTING_PERCENTAGES & VESTING_TIMES_UNLOCKED arrays must match in length
+VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
+VESTING_TIMES_UNLOCKED = [
+    int(IDO_TOKEN_UNLOCK.timestamp()) + (1 * 24 * 60 * 60), # 1 day after tokens unlock time
+    int(IDO_TOKEN_UNLOCK.timestamp()) + (8 * 24 * 60 * 60), # 8 days after tokens unlock time
+    int(IDO_TOKEN_UNLOCK.timestamp()) + (15 * 24 * 60 * 60),# 15 days after tokens unlock time
+    int(IDO_TOKEN_UNLOCK.timestamp()) + (22 * 24 * 60 * 60) # 22 days after tokens unlock time
+]
 
 def run(nre: NileRuntimeEnvironment):
     signer = nre.get_or_deploy_account("SIGNER")
@@ -140,38 +148,22 @@ def run(nre: NileRuntimeEnvironment):
         [int(lottery_token, 16)]
     )
 
-    day = datetime.today()
-    timeDelta30days = timedelta(days=30)
-    timeDeltaOneWeek = timedelta(weeks=1)
-
-    sale_end = day + timeDelta30days
-    token_unlock = sale_end + timeDeltaOneWeek
-
     # set IDO contract sale parameters
     admin_1.send(ido_contract_full, "set_sale_params", 
         [
-            int(zkp_token, 16),                     # _token_address : felt
-            int(signer.address, 16),                # _sale_owner_address : felt
-            *to_uint(int(os.environ.get("IDO_TOKEN_PRICE"))),       # _token_price : Uint256
-            *to_uint(int(os.environ.get("IDO_TOKENS_TO_SELL"))),    # _amount_of_tokens_to_sell : Uint256
-            int(sale_end.timestamp()),              # _sale_end_time : felt
-            int(token_unlock.timestamp()),          # _tokens_unlock_time : felt
-            *to_uint(int(os.environ.get("IDO_PORTION_VESTING_PRECISION"))),  # _portion_vesting_precision : Uint256
-            *to_uint(int(os.environ.get("IDO_LOTTERY_TOKENS_BURN_CAP")))     # _lottery_tickets_burn_cap : Uint256            
+            int(zkp_token, 16),                           # _token_address : felt
+            int(signer.address, 16),                      # _sale_owner_address : felt
+            *to_uint(int(IDO_TOKEN_PRICE)),               # _token_price : Uint256
+            *to_uint(int(IDO_TOKENS_TO_SELL)),            # _amount_of_tokens_to_sell : Uint256
+            int(IDO_SALE_END.timestamp()),                # _sale_end_time : felt
+            int(IDO_TOKEN_UNLOCK.timestamp()),            # _tokens_unlock_time : felt
+            *to_uint(int(IDO_PORTION_VESTING_PRECISION)), # _portion_vesting_precision : Uint256
+            *to_uint(int(IDO_LOTTERY_TOKENS_BURN_CAP))    # _lottery_tickets_burn_cap : Uint256            
         ]
     )
     print("IDO Sale Params Set...")
 
     # set IDO vesting parameters
-    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
-
-    VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60), # 1 day after tokens unlock time
-        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60), # 8 days after tokens unlock time
-        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),# 15 days after tokens unlock time
-        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60) # 22 days after tokens unlock time
-    ]
-
     admin_1.send(ido_contract_full, "set_vesting_params", 
         [
             4,
