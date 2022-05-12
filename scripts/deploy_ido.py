@@ -160,6 +160,7 @@ def run(nre: NileRuntimeEnvironment):
             *to_uint(int(os.environ.get("IDO_LOTTERY_TOKENS_BURN_CAP")))     # _lottery_tickets_burn_cap : Uint256            
         ]
     )
+    print("IDO Sale Params Set...")
 
     # set IDO vesting parameters
     VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
@@ -179,7 +180,9 @@ def run(nre: NileRuntimeEnvironment):
             0
         ]
     )
-
+    print("IDO Vesting Params Set...")
+    print("Done...")
+    
 
 
 
