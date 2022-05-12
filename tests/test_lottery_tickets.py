@@ -600,9 +600,6 @@ async def test_burn_insufficient_balance(erc1155_factory):
             [subject, *token_id, *burn_amount]
         ))
 
-    execution_info = await erc1155.balanceOf(subject, token_id).invoke()
-    assert execution_info.result.balance == sub_uint(MINT_AMOUNT, burn_amount)
-
 
 @pytest.mark.asyncio
 async def test_burn_with_quest(full_factory):
