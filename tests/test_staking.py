@@ -774,7 +774,7 @@ async def test_deposit_withdraw(contracts_factory, amount):
     zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
     amount = to_uint(bound(amount, int(1e5), int(1e27)))
 
-    # reset the supply of the owner
+    # reset the supply of the token and the owner balance
     user_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
     await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
                                  [owner_account.contract_address, *user_balance])
@@ -856,7 +856,7 @@ async def test_atomic_deposit_redeem(contracts_factory):
 @pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
 async def test_fail_deposit_with_not_enough_approval(contracts_factory, amount):
     zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
-    # reset the supply of the owner
+    # reset the supply of the token and the owner balance
     user_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
     await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
                                  [owner_account.contract_address, *user_balance])
@@ -879,6 +879,28 @@ async def test_fail_deposit_with_no_approval(contracts_factory, amount):
     zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
     await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                                [*to_uint(amount), owner_account.contract_address]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_atomic_enter_exit_single_pool(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    # reset the supply of the token and the owner balance
+    user_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *user_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *amount])
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "approve",
+                                 [zk_pad_staking.contract_address, *amount])
+    pre_deposit_bal = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*amount, owner_account.contract_address])
+
+
 
 
 # Bound a value between a min and max.
