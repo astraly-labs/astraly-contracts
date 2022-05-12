@@ -100,6 +100,7 @@ from contracts.ZkPadInvestment import (
     harvestDelay,
     harvestWindow,
     targetFloatPercent,
+    totalStrategyHoldings,
     set_fee_percent,
     set_harvest_window,
     set_harvest_delay,
@@ -110,7 +111,7 @@ from contracts.ZkPadInvestment import (
     withdraw_from_strategy,
     trust_strategy,
     distrust_strategy,
-    claim_fees
+    claim_fees,
 )
 from contracts.utils import uint256_is_zero
 
@@ -414,9 +415,8 @@ end
 
 @external
 func addWhitelistedToken{
-        syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr,
-        bitwise_ptr : BitwiseBuiltin*}(lp_token : felt, mint_calculator_address : felt, is_NFT : felt) -> (
-        token_mask : felt):
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
+}(lp_token : felt, mint_calculator_address : felt, is_NFT : felt) -> (token_mask : felt):
     alloc_locals
     Ownable_only_owner()
     with_attr error_message("invalid token address"):
@@ -437,7 +437,9 @@ func addWhitelistedToken{
     let (tokens_masks : felt) = whitelisted_tokens_mask.read()
 
     let (token_mask : felt) = get_next_available_bit_in_mask(0, tokens_masks)
-    whitelisted_tokens.write(lp_token, WhitelistedToken(token_mask, mint_calculator_address, is_NFT))
+    whitelisted_tokens.write(
+        lp_token, WhitelistedToken(token_mask, mint_calculator_address, is_NFT)
+    )
     token_mask_addresses.write(token_mask, lp_token)
     let (new_tokens_masks : felt) = bitwise_or(tokens_masks, token_mask)
     whitelisted_tokens_mask.write(new_tokens_masks)
@@ -815,9 +817,7 @@ func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 end
 
 @external
-func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    amount : Uint256
-):
+func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
     Ownable_only_owner()
     claim_fees(amount)
     return ()

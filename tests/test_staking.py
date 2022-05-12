@@ -19,7 +19,7 @@ DECIMALS = 18
 owner = Signer(1234)
 
 
-def calculate_lock_time_bonus(shares, lock_time):
+def calculate_lock_time_bonus(shares: int, lock_time=365):
     return int((shares * lock_time) / 730)
 
 
@@ -51,7 +51,7 @@ async def get_starknet():
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
     proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
+    zk_pad_token_def = get_contract_def('tests/mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
 
@@ -90,6 +90,14 @@ async def contacts_init(contract_defs, get_starknet):
         zk_pad_token.contract_address,
         owner_account.contract_address
     ])
+
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "setFeePercent", [int(0.1e18)])
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "setHarvestDelay",
+                                 [6 * 60 * 60])  # 6 hours
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "setHarvestWindow",
+                                 [5 * 60])  # 5 minutes
+    await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "setTargetFloatPercent",
+                                 [int(0.1e18)])
 
     return (
         owner_account,
@@ -253,7 +261,7 @@ async def test_deposit_redeem_flow(contracts_factory):
     )
 
     amount = to_uint(10_000)
-    expected_user_asset_balance = calculate_lock_time_bonus(10_000, 365)
+    expected_user_asset_balance = calculate_lock_time_bonus(10_000)
 
     # deposit asset tokens to the vault, get shares
     tx = await user1.send_transaction(
@@ -591,7 +599,8 @@ async def test_permissions(contracts_factory):
             user1_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123, False]),
         "Ownable: caller is not the owner")
 
-    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123, False])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken",
+                                 [123, 123, False])
 
     await assert_revert(
         user1.send_transaction(
@@ -719,3 +728,178 @@ async def test_deposit_lp(contracts_factory):
     assert (
                await mock_lp_token.balanceOf(user1_account.contract_address).call()
            ).result.balance == preview_deposit
+
+
+@pytest.mark.asyncio
+async def test_atomic_deposit_withdraw(contracts_factory):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    # max approve
+    await owner.send_transaction(
+        owner_account,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_staking.contract_address, *INIT_SUPPLY],
+    )
+    pre_deposit_bal = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*INIT_SUPPLY, owner_account.contract_address])
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == INIT_SUPPLY
+    assert (await zk_pad_staking.totalFloat().call()).result.float == INIT_SUPPLY
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == calculate_lock_time_bonus(from_uint(INIT_SUPPLY))
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == INIT_SUPPLY
+    user_token_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_token_balance) == from_uint(pre_deposit_bal) - from_uint(INIT_SUPPLY)
+
+    set_block_timestamp(
+        starknet_state, get_block_timestamp(starknet_state) + days_to_seconds(365) + 1)
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdraw",
+                                 [*INIT_SUPPLY, owner_account.contract_address, owner_account.contract_address])
+
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == to_uint(0)
+    assert (await zk_pad_staking.totalFloat().call()).result.float == to_uint(0)
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == 0
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == to_uint(0)
+    assert (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance == pre_deposit_bal
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))  # TODO: enter values
+async def test_deposit_withdraw(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    # reset the supply of the owner
+    user_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *user_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *amount])
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "approve",
+                                 [zk_pad_staking.contract_address, *amount])
+    pre_deposit_bal = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*amount, owner_account.contract_address])
+
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == amount
+    assert (await zk_pad_staking.totalFloat().call()).result.float == amount
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == calculate_lock_time_bonus(from_uint(amount))
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == amount
+    user_token_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_token_balance) == from_uint(pre_deposit_bal) - from_uint(amount)
+
+    set_block_timestamp(
+        starknet_state, get_block_timestamp(starknet_state) + days_to_seconds(365) + 1)
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdraw",
+                                 [*amount, owner_account.contract_address, owner_account.contract_address])
+
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == to_uint(0)
+    assert (await zk_pad_staking.totalFloat().call()).result.float == to_uint(0)
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == 0
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == to_uint(0)
+    assert (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance == pre_deposit_bal
+
+
+@pytest.mark.asyncio
+async def test_atomic_deposit_redeem(contracts_factory):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    # max approve
+    await owner.send_transaction(
+        owner_account,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_staking.contract_address, *INIT_SUPPLY],
+    )
+    pre_deposit_bal = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*INIT_SUPPLY, owner_account.contract_address])
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == INIT_SUPPLY
+    assert (await zk_pad_staking.totalFloat().call()).result.float == INIT_SUPPLY
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == calculate_lock_time_bonus(from_uint(INIT_SUPPLY))
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == INIT_SUPPLY
+    user_token_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_token_balance) == from_uint(pre_deposit_bal) - from_uint(INIT_SUPPLY)
+
+    set_block_timestamp(
+        starknet_state, get_block_timestamp(starknet_state) + days_to_seconds(365) + 1)
+    amount_to_redeem = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "redeem",
+                                 [*amount_to_redeem,
+                                  owner_account.contract_address, owner_account.contract_address])
+
+    assert 10 ** (await zk_pad_staking.decimals().call()).result.decimals == 1e18
+    assert (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings == to_uint(0)
+    assert (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets == to_uint(0)
+    assert (await zk_pad_staking.totalFloat().call()).result.float == to_uint(0)
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    assert from_uint(user_vault_balance) == 0
+    assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == to_uint(0)
+    assert (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance == pre_deposit_bal
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_deposit_with_not_enough_approval(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    # reset the supply of the owner
+    user_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *user_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *to_uint(int(amount / 2))])
+    await owner.send_transaction(
+        owner_account,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_staking.contract_address, *to_uint(int(amount / 2))],
+    )
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                               [*to_uint(int(amount)), owner_account.contract_address]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_deposit_with_no_approval(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, _, starknet_state = contracts_factory
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                               [*to_uint(amount), owner_account.contract_address]))
+
+
+# Bound a value between a min and max.
+# https://github.com/Rari-Capital/vaults/blob/c8fdddc2a699f8c577e70878998a3eaa7d519f3f/src/test/Vault.t.sol#L971
+def bound(x: int, min: int, max: int):
+    assert min <= max
+    size = max - min
+    uint256_max = (2 ** 256) - 1
+    if max != uint256_max:
+        size += 1  # Make the max inclusive.
+    if size == 0:
+        return min  # Using max would be equivalent as well.
+    # Ensure max is inclusive in cases where x != 0 and max is at uint max.
+    if max == uint256_max and x != 0:
+        x -= 1  # Accounted for later.
+
+    if x < min:
+        x += size * (((min - x) / size) + 1)
+    result = min + ((x - min) % size)
+
+    # Account for decrementing x to make max inclusive.
+    if max == uint256_max and x != 0:
+        result += 1
+    return result

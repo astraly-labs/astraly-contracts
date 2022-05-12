@@ -8,7 +8,11 @@ from starkware.cairo.common.registers import get_label_location
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, get_contract_address
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_block_timestamp,
+    get_contract_address,
+)
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.security.safemath import (
@@ -199,7 +203,7 @@ func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     let (underlying : felt) = asset()
     let (address_this : felt) = get_contract_address()
     let (balance_of_this : Uint256) = IERC20.balanceOf(underlying, address_this)
-    
+
     return (balance_of_this)
 end
 
@@ -250,25 +254,41 @@ func totalHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
 end
 
 @view
-func feePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+func totalStrategyHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    holdings : Uint256
+):
+    let (holdings : Uint256) = total_strategy_holdings.read()
+    return (holdings)
+end
+
+@view
+func feePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : felt
+):
     let (res : felt) = fee_percent.read()
     return (res)
 end
 
 @view
-func harvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (delay : felt):
+func harvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    delay : felt
+):
     let (delay : felt) = harvest_delay.read()
     return (delay)
 end
 
 @view
-func harvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (window : felt):
+func harvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    window : felt
+):
     let (window : felt) = harvest_window.read()
     return (window)
 end
 
 @view
-func targetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (percent : felt):
+func targetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    percent : felt
+):
     let (percent : felt) = target_float_percent.read()
     return (percent)
 end
@@ -339,7 +359,6 @@ func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     base_unit.write(asset_base_unit)
     return ()
 end
-
 
 ##############################################################################
 #                     HARVEST LOGIC
@@ -550,11 +569,12 @@ func Only_trusted_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     return ()
 end
 
-
 ##############################################################################
 #                     FEE CLAIM LOGIC
 ##############################################################################
-func claim_fees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
+func claim_fees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    amount : Uint256
+):
     let (contract_address : felt) = get_contract_address()
     let (caller : felt) = get_caller_address()
     IERC20.transfer(contract_address, caller, amount)
