@@ -629,7 +629,7 @@ async def test_setup_vesting_params(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_setup_sale_params(contracts_factory):
-    zkpad_admin_account, deployer_account, admin_user, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    _, _, admin_user, owner, participant, _, zkp_token, ido, _, _, _, _, starknet_state = contracts_factory
     day = datetime.today()
     timeDelta90days = timedelta(days=90)
     timeDeltaOneWeek = timedelta(weeks=1)
@@ -798,3 +798,93 @@ async def test_setup_sale_params(contracts_factory):
             ]
         )
     )
+
+@pytest.mark.asyncio
+async def test_set_registration_time(contracts_factory):
+    _, _, admin_user, owner, participant, _, zkp_token, ido, _, _, _, _, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDeltaOneDay = timedelta(days=1)
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    reg_start = day + timeDeltaOneDay
+    reg_end = reg_start + timeDeltaOneWeek
+
+    # should fail since only admin can call set_registration_time
+    await assert_revert(
+        sale_participant.send_transaction(
+            participant,
+            ido.contract_address,
+            "set_registration_time",
+            [
+                int(reg_start.timestamp()),
+                int(reg_end.timestamp())
+            ]
+        )
+    )    
+
+    # should fail since the sale params have not been set yet
+    await assert_revert(
+        admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_registration_time",
+            [
+                int(reg_start.timestamp()),
+                int(reg_end.timestamp())
+            ]
+        )
+    )
+
+    # set the sale params
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            zkp_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),
+            *to_uint(1000000),
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000),
+            *to_uint(10000)
+        ]
+    )
+
+    current_block_timestamp = get_block_timestamp(starknet_state)
+    set_block_timestamp(starknet_state, int(reg_start.timestamp()) + 60)
+
+    # should fail since block timestamp is after registration start time
+    await assert_revert(
+            admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_registration_time",
+            [
+                int(reg_start.timestamp()),
+                int(reg_end.timestamp())
+            ]
+        )
+    )
+    set_block_timestamp(starknet_state, current_block_timestamp)
+
+    # should fails since registration end time is after sale end time
+    await assert_revert(
+        admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_registration_time",
+            [
+                int(reg_start.timestamp()),
+                int(sale_end.timestamp() + 60)
+            ]
+        )
+    )
+
+
+
