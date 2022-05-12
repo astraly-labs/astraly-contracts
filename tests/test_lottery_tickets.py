@@ -1363,9 +1363,9 @@ async def test_claim_success(full_factory):
     IDO_ID = to_uint(0)
     user = owner.contract_address
 
-    # Checks user has no tickets
+    # Checks user has no tickets (only minted ones)
     execution_info = await erc1155.balanceOf(user, IDO_ID).invoke()
-    assert execution_info.result.balance == UINT_ZERO
+    assert execution_info.result.balance == uint(1000)
 
     # Claim tickets
     await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
