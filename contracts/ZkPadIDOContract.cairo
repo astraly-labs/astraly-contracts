@@ -35,7 +35,13 @@ from openzeppelin.security.safemath import (
     uint256_checked_mul,
     uint256_checked_div_rem,
 )
-
+from contracts.utils.Math64x61 import (
+    Math64x61_fromUint256,
+    Math64x61_toUint256,
+    Math64x61_div,
+    Math64x61_fromFelt,
+    Math64x61_toFelt,
+)
 struct Sale:
     # Token being sold (interface)
     member token : felt
@@ -789,10 +795,35 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     tickets_burnt : Uint256, account : felt, nb_quest : felt
 ) -> (res : Uint256):
     alloc_locals
+    let (single_t : felt) = uint256_le(Uint256(1, 0), tickets_burnt)
+    if single_t == TRUE:
+        # One ticket
+        let (rnd) = get_random_number()
+        let (f_rnd) = _uint_to_felt(rnd)
+        let (q, r) = unsigned_div_rem(f_rnd, 9)
+        let (is_won : felt) = is_le(r, 2)
+        if is_won == TRUE:
+            let (res : Uint256) = _felt_to_uint(1)
+            return (res)
+        end
+        let (res : Uint256) = _felt_to_uint(0)
+        return (res)
+    end
+
     let (rnd) = get_random_number()
     const max_denominator = 18446744073709551615  # 0xffffffffffffffff
     let (max_uint) = _felt_to_uint(max_denominator)
-    let (num : Uint256) = uint256_checked_mul(tickets_burnt, rnd)
+    let (a) = Math64x61_fromFelt(3)
+    let (b) = Math64x61_fromFelt(5)
+    let (div) = Math64x61_div(a, b)
+    let (felt_div) = Math64x61_toFelt(div)
+    let (c) = _felt_to_uint(felt_div)
+    let (d) = _felt_to_uint(5)
+    let (num1 : Uint256) = uint256_checked_mul(tickets_burnt, c)
+    let (u_nb_quest) = _felt_to_uint(nb_quest)
+    let (num2 : Uint256) = uint256_checked_mul(u_nb_quest, d)
+    let (num3 : Uint256) = uint256_checked_add(num1, num2)
+    let (num : Uint256) = uint256_checked_mul(num3, rnd)
     let (winning, _) = uint256_checked_div_rem(num, max_uint)
     return (res=winning)
 end
