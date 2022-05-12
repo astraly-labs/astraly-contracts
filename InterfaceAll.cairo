@@ -30,7 +30,7 @@ namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func register_user(amount : Uint256, account : felt) -> (res : felt):
+    func register_user(amount : Uint256, account : felt, nb_quest : felt) -> (res : felt):
     end
 
     func get_purchase_round() -> (res : Purchase_Round):
@@ -64,6 +64,9 @@ namespace IZKPadIDOFactory:
     end
 
     func get_payment_token_address() -> (payment_token_address : felt):
+    end
+
+    func get_merkle_root(id : felt) -> (merkle_root : felt):
     end
 end
 

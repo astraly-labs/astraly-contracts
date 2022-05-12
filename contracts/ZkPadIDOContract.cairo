@@ -126,11 +126,6 @@ end
 func address_to_allocations(user_address : felt) -> (res : Uint256):
 end
 
-# Merkle root of the user quests tri
-@storage_var
-func user_quests_root() -> (root : felt):
-end
-
 # total allocations given
 @storage_var
 func total_allocations_given() -> (res : Uint256):
@@ -535,15 +530,6 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 @external
-func update_user_quests_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    merkle_root: felt
-):
-    only_admin()
-    user_quests_root.write(merkle_root)
-    return ()
-end
-
-@external
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _sale_token_address : felt
 ):
@@ -669,7 +655,7 @@ end
 
 @external
 func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    amount : Uint256, account : felt
+    amount : Uint256, account : felt, nb_quest : felt
 ) -> (res : felt):
     alloc_locals
     let (the_reg) = registration.read()
@@ -729,7 +715,9 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
     )
     let (current_winning) = user_to_winning_lottery_tickets.read(account)
-    let (new_winning) = draw_winning_tickets(tickets_burnt=adjusted_amount, account=account)
+    let (new_winning) = draw_winning_tickets(
+        tickets_burnt=adjusted_amount, account=account, nb_quest=nb_quest
+    )
     let (local winning_tickets_sum : Uint256) = uint256_checked_add(current_winning, new_winning)
 
     user_to_winning_lottery_tickets.write(account, winning_tickets_sum)
@@ -798,7 +786,7 @@ end
 
 # this function will call the VRF and determine the number of winning tickets (if any)
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tickets_burnt : Uint256, account : felt
+    tickets_burnt : Uint256, account : felt, nb_quest : felt
 ) -> (res : Uint256):
     alloc_locals
     let (rnd) = get_random_number()
