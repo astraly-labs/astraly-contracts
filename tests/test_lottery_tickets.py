@@ -593,10 +593,12 @@ async def test_burn_insufficient_balance(erc1155_factory):
     token_id = TOKEN_ID
     burn_amount = BURN_AMOUNT
 
-    await signer.send_transaction(
-        account, erc1155.contract_address, 'burn',
-        [subject, *token_id, *burn_amount]
-    )
+    # Burn non-0 amount w/ 0 balance
+    await assert_revert(
+        signer.send_transaction(
+            account, erc1155.contract_address, 'burn',
+            [subject, *token_id, *burn_amount]
+        ))
 
     execution_info = await erc1155.balanceOf(subject, token_id).invoke()
     assert execution_info.result.balance == sub_uint(MINT_AMOUNT, burn_amount)
@@ -1372,7 +1374,7 @@ async def test_claim_success(full_factory):
     stake_info = await zk_pad_stake.balanceOf(user).invoke()
     execution_info2 = await erc1155.balanceOf(user, IDO_ID).invoke()
     nb_tickets = math.floor(pow(stake_info.result[0][0], 3/5))
-    assert execution_info2.result[0][0] == nb_tickets
+    assert execution_info2.result[0][0] == nb_tickets + 1000
 
 
 @pytest.mark.asyncio
