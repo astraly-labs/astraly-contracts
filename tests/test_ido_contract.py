@@ -754,4 +754,47 @@ async def test_setup_sale_params(contracts_factory):
                 *to_uint(10000)
             ]
         )        
-    )    
+    )
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            zkp_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),
+            *to_uint(1000000),
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000),
+            *to_uint(10000)
+        ]
+    )
+
+    assert_event_emitted(tx, ido.contract_address, "sale_created", data=[
+        owner.contract_address,
+        *to_uint(100),
+        *to_uint(1000000),
+        int(sale_end.timestamp()),
+        int(token_unlock.timestamp())
+    ])
+
+    # should fail since the sale params were set in the tx above
+    await assert_revert(
+        admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_sale_params",
+            [
+                zkp_token.contract_address,
+                owner.contract_address,
+                *to_uint(100),
+                *to_uint(1000000),
+                int(sale_end.timestamp()),
+                int(token_unlock.timestamp()),
+                *to_uint(1000),
+                *to_uint(10000)
+            ]
+        )
+    )
