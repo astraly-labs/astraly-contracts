@@ -45,6 +45,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_div,
     Math64x61_fromFelt,
     Math64x61_toFelt,
+    Math64x61__pow_int,
 )
 
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
@@ -472,10 +473,15 @@ func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
     alloc_locals
 
     let (fixed_bal) = Math64x61_fromUint256(balance)
+
+    let (fixed10) = Math64x61_fromFelt(10)
+    let (decimals_factor) = Math64x61__pow_int(fixed10, 18)
+    let (adjusted_bal) = Math64x61_div(fixed_bal, decimals_factor)
+
     let (fixed3) = Math64x61_fromFelt(3)
     let (fixed5) = Math64x61_fromFelt(5)
     let (power) = Math64x61_div(fixed3, fixed5)
-    let (fixed_nb_tickets) = Math64x61_pow(fixed_bal, power)
+    let (fixed_nb_tickets) = Math64x61_pow(adjusted_bal, power)
     let (scaled_nb_tickets) = Math64x61_toFelt(fixed_nb_tickets)
     let (nb_tickets : Uint256) = _felt_to_uint(scaled_nb_tickets)
 

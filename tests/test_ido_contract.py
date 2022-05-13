@@ -36,6 +36,7 @@ sale_participant_2 = Signer(678909876)
 zkp_recipient = Signer(123456789987654321)
 zkp_owner = Signer(123456789876543210)
 
+
 def uint_array(l):
     return list(map(uint, l))
 
@@ -46,6 +47,7 @@ def uarr2cd(arr):
         acc.append(lo)
         acc.append(hi)
     return acc
+
 
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
@@ -79,6 +81,7 @@ def contract_defs():
     erc20_eth_def = get_contract_def(erc20_eth_path)
 
     return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def
+
 
 @pytest.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
@@ -197,16 +200,18 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
-    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer", 
-        [sale_participant_account.contract_address, *to_uint(10000)]
-    )
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer",
+                                    [sale_participant_account.contract_address,
+                                        *to_uint(10000)]
+                                    )
 
-    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer", 
-        [sale_participant_2_account.contract_address, *to_uint(5000)]
-    )
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer",
+                                    [sale_participant_2_account.contract_address,
+                                        *to_uint(5000)]
+                                    )
 
     await deployer.send_transaction(
-        deployer_account, 
+        deployer_account,
         zk_pad_ido_factory.contract_address,
         "set_payment_token_address",
         [erc20_eth_token.contract_address])
@@ -250,16 +255,16 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     ido_factory_cached = cached_contract(
         _state, zk_pad_ido_factory_def, zk_pad_ido_factory)
     erc1155_cached = cached_contract(_state, erc1155_def, erc1155)
-    erc20_eth_token_cached = cached_contract(_state, erc20_eth_def, erc20_eth_token)
+    erc20_eth_token_cached = cached_contract(
+        _state, erc20_eth_def, erc20_eth_token)
     return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
 
 
-# @pytest.mark.asyncio
-# async def test_winning_tickets(contracts_factory) : 
-#     zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
-#     res = await ido.draw_winning_tickets(to_uint(10),participant.contract_address,2).invoke()
-#     print(res)
-#     return()
+@pytest.mark.asyncio
+async def test_winning_tickets(contracts_factory):
+    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    res = await ido.draw_winning_tickets(to_uint(10000), 2).invoke()
+    print(res.result.res)
 
 
 @pytest.mark.asyncio
@@ -272,7 +277,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
-    
+
     tx = await admin1.send_transaction(
         admin_user,
         ido.contract_address,
@@ -300,7 +305,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
 
     VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60), 
+        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (22 * 24 * 60 * 60)
@@ -331,7 +336,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     portion_4 = await ido.get_vesting_portion_percent(4).invoke()
     assert portion_4.result.res == uint(400)
-
 
     reg_start = day + timeDeltaOneDay
     reg_end = reg_start + timeDeltaOneWeek
@@ -468,7 +472,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert user_registered_event is not None
 
     # advance block timestamp to be inside the purchase round
-    set_block_timestamp(starknet_state, int(purchase_round_start.timestamp()) + 60)
+    set_block_timestamp(starknet_state, int(
+        purchase_round_start.timestamp()) + 60)
 
     # calculate the allocation
     tx = await admin1.send_transaction(
@@ -478,6 +483,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
         []
     )
 
+    pp(tx.raw_events)
+
     # sale participant 1
     tx = await sale_participant.send_transaction(
         participant,
@@ -485,7 +492,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         'approve',
         [
             ido.contract_address,
-            *to_uint(2000)    
+            *to_uint(2000)
         ]
     )
 
@@ -505,7 +512,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         'approve',
         [
             ido.contract_address,
-            *to_uint(2000)    
+            *to_uint(2000)
         ]
     )
 
@@ -535,7 +542,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert from_uint(participant_1_zkp_bal.result.balance) == 0
 
     # advance block time stamp to one minute after portion 1 vesting unlock time
-    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
 
     tx = await sale_participant.send_transaction(
         participant,
@@ -554,8 +562,9 @@ async def test_setup_sale_success_with_events(contracts_factory):
     participant_1_zkp_bal = await zkp_token.balanceOf(participant.contract_address).invoke()
     assert from_uint(participant_1_zkp_bal.result.balance) > 0
 
-    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (23 * 24 * 60 * 60))
-    OTHER_PORTION_IDS = [2,3,4]
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (23 * 24 * 60 * 60))
+    OTHER_PORTION_IDS = [2, 3, 4]
     tx = await sale_participant.send_transaction(
         participant,
         ido.contract_address,
@@ -572,12 +581,5 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert tokens_withdrawn_event is not None
 
     participant_1_zkp_bal_multiple = await zkp_token.balanceOf(participant.contract_address).invoke()
-    assert from_uint(participant_1_zkp_bal_multiple.result.balance) > from_uint(participant_1_zkp_bal.result.balance)
-
-
-
-
-
-
-
-
+    assert from_uint(participant_1_zkp_bal_multiple.result.balance) > from_uint(
+        participant_1_zkp_bal.result.balance)
