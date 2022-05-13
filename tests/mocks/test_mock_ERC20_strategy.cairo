@@ -67,8 +67,9 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amo
     let (caller : felt) = get_caller_address()
     ERC20_mint(caller, amount_to_mint)
     let (address_this : felt) = get_contract_address()
-    ERC20_transferFrom(caller, address_this, amount)
-    return (Uint256(0, 0))
+    let (_underlying : felt) = underlying()
+    IERC20.transferFrom(_underlying, caller, address_this, amount)
+    return (amount_to_mint)
 end
 
 @external
@@ -84,7 +85,7 @@ func redeemUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (caller : felt) = get_caller_address()
     IERC20.transfer(_underlying, caller, amount)
 
-    return (Uint256(0, 0))
+    return (amount)
 end
 
 @external
