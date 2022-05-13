@@ -791,11 +791,12 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 end
 
 # this function will call the VRF and determine the number of winning tickets (if any)
+@view
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     tickets_burnt : Uint256, account : felt, nb_quest : felt
 ) -> (res : Uint256):
     alloc_locals
-    let (single_t : felt) = uint256_le(Uint256(1, 0), tickets_burnt)
+    let (single_t : felt) = uint256_le(tickets_burnt, Uint256(1, 0))
     if single_t == TRUE:
         # One ticket
         let (rnd) = get_random_number()

@@ -254,6 +254,14 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
 
 
+# @pytest.mark.asyncio
+# async def test_winning_tickets(contracts_factory) : 
+#     zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+#     res = await ido.draw_winning_tickets(to_uint(10),participant.contract_address,2).invoke()
+#     print(res)
+#     return()
+
+
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
     zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
