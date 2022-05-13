@@ -68,22 +68,23 @@ from contracts.erc4626.ERC4626 import (
     balanceOf,
     allowance,
     asset,
-    totalAssets,
     convertToShares,
     convertToAssets,
     maxDeposit,
     maxMint,
     maxWithdraw,
     previewWithdraw,
+    previewDeposit,
+    previewMint,
+    previewMintForTime,
     maxRedeem,
+    totalAssets,
     previewRedeem,
     ERC4626_withdraw,
     ERC4626_deposit,
     ERC4626_initializer,
     ERC4626_redeem,
     ERC4626_mint,
-    ERC4626_previewDeposit,
-    ERC4626_previewMint,
     ERC4626_convertToShares,
     decrease_allowance_by_amount,
     set_default_lock_time,
@@ -91,11 +92,10 @@ from contracts.erc4626.ERC4626 import (
     calculate_lock_time_bonus,
     default_lock_time_days,
 )
-from contracts.ZkPadInvestment import (
+from contracts.erc4626.library import (
     getWithdrawalQueue,
     totalFloat,
     lockedProfit,
-    totalHoldings,
     feePercent,
     harvestDelay,
     harvestWindow,
@@ -235,14 +235,6 @@ func isTokenWhitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     return (TRUE)
 end
 
-@view
-func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    assets : Uint256
-) -> (shares : Uint256):
-    let (default_lock_period : felt) = default_lock_time_days.read()
-    let (shares) = ERC4626_previewDeposit(assets, default_lock_period)
-    return (shares)
-end
 
 @view
 func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -274,7 +266,7 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (zkp_quote : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, assets
     )
-    let (shares : Uint256) = ERC4626_previewDeposit(zkp_quote, lock_time)
+    let (shares : Uint256) = previewDepositForTime(zkp_quote, lock_time)
     let (current_lp_boost : felt) = lp_stake_boost.read()
     if current_lp_boost == 0:
         return (shares)
@@ -282,23 +274,6 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(current_lp_boost, 0))
     let (res : Uint256, _) = uint256_checked_div_rem(applied_boost, Uint256(10, 0))
     return (res)
-end
-
-@view
-func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256
-) -> (assets : Uint256):
-    let (default_lock_period : felt) = default_lock_time_days.read()
-    let (assets) = ERC4626_previewMint(shares, default_lock_period)
-    return (assets)
-end
-
-@view
-func previewMintForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256, lock_time : felt
-) -> (assets : Uint256):
-    let (assets) = ERC4626_previewMint(shares, lock_time)
-    return (assets)
 end
 
 @view
