@@ -886,5 +886,121 @@ async def test_set_registration_time(contracts_factory):
         )
     )
 
+@pytest.mark.asyncio
+async def test_set_purchase_round_params(contracts_factory):
+    zkpad_admin_account, deployer_account, admin_user, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    reg_start = day + timeDeltaOneDay
+    reg_end = reg_start + timeDeltaOneWeek
+
+    purchase_round_start = reg_end + timeDeltaOneDay
+    purchase_round_end = purchase_round_start + timeDeltaOneWeek
+
+    # should fail since only admin can call set_purchase_round_params
+    await assert_revert(
+        sale_participant.send_transaction(
+            participant,
+            ido.contract_address,
+            "set_purchase_round_params",
+            [
+                int(purchase_round_start.timestamp()),
+                int(purchase_round_end.timestamp())
+            ]
+        )
+    )
+
+    # should fail since purchase round end time is zero
+    await assert_revert(
+            admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_purchase_round_params",
+            [
+                int(purchase_round_start.timestamp()),
+                0
+            ]
+        )
+    )    
+
+    # should fail since start and end times are the same
+    await assert_revert(
+            admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_purchase_round_params",
+            [
+                int(purchase_round_start.timestamp()),
+                int(purchase_round_start.timestamp())
+            ]
+        )
+    )    
+
+    # should fail since registration times have not been set yet
+    await assert_revert(
+            admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_purchase_round_params",
+            [
+                int(purchase_round_start.timestamp()),
+                int(purchase_round_end.timestamp())
+            ]
+        )
+    )
+
+    # set the sale params
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            zkp_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),
+            *to_uint(1000000),
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000),
+            *to_uint(10000)
+        ]
+    )
+
+    # Set the sale registration times
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_registration_time",
+        [
+            int(reg_start.timestamp()),
+            int(reg_end.timestamp())
+        ]
+    )
+
+    assert_event_emitted(tx, ido.contract_address, "registration_time_set", data=[
+        int(reg_start.timestamp()),
+        int(reg_end.timestamp())
+    ])
+
+    # should fail since the purchase round start time is the same as the registration round end time
+    await assert_revert(
+        admin1.send_transaction(
+            admin_user,
+            ido.contract_address,
+            "set_purchase_round_params",
+            [
+                int(reg_end.timestamp()),
+                int(purchase_round_end.timestamp())
+            ]
+        )
+    )
+
+
 
 
