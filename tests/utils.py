@@ -149,34 +149,30 @@ def cached_contract(state, definition, deployed):
 class Signer():
     """
     Utility for sending signed transactions to an Account on Starknet.
-
     Parameters
     ----------
-
     private_key : int
-
     Examples
     ---------
     Constructing a Signer object
-
     >>> signer = Signer(1234)
-
     Sending a transaction
-
-    >>> await signer.send_transaction(account,
-                                      account.contract_address,
-                                      'set_public_key',
-                                      [other.public_key]
-                                     )
+    >>> await signer.send_transaction(
+            account, contract_address, 'contract_method', [arg_1]
+        )
+    Sending multiple transactions
+    >>> await signer.send_transactions(
+            account, [
+                (contract_address, 'contract_method', [arg_1]),
+                (contract_address, 'another_method', [arg_1, arg_2])
+            ]
+        )
 
     """
 
     def __init__(self, private_key):
-        self.private_key = private_key
-        self.public_key = private_to_stark_key(private_key)
-
-    def sign(self, message_hash):
-        return sign(msg_hash=message_hash, priv_key=self.private_key)
+        self.signer = Signer(private_key)
+        self.public_key = self.signer.public_key
 
     async def send_transaction(self, account, to, selector_name, calldata, nonce=None, max_fee=0):
         return await self.send_transactions(account, [(to, selector_name, calldata)], nonce, max_fee)
@@ -186,14 +182,14 @@ class Signer():
             execution_info = await account.get_nonce().call()
             nonce, = execution_info.result
 
-        calls_with_selector = [
-            (call[0], get_selector_from_name(call[1]), call[2]) for call in calls]
-        (call_array, calldata) = from_call_to_call_array(calls)
+        build_calls = []
+        for call in calls:
+            build_call = list(call)
+            build_call[0] = hex(build_call[0])
+            build_calls.append(build_call)
 
-        message_hash = hash_multicall(
-            account.contract_address, calls_with_selector, nonce, max_fee)
-        sig_r, sig_s = self.sign(message_hash)
-
+        (call_array, calldata, sig_r, sig_s) = self.signer.sign_transaction(
+            hex(account.contract_address), build_calls, nonce, max_fee)
         return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
 
 
