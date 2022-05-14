@@ -45,7 +45,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_add,
 )
 
-const Math64x61_BOUND = 2 ** 32
+const Math64x61_BOUND_LOCAL = 2 ** 64
 
 struct Sale:
     # Token being sold (interface)
@@ -832,18 +832,17 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (a) = Math64x61_fromFelt(3)
     let (b) = Math64x61_fromFelt(5)
     let (div) = Math64x61_div(a, b)
-    let (fixed_tickets) = Math64x61_fromUint256(tickets_burnt)
-    let (num1) = Math64x61_mul(fixed_tickets, div)
+    let (fixed_tickets_felt) = _uint_to_felt(tickets_burnt)
+    let (num1) = Math64x61_mul(fixed_tickets_felt, div)
     # Nb_quest * 5
-    let (nb_quest_fixed) = Math64x61_fromFelt(nb_quest)
-    let (num2) = Math64x61_mul(nb_quest_fixed, b)
+    let (num2) = Math64x61_mul(nb_quest, 5)
 
     # Add them
     let (sum) = Math64x61_add(num1, num2)
 
     # Compute rand/max
     let (fixed_rand) = Math64x61_fromFelt(rnd)
-    let (rand_factor) = Math64x61_div(fixed_rand, Math64x61_BOUND - 1)
+    let (rand_factor) = Math64x61_div(rnd, Math64x61_BOUND_LOCAL - 1)
 
     # Finally multiply both results
     let (fixed_winning) = Math64x61_mul(rand_factor, sum)
@@ -868,7 +867,7 @@ func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     with_attr error_message("ZkPadIDOContract::get_random_number invalid random number value"):
         assert_not_zero(rnd_felt)
     end
-    return (rnd_felt)
+    return (rnd=rnd_felt)
 end
 
 @external

@@ -265,6 +265,43 @@ async def test_winning_tickets(contracts_factory):
     zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
     res = await ido.draw_winning_tickets(to_uint(10000), 2).invoke()
     print(res.result.res)
+    assert res.result.res < to_uint(10000)
+
+    res = await ido.draw_winning_tickets(to_uint(10000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(10000)
+
+    res = await ido.draw_winning_tickets(to_uint(5000), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(5000)
+
+    res = await ido.draw_winning_tickets(to_uint(5000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(5000)
+
+    res = await ido.draw_winning_tickets(to_uint(1000), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(1000)
+
+    res = await ido.draw_winning_tickets(to_uint(1000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(1000)
+
+    res = await ido.draw_winning_tickets(to_uint(500), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(500)
+
+    res = await ido.draw_winning_tickets(to_uint(500), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(500)
+
+    res = await ido.draw_winning_tickets(to_uint(100), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(100)
+
+    res = await ido.draw_winning_tickets(to_uint(100), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(100)
 
 
 @pytest.mark.asyncio
