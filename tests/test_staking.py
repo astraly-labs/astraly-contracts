@@ -949,6 +949,8 @@ async def test_atomic_enter_exit_multi_pool(contracts_factory, amount):
     zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
     amount = to_uint(bound(amount, int(1e5), int(1e27)))
 
+    half_amount = to_uint(int(from_uint(amount) / 2))
+
     # reset the supply of the token and the owner balance
     owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
     await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
@@ -963,8 +965,6 @@ async def test_atomic_enter_exit_multi_pool(contracts_factory, amount):
 
     strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
-
-    half_amount = to_uint(int(from_uint(amount) / 2))
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1021,6 +1021,134 @@ async def test_atomic_enter_exit_multi_pool(contracts_factory, amount):
     user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
     assert from_uint(user_vault_balance) == calculate_lock_time_bonus(from_uint(amount))
     assert (await zk_pad_staking.convertToAssets(user_vault_balance).call()).result.assets == amount
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_deposit_into_strategy_with_not_enough_balance(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    half_amount = to_uint(int(from_uint(amount) / 2))
+    # reset the supply of the token and the owner balance
+    owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *owner_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *half_amount])
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "approve",
+                                 [zk_pad_staking.contract_address, *half_amount])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*half_amount, owner_account.contract_address])
+
+    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+                                           [zk_pad_token.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
+                                 [strategy1.contract_address])
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "depositIntoStrategy",
+                                               [strategy1.contract_address, *amount]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_withdraw_from_strategy_with_not_enough_balance(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    half_amount = to_uint(int(from_uint(amount) / 2))
+    # reset the supply of the token and the owner balance
+    owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *owner_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *half_amount])
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "approve",
+                                 [zk_pad_staking.contract_address, *half_amount])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*half_amount, owner_account.contract_address])
+
+    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+                                           [zk_pad_token.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
+                                 [strategy1.contract_address])
+
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "depositIntoStrategy",
+                                 [strategy1.contract_address, *half_amount])
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdrawFromStrategy",
+                                               [strategy1.contract_address, *amount]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_withdraw_from_strategy_without_trust(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    # reset the supply of the token and the owner balance
+    owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *owner_balance])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "mint",
+                                 [owner_account.contract_address, *amount])
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "approve",
+                                 [zk_pad_staking.contract_address, *amount])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*amount, owner_account.contract_address])
+
+    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+                                           [zk_pad_token.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
+                                 [strategy1.contract_address])
+
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "depositIntoStrategy",
+                                 [strategy1.contract_address, *amount])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "distrustStrategy",
+                                 [strategy1.contract_address])
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdrawFromStrategy",
+                                               [strategy1.contract_address, *amount]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_deposit_into_strategy_with_no_balance(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    # reset the supply of the token and the owner balance
+    owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *owner_balance])
+
+    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+                                           [zk_pad_token.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
+                                 [strategy1.contract_address])
+
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "depositIntoStrategy",
+                                               [strategy1.contract_address, *amount]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("amount", list(map(int, [1e10, 1e12])))
+async def test_fail_withdraw_from_strategy_with_no_balance(contracts_factory, amount):
+    zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
+    amount = to_uint(bound(amount, int(1e5), int(1e27)))
+
+    # reset the supply of the token and the owner balance
+    owner_balance = (await zk_pad_token.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
+                                 [owner_account.contract_address, *owner_balance])
+
+    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+                                           [zk_pad_token.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
+                                 [strategy1.contract_address])
+
+    await assert_revert(owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdrawFromStrategy",
+                                               [strategy1.contract_address, *amount]))
 
 
 # Bound a value between a min and max.
