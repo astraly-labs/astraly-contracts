@@ -70,7 +70,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed Lottery token to {lottery_token}")
 
-    # signer.send(lottery_token, "set_xzkp_contract_address",
-    #             [int(xzkp_token, 16)])
+    signer.send(lottery_token, "set_xzkp_contract_address",
+                [int(xzkp_token, 16)])
     signer.send(lottery_token, "set_ido_factory_address",
                 [int(factory_contract, 16)])

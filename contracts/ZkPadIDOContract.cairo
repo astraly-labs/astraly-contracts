@@ -578,10 +578,10 @@ func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     with_attr error_message("ZkPadIDOContract::set_registration_time Sale not created yet"):
         assert the_sale.is_created = TRUE
     end
-    with_attr error_message(
-            "ZkPadIDOContract::set_registration_time the regidtrstion start time is already set"):
-        assert the_reg.registration_time_starts = 0
-    end
+    # with_attr error_message(
+    #         "ZkPadIDOContract::set_registration_time the registration start time is already set"):
+    #     assert the_reg.registration_time_starts = 0
+    # end
     with_attr error_message(
             "ZkPadIDOContract::set_registration_time registration start/end times issue"):
         assert_le(block_timestamp, _registration_time_starts)
