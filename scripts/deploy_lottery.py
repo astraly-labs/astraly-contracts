@@ -26,18 +26,18 @@ def run(nre: NileRuntimeEnvironment):
     xzkp_token, _ = nre.get_deployment("xzkp_token_proxy")
 
     # Deploy Mock IDO
-    ido_contract = None
-    try:
-        ido_contract, abi = nre.deploy(
-            "ZkPadIDOContract_mock", arguments=[], alias="ido_contract")
+    # ido_contract = None
+    # try:
+    #     ido_contract, abi = nre.deploy(
+    #         "ZkPadIDOContract_mock", arguments=[], alias="ido_contract")
 
-    except Exception as error:
-        if "already exists" in str(error):
-            ido_contract, abi = nre.get_deployment("ido_contract")
-        else:
-            print(f"DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed IDO to {ido_contract}")
+    # except Exception as error:
+    #     if "already exists" in str(error):
+    #         ido_contract, abi = nre.get_deployment("ido_contract")
+    #     else:
+    #         print(f"DEPLOYMENT ERROR: {error}")
+    # finally:
+    #     print(f"Deployed IDO to {ido_contract}")
 
     # Deploy IDO Factory
     factory_contract = None
@@ -53,7 +53,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed IDO Factory to {factory_contract}")
 
-    signer.send(factory_contract, "create_ido", [int(ido_contract, 16)])
+    # signer.send(factory_contract, "create_ido", [int(ido_contract, 16)])
 
     # Deploy Lottery token
     lottery_token = None
@@ -70,5 +70,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed Lottery token to {lottery_token}")
 
-    signer.send(lottery_token, "set_xzkp_contract_address",
-                [int(xzkp_token, 16)])
+    # signer.send(lottery_token, "set_xzkp_contract_address",
+    #             [int(xzkp_token, 16)])
+    signer.send(lottery_token, "set_ido_factory_address",
+                [int(factory_contract, 16)])
