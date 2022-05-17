@@ -170,10 +170,6 @@ func admin_contract_address() -> (res : felt):
 end
 
 @storage_var
-func staking_vault_contract_address() -> (res : felt):
-end
-
-@storage_var
 func ido_factory_contract_address() -> (res : felt):
 end
 
@@ -242,10 +238,9 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _admin_address : felt, _staking_vault_address : felt, _ido_factory_contract_address : felt
+    _admin_address : felt, _ido_factory_contract_address : felt
 ):
     assert_not_zero(_admin_address)
-    assert_not_zero(_staking_vault_address)
     assert_not_zero(_ido_factory_contract_address)
 
     let (caller) = get_caller_address()
@@ -253,7 +248,6 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # ido_factory_contract_address.write(caller)
     ido_factory_contract_address.write(_ido_factory_contract_address)
     admin_contract_address.write(_admin_address)
-    staking_vault_contract_address.write(_staking_vault_address)
 
     return ()
 end
