@@ -247,7 +247,7 @@ async def full_init(contract_defs, erc1155_init):
         [zk_pad_stake.contract_address, *MAX_UINT256],
     )
 
-    amount = to_uint(10000000000000000000000) # 10000
+    amount = to_uint(10000000000000000000000)  # 10000
 
     # deposit asset tokens to the vault, get shares
     tx = await signer.send_transaction(
@@ -1370,7 +1370,7 @@ async def test_claim_success(full_factory):
     # Checks user balances match
     stake_info = await zk_pad_stake.balanceOf(user).invoke()
     execution_info2 = await erc1155.balanceOf(user, IDO_ID).invoke()
-    nb_tickets = math.floor(pow(stake_info.result[0][0]/(uint(1000000000000000000)), 3/5))
+    nb_tickets = math.floor(pow(stake_info.result[0][0]/10**18, 3/5))
     assert execution_info2.result[0][0] == nb_tickets + 1000
 
 
@@ -1407,13 +1407,14 @@ async def test_claim_twice_success(full_factory):
         *IDO_ID2, 0])
 
 # @pytest.mark.asyncio
-# async def test_shhessh(full_factory) : 
-#     erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory 
+# async def test_shhessh(full_factory) :
+#     erc1155, owner, _, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
 #     balance=to_uint(100000000000000000000)
 #     execution_info = await erc1155._balance_to_tickets(
 #             balance
 #         ).invoke()
 #     print(execution_info.result[0][0])
+
 
 @pytest.mark.asyncio
 async def test_claim_no_tickets(full_factory):
