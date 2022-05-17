@@ -7,6 +7,7 @@ from starkware.cairo.common.uint256 import (
     uint256_le,
     uint256_lt,
     uint256_check,
+    uint256_unsigned_div_rem,
 )
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 from starkware.starknet.common.syscalls import (
@@ -45,6 +46,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_div,
     Math64x61_fromFelt,
     Math64x61_toFelt,
+    Math64x61__pow_int,
 )
 
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
@@ -470,12 +472,14 @@ func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
     balance : Uint256
 ) -> (amount_to_claim : Uint256):
     alloc_locals
+    let one_unit : Uint256 = Uint256(10 ** 18, 0)
+    let (fixed_balance : Uint256, _) = uint256_unsigned_div_rem(balance, one_unit)
+    let (adjusted_bal) = Math64x61_fromUint256(fixed_balance)
 
-    let (fixed_bal) = Math64x61_fromUint256(balance)
     let (fixed3) = Math64x61_fromFelt(3)
     let (fixed5) = Math64x61_fromFelt(5)
     let (power) = Math64x61_div(fixed3, fixed5)
-    let (fixed_nb_tickets) = Math64x61_pow(fixed_bal, power)
+    let (fixed_nb_tickets) = Math64x61_pow(adjusted_bal, power)
     let (scaled_nb_tickets) = Math64x61_toFelt(fixed_nb_tickets)
     let (nb_tickets : Uint256) = _felt_to_uint(scaled_nb_tickets)
 

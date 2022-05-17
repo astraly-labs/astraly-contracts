@@ -15,7 +15,7 @@ from starkware.cairo.common.alloc import alloc
 
 from InterfaceAll import IAdmin, IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR
 from contracts.utils.ZkPadConstants import DAYS_30
-from contracts.utils.ZkPadUtils import get_is_equal
+from contracts.utils.ZkPadUtils import get_is_equal, uint256_max
 from starkware.starknet.common.syscalls import get_block_timestamp
 from openzeppelin.utils.constants import FALSE, TRUE
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
@@ -35,6 +35,17 @@ from openzeppelin.security.safemath import (
     uint256_checked_mul,
     uint256_checked_div_rem,
 )
+from contracts.utils.Math64x61 import (
+    Math64x61_fromUint256,
+    Math64x61_toUint256,
+    Math64x61_div,
+    Math64x61_fromFelt,
+    Math64x61_toFelt,
+    Math64x61_mul,
+    Math64x61_add,
+)
+
+const Math64x61_BOUND_LOCAL = 2 ** 64
 
 struct Sale:
     # Token being sold (interface)
@@ -203,11 +214,17 @@ func tokens_sold(user_address : felt, amount : Uint256):
 end
 
 @event
-func user_registered(user_address : felt, winning_lottery_tickets : Uint256):
+func user_registered(
+    user_address : felt, winning_lottery_tickets : Uint256, amount_burnt : Uint256
+):
 end
 
 @event
 func token_price_set(new_price : Uint256):
+end
+
+@event
+func allocation_computed(allocation : Uint256, sold : Uint256):
 end
 
 @event
@@ -705,12 +722,12 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         tempvar range_check_ptr = range_check_ptr
     end
 
-    let (adjusted_amount) = get_adjusted_amount(
+    let (adjusted_amount : Uint256) = get_adjusted_amount(
         _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
     )
-    let (current_winning) = user_to_winning_lottery_tickets.read(account)
-    let (new_winning) = draw_winning_tickets(
-        tickets_burnt=adjusted_amount, account=account, nb_quest=nb_quest
+    let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(account)
+    let (new_winning : Uint256) = draw_winning_tickets(
+        tickets_burnt=adjusted_amount, nb_quest=nb_quest
     )
     let (local winning_tickets_sum : Uint256) = uint256_checked_add(current_winning, new_winning)
 
@@ -739,7 +756,9 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     )
     sale.write(upd_sale)
 
-    user_registered.emit(user_address=account, winning_lottery_tickets=new_winning)
+    user_registered.emit(
+        user_address=account, winning_lottery_tickets=new_winning, amount_burnt=adjusted_amount
+    )
     return (res=TRUE)
 end
 
@@ -760,39 +779,75 @@ end
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     only_admin()
-    let (current_allocation) = ido_allocation.read()
+    let (current_allocation : Uint256) = ido_allocation.read()
     with_attr error_message("ZkPadIDOContract::calculate_allocation allocation already calculated"):
         let (allocation_check : felt) = uint256_eq(current_allocation, Uint256(0, 0))
         assert allocation_check = TRUE
     end
-    let (the_sale) = sale.read()
+    let (the_sale : Sale) = sale.read()
+    local to_sell : Uint256 = the_sale.amount_of_tokens_to_sell
+    local total_winning_tickets : Uint256 = the_sale.total_winning_tickets
 
     # Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
-    let (the_allocation, _) = uint256_checked_div_rem(
-        the_sale.amount_of_tokens_to_sell, the_sale.total_winning_tickets
-    )
+    let (the_allocation : Uint256, _) = uint256_checked_div_rem(to_sell, total_winning_tickets)
     # with_attr error_message("ZkPadIDOContract::calculate_allocation calculation error"):
     #     assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
     # end
     ido_allocation.write(the_allocation)
+    allocation_computed.emit(allocation=the_allocation, sold=the_sale.amount_of_tokens_to_sell)
     return ()
 end
 
 # this function will call the VRF and determine the number of winning tickets (if any)
+@view
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tickets_burnt : Uint256, account : felt, nb_quest : felt
+    tickets_burnt : Uint256, nb_quest : felt
 ) -> (res : Uint256):
     alloc_locals
+    let (single_t : felt) = uint256_le(tickets_burnt, Uint256(1, 0))
+    if single_t == TRUE:
+        # One ticket
+        let (rnd) = get_random_number()
+        # let (f_rnd) = _uint_to_felt(rnd)
+        let (q, r) = unsigned_div_rem(rnd, 9)
+        let (is_won : felt) = is_le(r, 2)
+        if is_won == TRUE:
+            let (res : Uint256) = _felt_to_uint(1)
+            return (res)
+        end
+        let (res : Uint256) = _felt_to_uint(0)
+        return (res)
+    end
+
     let (rnd) = get_random_number()
-    const max_denominator = 18446744073709551615  # 0xffffffffffffffff
-    let (max_uint) = _felt_to_uint(max_denominator)
-    let (num : Uint256) = uint256_checked_mul(tickets_burnt, rnd)
-    let (winning, _) = uint256_checked_div_rem(num, max_uint)
+    # let (max_uint : Uint256) = uint256_max()
+
+    # Tickets_burnt * 0.6
+    let (a) = Math64x61_fromFelt(3)
+    let (b) = Math64x61_fromFelt(5)
+    let (div) = Math64x61_div(a, b)
+    let (fixed_tickets_felt) = _uint_to_felt(tickets_burnt)
+    let (num1) = Math64x61_mul(fixed_tickets_felt, div)
+    # Nb_quest * 5
+    let (num2) = Math64x61_mul(nb_quest, 5)
+
+    # Add them
+    let (sum) = Math64x61_add(num1, num2)
+
+    # Compute rand/max
+    let (fixed_rand) = Math64x61_fromFelt(rnd)
+    let (rand_factor) = Math64x61_div(rnd, Math64x61_BOUND_LOCAL - 1)
+
+    # Finally multiply both results
+    let (fixed_winning) = Math64x61_mul(rand_factor, sum)
+
+    let (winning : Uint256) = Math64x61_toUint256(fixed_winning)
+
     return (res=winning)
 end
 
 func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    rnd : Uint256
+    rnd : felt
 ):
     let (ido_factory_address) = ido_factory_contract_address.read()
     let (rnd_nbr_gen_addr) = IZKPadIDOFactory.get_random_number_generator_address(
@@ -806,8 +861,7 @@ func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     with_attr error_message("ZkPadIDOContract::get_random_number invalid random number value"):
         assert_not_zero(rnd_felt)
     end
-    let (rnd) = _felt_to_uint(rnd_felt)
-    return (rnd)
+    return (rnd=rnd_felt)
 end
 
 @external
@@ -844,13 +898,13 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         let (token_price_check : felt) = uint256_lt(Uint256(0, 0), the_sale.token_price)
         assert token_price_check = TRUE
     end
-    let (the_alloc) = ido_allocation.read()
+    let (the_alloc : Uint256) = ido_allocation.read()
     with_attr error_message(
             "ZkPadIDOContract::participate The IDO token allocation has not been calculated"):
         let (allocation_check : felt) = uint256_lt(Uint256(0, 0), the_alloc)
         assert allocation_check = TRUE
     end
-    let (winning_tickets) = user_to_winning_lottery_tickets.read(account)
+    let (winning_tickets : Uint256) = user_to_winning_lottery_tickets.read(account)
     with_attr error_message(
             "ZkPadIDOContract::participate account does not have any winning lottery tickets"):
         let (winning_tkts_check : felt) = uint256_lt(Uint256(0, 0), winning_tickets)

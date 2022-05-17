@@ -29,9 +29,13 @@ erc20_eth_path = 'mocks/ZkPad_ETH_ERC20_mock.cairo'
 
 deployer = Signer(1234321)
 admin1 = Signer(2345432)
+staking = Signer(3456543)
 sale_owner = Signer(4567654)
 sale_participant = Signer(5678765)
 sale_participant_2 = Signer(678909876)
+zkp_recipient = Signer(123456789987654321)
+zkp_owner = Signer(123456789876543210)
+
 
 def uint_array(l):
     return list(map(uint, l))
@@ -43,6 +47,7 @@ def uarr2cd(arr):
         acc.append(lo)
         acc.append(hi)
     return acc
+
 
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
@@ -77,6 +82,7 @@ def contract_defs():
 
     return account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def
 
+
 @pytest.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
@@ -89,6 +95,10 @@ async def contacts_init(contract_defs, get_starknet):
     admin1_account = await starknet.deploy(
         contract_def=account_def,
         constructor_calldata=[admin1.public_key]
+    )
+    staking_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[staking.public_key]
     )
     sale_owner_account = await starknet.deploy(
         contract_def=account_def,
@@ -103,6 +113,16 @@ async def contacts_init(contract_defs, get_starknet):
     sale_participant_2_account = await starknet.deploy(
         contract_def=account_def,
         constructor_calldata=[sale_participant_2.public_key]
+    )
+
+    zkp_recipient_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[zkp_recipient.public_key]
+    )
+
+    zkp_owner_account = await starknet.deploy(
+        contract_def=account_def,
+        constructor_calldata=[zkp_owner.public_key]
     )
 
     zk_pad_admin = await starknet.deploy(
@@ -152,6 +172,7 @@ async def contacts_init(contract_defs, get_starknet):
         contract_def=zk_pad_ido_def,
         constructor_calldata=[
             zk_pad_admin.contract_address,
+            staking_account.contract_address,
             zk_pad_ido_factory.contract_address
         ],
     )
@@ -179,16 +200,18 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
-    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer", 
-        [sale_participant_account.contract_address, *to_uint(10000)]
-    )
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer",
+                                    [sale_participant_account.contract_address,
+                                        *to_uint(10000)]
+                                    )
 
-    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer", 
-        [sale_participant_2_account.contract_address, *to_uint(5000)]
-    )
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer",
+                                    [sale_participant_2_account.contract_address,
+                                        *to_uint(5000)]
+                                    )
 
     await deployer.send_transaction(
-        deployer_account, 
+        deployer_account,
         zk_pad_ido_factory.contract_address,
         "set_payment_token_address",
         [erc20_eth_token.contract_address])
@@ -196,9 +219,12 @@ async def contacts_init(contract_defs, get_starknet):
     return (
         deployer_account,
         admin1_account,
+        staking_account,
         sale_owner_account,
         sale_participant_account,
         sale_participant_2_account,
+        zkp_recipient_account,
+        zkp_owner_account,
         zk_pad_admin,
         rnd_nbr_gen,
         zk_pad_ido_factory,
@@ -208,14 +234,16 @@ async def contacts_init(contract_defs, get_starknet):
         erc20_eth_token
     )
 
+
 @pytest.fixture
 def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
-    deployer_account, admin1_account, sale_owner_account, sale_participant_account, sale_participant_2_account, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido, erc20_eth_token = contacts_init
+    deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, sale_participant_2_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido, erc20_eth_token = contacts_init
     _state = get_starknet.state.copy()
     admin_cached = cached_contract(_state, zk_pad_admin_def, zk_pad_admin)
     deployer_cached = cached_contract(_state, account_def, deployer_account)
     admin1_cached = cached_contract(_state, account_def, admin1_account)
+    staking_cached = cached_contract(_state, account_def, staking_account)
     owner_cached = cached_contract(_state, account_def, sale_owner_account)
     participant_cached = cached_contract(
         _state, account_def, sale_participant_account)
@@ -227,15 +255,58 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     ido_factory_cached = cached_contract(
         _state, zk_pad_ido_factory_def, zk_pad_ido_factory)
     erc1155_cached = cached_contract(_state, erc1155_def, erc1155)
-    erc20_eth_token_cached = cached_contract(_state, erc20_eth_def, erc20_eth_token)
-    return admin_cached, deployer_cached, admin1_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
+    erc20_eth_token_cached = cached_contract(
+        _state, erc20_eth_def, erc20_eth_token)
+    return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
 
-###########
-## TESTS ##
-###########
+
+@pytest.mark.asyncio
+async def test_winning_tickets(contracts_factory):
+    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    res = await ido.draw_winning_tickets(to_uint(10000), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(10000)
+
+    res = await ido.draw_winning_tickets(to_uint(10000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(10000)
+
+    res = await ido.draw_winning_tickets(to_uint(5000), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(5000)
+
+    res = await ido.draw_winning_tickets(to_uint(5000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(5000)
+
+    res = await ido.draw_winning_tickets(to_uint(1000), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(1000)
+
+    res = await ido.draw_winning_tickets(to_uint(1000), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(1000)
+
+    res = await ido.draw_winning_tickets(to_uint(500), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(500)
+
+    res = await ido.draw_winning_tickets(to_uint(500), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(500)
+
+    res = await ido.draw_winning_tickets(to_uint(100), 2).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(100)
+
+    res = await ido.draw_winning_tickets(to_uint(100), 20).invoke()
+    print(res.result.res)
+    assert res.result.res < to_uint(100)
+
+
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
-    zkpad_admin_account, deployer_account, admin_user, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
     day = datetime.today()
     timeDelta90days = timedelta(days=90)
     timeDeltaOneWeek = timedelta(weeks=1)
@@ -243,7 +314,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
-    
+
     tx = await admin1.send_transaction(
         admin_user,
         ido.contract_address,
@@ -271,7 +342,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
 
     VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60), 
+        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
         int(token_unlock.timestamp()) + (22 * 24 * 60 * 60)
@@ -302,7 +373,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
 
     portion_4 = await ido.get_vesting_portion_percent(4).invoke()
     assert portion_4.result.res == uint(400)
-
 
     reg_start = day + timeDeltaOneDay
     reg_end = reg_start + timeDeltaOneWeek
@@ -439,7 +509,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert user_registered_event is not None
 
     # advance block timestamp to be inside the purchase round
-    set_block_timestamp(starknet_state, int(purchase_round_start.timestamp()) + 60)
+    set_block_timestamp(starknet_state, int(
+        purchase_round_start.timestamp()) + 60)
 
     # calculate the allocation
     tx = await admin1.send_transaction(
@@ -449,6 +520,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
         []
     )
 
+    pp(tx.raw_events)
+
     # sale participant 1
     tx = await sale_participant.send_transaction(
         participant,
@@ -456,7 +529,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         'approve',
         [
             ido.contract_address,
-            *to_uint(2000)    
+            *to_uint(2000)
         ]
     )
 
@@ -476,7 +549,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         'approve',
         [
             ido.contract_address,
-            *to_uint(2000)    
+            *to_uint(2000)
         ]
     )
 
@@ -506,7 +579,8 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert from_uint(participant_1_zkp_bal.result.balance) == 0
 
     # advance block time stamp to one minute after portion 1 vesting unlock time
-    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
 
     tx = await sale_participant.send_transaction(
         participant,
@@ -525,8 +599,9 @@ async def test_setup_sale_success_with_events(contracts_factory):
     participant_1_zkp_bal = await zkp_token.balanceOf(participant.contract_address).invoke()
     assert from_uint(participant_1_zkp_bal.result.balance) > 0
 
-    set_block_timestamp(starknet_state, int(token_unlock.timestamp()) + (23 * 24 * 60 * 60))
-    OTHER_PORTION_IDS = [2,3,4]
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (23 * 24 * 60 * 60))
+    OTHER_PORTION_IDS = [2, 3, 4]
     tx = await sale_participant.send_transaction(
         participant,
         ido.contract_address,
@@ -543,565 +618,5 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert tokens_withdrawn_event is not None
 
     participant_1_zkp_bal_multiple = await zkp_token.balanceOf(participant.contract_address).invoke()
-    assert from_uint(participant_1_zkp_bal_multiple.result.balance) > from_uint(participant_1_zkp_bal.result.balance)
-
-@pytest.mark.asyncio
-async def test_setup_vesting_params(contracts_factory):
-    _, _, admin_user, owner, participant, _, _, ido, _, _, _, _, _ = contracts_factory
-    day = datetime.today()
-    timeDelta90days = timedelta(days=90)
-    timeDeltaOneWeek = timedelta(weeks=1)
-
-    sale_end = day + timeDelta90days
-    token_unlock = sale_end + timeDeltaOneWeek
-
-    TIME_SHIFT_40_DAYS = 40 * 24 * 60 * 60
-    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
-    VESTING_PERCENTAGES_MISMATCH_LENGTH = uint_array([100, 200, 300])
-    VESTING_PERCENTAGES_MISMATCH_AMOUNTS = uint_array([100, 200, 300, 600])
-
-    VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60), 
-        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60)
-    ]
-
-    # should fail => non-admin user can't call set_vesting_params
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant,
-            ido.contract_address,
-            "set_vesting_params",
-            [
-                4,
-                *VESTING_TIMES_UNLOCKED,
-                *uarr2cd(VESTING_PERCENTAGES),
-                0
-            ]
-        )
-    )
-
-    # should fail => arrays not the same length
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_vesting_params",
-            [
-                4,
-                *VESTING_TIMES_UNLOCKED,
-                *uarr2cd(VESTING_PERCENTAGES_MISMATCH_LENGTH),
-                0
-            ]
-        )
-    )
-
-    # should fail => max vesting shift is more than 30 DAYS
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_vesting_params",
-            [
-                4,
-                *VESTING_TIMES_UNLOCKED,
-                *uarr2cd(VESTING_PERCENTAGES),
-                TIME_SHIFT_40_DAYS
-            ]
-        )
-    )        
-
-    # should fail => percentages do not add up to the precision value
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_vesting_params",
-            [
-                4,
-                *VESTING_TIMES_UNLOCKED,
-                *uarr2cd(VESTING_PERCENTAGES_MISMATCH_AMOUNTS),
-                0
-            ]
-        )
-    )
-
-@pytest.mark.asyncio
-async def test_setup_sale_params(contracts_factory):
-    _, _, admin_user, owner, participant, _, zkp_token, ido, _, _, _, _, starknet_state = contracts_factory
-    day = datetime.today()
-    timeDelta90days = timedelta(days=90)
-    timeDeltaOneWeek = timedelta(weeks=1)
-
-    sale_end = day + timeDelta90days
-    token_unlock = sale_end + timeDeltaOneWeek
-    
-    # should fail => non-admin user can't call set_sale_params
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(100),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )        
-    )
-
-    # should fail => owner address can't be the zero address
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                ZERO_ADDRESS,
-                *to_uint(100),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )        
-    )
-
-    # should fail => token price must be greater than zero
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(0),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )        
-    )
-
-    # should fail => number of tokens to sell must be greater than zero
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(100),
-                *to_uint(0),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )        
-    )        
-
-    current_block_timestamp = get_block_timestamp(starknet_state)
-    set_block_timestamp(starknet_state, int(sale_end.timestamp()) + 60)
-
-    # should fail => block timestamp is after saled end time
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(100),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )        
-    )        
-
-    set_block_timestamp(starknet_state, current_block_timestamp)
-
-    # should fail => portion vesting percision should be at least 100
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(100),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(50),
-                *to_uint(10000)
-            ]
-        )        
-    )
-
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_sale_params",
-        [
-            zkp_token.contract_address,
-            owner.contract_address,
-            *to_uint(100),
-            *to_uint(1000000),
-            int(sale_end.timestamp()),
-            int(token_unlock.timestamp()),
-            *to_uint(1000),
-            *to_uint(10000)
-        ]
-    )
-
-    assert_event_emitted(tx, ido.contract_address, "sale_created", data=[
-        owner.contract_address,
-        *to_uint(100),
-        *to_uint(1000000),
-        int(sale_end.timestamp()),
-        int(token_unlock.timestamp())
-    ])
-
-    # should fail since the sale params were set in the tx above
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_sale_params",
-            [
-                zkp_token.contract_address,
-                owner.contract_address,
-                *to_uint(100),
-                *to_uint(1000000),
-                int(sale_end.timestamp()),
-                int(token_unlock.timestamp()),
-                *to_uint(1000),
-                *to_uint(10000)
-            ]
-        )
-    )
-
-@pytest.mark.asyncio
-async def test_set_registration_time(contracts_factory):
-    _, _, admin_user, owner, participant, _, zkp_token, ido, _, _, _, _, starknet_state = contracts_factory
-    day = datetime.today()
-    timeDeltaOneDay = timedelta(days=1)
-    timeDelta90days = timedelta(days=90)
-    timeDeltaOneWeek = timedelta(weeks=1)
-
-    sale_end = day + timeDelta90days
-    token_unlock = sale_end + timeDeltaOneWeek
-
-    reg_start = day + timeDeltaOneDay
-    reg_end = reg_start + timeDeltaOneWeek
-
-    # should fail since only admin can call set_registration_time
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant,
-            ido.contract_address,
-            "set_registration_time",
-            [
-                int(reg_start.timestamp()),
-                int(reg_end.timestamp())
-            ]
-        )
-    )    
-
-    # should fail since the sale params have not been set yet
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_registration_time",
-            [
-                int(reg_start.timestamp()),
-                int(reg_end.timestamp())
-            ]
-        )
-    )
-
-    # set the sale params
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_sale_params",
-        [
-            zkp_token.contract_address,
-            owner.contract_address,
-            *to_uint(100),
-            *to_uint(1000000),
-            int(sale_end.timestamp()),
-            int(token_unlock.timestamp()),
-            *to_uint(1000),
-            *to_uint(10000)
-        ]
-    )
-
-    current_block_timestamp = get_block_timestamp(starknet_state)
-    set_block_timestamp(starknet_state, int(reg_start.timestamp()) + 60)
-
-    # should fail since block timestamp is after registration start time
-    await assert_revert(
-            admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_registration_time",
-            [
-                int(reg_start.timestamp()),
-                int(reg_end.timestamp())
-            ]
-        )
-    )
-    set_block_timestamp(starknet_state, current_block_timestamp)
-
-    # should fails since registration end time is after sale end time
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_registration_time",
-            [
-                int(reg_start.timestamp()),
-                int(sale_end.timestamp() + 60)
-            ]
-        )
-    )
-
-@pytest.mark.asyncio
-async def test_set_purchase_round_params(contracts_factory):
-    _, _, admin_user, owner, participant, _, zkp_token, ido, _, _, _, _, _ = contracts_factory
-    day = datetime.today()
-    timeDelta90days = timedelta(days=90)
-    timeDeltaOneWeek = timedelta(weeks=1)
-    timeDeltaOneDay = timedelta(days=1)
-
-    sale_end = day + timeDelta90days
-    token_unlock = sale_end + timeDeltaOneWeek
-
-    reg_start = day + timeDeltaOneDay
-    reg_end = reg_start + timeDeltaOneWeek
-
-    purchase_round_start = reg_end + timeDeltaOneDay
-    purchase_round_end = purchase_round_start + timeDeltaOneWeek
-
-    # should fail since only admin can call set_purchase_round_params
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant,
-            ido.contract_address,
-            "set_purchase_round_params",
-            [
-                int(purchase_round_start.timestamp()),
-                int(purchase_round_end.timestamp())
-            ]
-        )
-    )
-
-    # should fail since purchase round end time is zero
-    await assert_revert(
-            admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_purchase_round_params",
-            [
-                int(purchase_round_start.timestamp()),
-                0
-            ]
-        )
-    )    
-
-    # should fail since start and end times are the same
-    await assert_revert(
-            admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_purchase_round_params",
-            [
-                int(purchase_round_start.timestamp()),
-                int(purchase_round_start.timestamp())
-            ]
-        )
-    )    
-
-    # should fail since registration times have not been set yet
-    await assert_revert(
-            admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_purchase_round_params",
-            [
-                int(purchase_round_start.timestamp()),
-                int(purchase_round_end.timestamp())
-            ]
-        )
-    )
-
-    # set the sale params
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_sale_params",
-        [
-            zkp_token.contract_address,
-            owner.contract_address,
-            *to_uint(100),
-            *to_uint(1000000),
-            int(sale_end.timestamp()),
-            int(token_unlock.timestamp()),
-            *to_uint(1000),
-            *to_uint(10000)
-        ]
-    )
-
-    # Set the sale registration times
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_registration_time",
-        [
-            int(reg_start.timestamp()),
-            int(reg_end.timestamp())
-        ]
-    )
-
-    assert_event_emitted(tx, ido.contract_address, "registration_time_set", data=[
-        int(reg_start.timestamp()),
-        int(reg_end.timestamp())
-    ])
-
-    # should fail since the purchase round start time is the same as the registration round end time
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_purchase_round_params",
-            [
-                int(reg_end.timestamp()),
-                int(purchase_round_end.timestamp())
-            ]
-        )
-    )
-
-@pytest.mark.asyncio
-async def test_set_dist_round_params(contracts_factory):
-    zkpad_admin_account, deployer_account, admin_user, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
-    day = datetime.today()
-    timeDelta90days = timedelta(days=90)
-    timeDeltaOneWeek = timedelta(weeks=1)
-    timeDeltaOneDay = timedelta(days=1)
-
-    sale_end = day + timeDelta90days
-    token_unlock = sale_end + timeDeltaOneWeek
-
-    reg_start = day + timeDeltaOneDay
-    reg_end = reg_start + timeDeltaOneWeek
-
-    purchase_round_start = reg_end + timeDeltaOneDay
-    purchase_round_end = purchase_round_start + timeDeltaOneWeek
-
-    dist_round_start = purchase_round_end + timeDeltaOneDay
-
-    # should fail since only admin can call set_dist_round_params
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant,
-            ido.contract_address,
-            "set_dist_round_params",
-            [
-                int(dist_round_start.timestamp())
-            ]
-        )
-    )
-
-    # should fail since start time is invalid
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_dist_round_params",
-            [
-                0
-            ]
-        )
-    )
-
-    # should fail since the purchase period times have not been set yet
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_dist_round_params",
-            [
-                int(dist_round_start.timestamp())
-            ]
-        )
-    )
-
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_sale_params",
-        [
-            zkp_token.contract_address,
-            owner.contract_address,
-            *to_uint(100),
-            *to_uint(1000000),
-            int(sale_end.timestamp()),
-            int(token_unlock.timestamp()),
-            *to_uint(1000),
-            *to_uint(10000)
-        ]
-    )
-
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_registration_time",
-        [
-            int(reg_start.timestamp()),
-            int(reg_end.timestamp())
-        ]
-    )
-
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_purchase_round_params",
-        [
-            int(purchase_round_start.timestamp()),
-            int(purchase_round_end.timestamp())
-        ]
-    )
-
-    # should fail since the distribution round start time is the same as the purchase round end time
-    await assert_revert(
-        admin1.send_transaction(
-            admin_user,
-            ido.contract_address,
-            "set_dist_round_params",
-            [
-                int(purchase_round_end.timestamp())
-            ]
-        )
-    )
-
-
+    assert from_uint(participant_1_zkp_bal_multiple.result.balance) > from_uint(
+        participant_1_zkp_bal.result.balance)
