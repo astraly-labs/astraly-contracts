@@ -41,7 +41,7 @@ from openzeppelin.security.safemath import (
     uint256_checked_sub_lt,
 )
 
-from contracts.utils import get_array, uint256_is_zero
+from contracts.utils import get_array, uint256_is_zero, mul_div_down
 
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
@@ -222,8 +222,6 @@ func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     let (decimals) = IERC20.decimals(contract_address=asset_addr)
     ERC20_initializer(name, symbol, decimals)
     ERC4626_asset_addr.write(asset_addr)
-
-    default_lock_time_days.write(365)
     return ()
 end
 
@@ -320,6 +318,24 @@ func lockedProfit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     let (mul : Uint256) = uint256_checked_mul(maximum_locked_profit, Uint256(sub, 0))
     let (div : Uint256, _) = uint256_checked_div_rem(mul, Uint256(harvest_interval, 0))
     let (res : Uint256) = uint256_checked_sub_le(maximum_locked_profit, div)
+    return (res)
+end
+
+@view
+func lastHarvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (time : felt):
+    let (time : felt) = last_harvest.read()
+    return (time)
+end
+
+@view
+func lastHarvestWindowStart{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+    let (res : felt) = last_harvest_window_start.read()
+    return (res)
+end
+
+@view
+func nextHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (delay : felt):
+    let (res : felt) = next_harvest_delay.read()
     return (res)
 end
 
@@ -716,13 +732,15 @@ end
 # # @param newHarvestWindow The new harvest window.
 # # @dev harvest_delay must be set before calling.
 func set_harvest_window{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    window : felt
+    new_harvest_window : felt
 ):
     let (delay) = harvest_delay.read()
-    assert_le(window, delay)
-    harvest_window.write(window)
+    with_attr error_message("WINDOW_TOO_LONG"):
+        assert_le(new_harvest_window, delay)
+    end
+    harvest_window.write(new_harvest_window)
     let (caller : felt) = get_caller_address()
-    HarvestDelayUpdated.emit(caller, window)
+    HarvestDelayUpdated.emit(caller, new_harvest_window)
     return ()
 end
 
@@ -732,12 +750,16 @@ func set_harvest_delay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     new_delay : felt
 ):
     alloc_locals
+    with_attr error_message("DELAY_CANNOT_BE_ZERO"):
+        assert_not_zero(new_delay)
+    end
 
-    let (local delay) = harvest_delay.read()
-    assert_not_zero(new_delay)
-    assert_le(new_delay, 31536000)  # 31,536,000 = 365 days = 1 year
+    with_attr error_message("DELAY_TOO_LONG"):
+        assert_le(new_delay, 31536000)  # 31,536,000 = 365 days = 1 year
+    end
 
     let (caller : felt) = get_caller_address()
+    let (local delay) = harvest_delay.read()
     # If the previous delay is 0, we should set immediately
     if delay == 0:
         harvest_delay.write(new_delay)
@@ -805,21 +827,33 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     end
 
     let (old_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
+    let (current_locked_profit : Uint256) = lockedProfit()
 
     let (total_profit_accrued : Uint256, new_total_strategy_holdings : Uint256) = _check_strategies(
         strategies_len, strategies, 0, Uint256(0, 0), old_total_strategy_holdings
     )
-    let (current_fee_percent : felt) = fee_percent.read()
-    let (fees_accrued : Uint256, _) = uint256_checked_div_rem(
-        total_profit_accrued, Uint256(current_fee_percent * (1 ** 18), 0)
-    )
+    let (no_fees_earned : felt) = uint256_is_zero(total_profit_accrued)
 
-    # ## TODO: MINT xZKP
-
-    let (current_locked_profit : Uint256) = lockedProfit()
-    let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
-    let (new_max_locked_profit : Uint256) = uint256_sub(sum, fees_accrued)
-    max_locked_profit.write(new_max_locked_profit)
+    if no_fees_earned == TRUE:
+        let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
+        max_locked_profit.write(sum)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        let (current_fee_percent : felt) = fee_percent.read()
+        let (fees_accrued : Uint256) = mul_div_down(total_profit_accrued, Uint256(current_fee_percent, 0), Uint256(10 ** 18, 0))
+        let (new_max_locked_profit : Uint256) = uint256_sub(total_profit_accrued, fees_accrued)
+        max_locked_profit.write(new_max_locked_profit)
+        let (address_this : felt) = get_contract_address()
+        let (base_unit_value : felt) = base_unit.read()
+        let (base_unit_to_asset : Uint256) = ERC4626_convertToAssets(Uint256(base_unit_value, 0))
+        let (value_to_mint : Uint256) = mul_div_down(fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset)
+        ERC20_mint(address_this, value_to_mint)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
 
     total_strategy_holdings.write(new_total_strategy_holdings)
     last_harvest.write(block_timestamp)
@@ -859,14 +893,15 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
     let (underlying_asset : felt) = ERC4626_asset()
     let balance_last_harvest : Uint256 = current_strategy_data.balance
-    let (balance_this_harvest : Uint256) = IERC20.balanceOf(underlying_asset, strategies[index])
+    let (address_this : felt) = get_contract_address()
+    let (balance_this_harvest : Uint256) = IStrategy.balanceOfUnderlying(strategies[index], address_this)
 
     strategy_data.write(strategies[index], StrategyData(TRUE, balance_this_harvest))
 
-    let (is_last_harvest_balance_lt : felt) = uint256_lt(balance_last_harvest, balance_this_harvest)
-
     let (sum : Uint256) = uint256_checked_add(total_strategy_holdings, balance_this_harvest)
     let (new_total_strategy_holdings : Uint256) = uint256_checked_sub_le(sum, balance_last_harvest)
+
+    let (is_last_harvest_balance_lt : felt) = uint256_lt(balance_last_harvest, balance_this_harvest)
     if is_last_harvest_balance_lt == TRUE:
         let (profit : Uint256) = uint256_checked_sub_lt(balance_this_harvest, balance_last_harvest)
         let (new_total_profit_accrued : Uint256) = uint256_checked_add(total_profit_accrued, profit)
