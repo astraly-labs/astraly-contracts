@@ -8,6 +8,7 @@ from starkware.cairo.common.uint256 import (
     uint256_lt,
     uint256_sub,
     uint256_check,
+    uint256_eq,
 )
 from starkware.cairo.common.math import (
     assert_not_equal,
@@ -16,6 +17,7 @@ from starkware.cairo.common.math import (
     assert_lt,
     unsigned_div_rem,
 )
+from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.bitwise import bitwise_and, bitwise_xor, bitwise_or
 from starkware.cairo.common.alloc import alloc
@@ -24,6 +26,7 @@ from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_contract_address,
     get_block_timestamp,
+    get_block_number,
 )
 
 from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
@@ -117,6 +120,7 @@ from contracts.erc4626.library import (
     claim_fees,
 )
 from contracts.utils import uint256_is_zero
+from contracts.utils.Uint256_felt_conv import _felt_to_uint
 
 # from contracts.ZkPadStrategyManager import constructor
 
@@ -237,7 +241,6 @@ func isTokenWhitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     end
     return (TRUE)
 end
-
 
 @view
 func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -376,7 +379,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     set_base_unit(asset_addr)
     setDefaultLockTime(365)
     setStakeBoost(25)
-    setFeePercent(1) # TODO : Check division later
+    setFeePercent(1)  # TODO : Check division later
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
@@ -1000,4 +1003,113 @@ func remove_from_deposit{
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
     return ()
+end
+
+#
+# Staking Rewards
+#
+
+@storage_var
+func lastRewardBlock() -> (res : felt):
+end
+
+@storage_var
+func rewardPerBlock() -> (res : Uint256):
+end
+
+@storage_var
+func accTokenPerShare() -> (res : Uint256):
+end
+
+@storage_var
+func endBlock() -> (res : felt):
+end
+
+# @notice Update reward variables of the pool to be up-to-date.
+func _updatePool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    let (block_number : felt) = get_block_number()
+    let (last_reward_block : felt) = lastRewardBlock.read()
+
+    with_attr error_message("update pool not possible"):
+        assert_lt(last_reward_block, block_number)
+    end
+
+    let (staked_supply : Uint256) = totalAssets()
+
+    let (yesno : felt) = uint256_eq(staked_supply, Uint256(0, 0))
+    if yesno == TRUE:
+        lastRewardBlock.write(block_number)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        return ()
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    let (multiplier : felt) = _getMultiplier(last_reward_block, block_number)
+    let (u_multiplier : Uint256) = _felt_to_uint(multiplier)
+    let (reward_per_block : Uint256) = rewardPerBlock.read()
+    let (token_reward : Uint256) = uint256_checked_mul(u_multiplier, reward_per_block)
+
+    # Update only if token reward for staking is not null
+    let (is_positive : felt) = uint256_lt(Uint256(0, 0), token_reward)
+    if is_positive == TRUE:
+        let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+        let (precise_token_reward : Uint256) = uint256_checked_mul(token_reward, PRECISION_FACTOR)
+        let (divider : Uint256, _) = uint256_checked_div_rem(precise_token_reward, staked_supply)
+        let (local cur_acc_token_per_share : Uint256) = accTokenPerShare.read()
+        let (_acc_token_per_share : Uint256) = uint256_checked_add(cur_acc_token_per_share, divider)
+        accTokenPerShare.write(_acc_token_per_share)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    # Update last reward block only if it wasn't updated after or at the end block
+    let (end_block : felt) = endBlock.read()
+    let (is_lower : felt) = is_le(last_reward_block, end_block)
+
+    if is_lower == TRUE:
+        lastRewardBlock.write(block_number)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    return ()
+end
+
+# @notice Return reward multiplier over the given "from" to "to" block.
+#   @param from block to start calculating reward
+#   @param to block to finish calculating reward
+#   @return the multiplier for the period
+@view
+func _getMultiplier{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _from : felt, _to : felt
+) -> (multiplier : felt):
+    alloc_locals
+    let (end_block : felt) = endBlock.read()
+    let (is_lower : felt) = is_le(_to, end_block)
+    let (is_greater : felt) = is_le(end_block, _from)
+    if is_lower == TRUE:
+        return (multiplier=_to - _from)
+    else:
+        if is_greater == TRUE:
+            return (multiplier=0)
+        else:
+            return (multiplier=end_block - _from)
+        end
+    end
 end
