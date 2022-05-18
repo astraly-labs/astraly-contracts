@@ -1,6 +1,11 @@
+%lang starknet
+
 from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
+from starkware.cairo.common.bool import TRUE, FALSE
+
+from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
 
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
@@ -37,4 +42,23 @@ func or{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
         return (1)
     end
     return (0)
+end
+
+func mul_div_down{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    x : Uint256, y : Uint256, denominator : Uint256
+) -> (res : Uint256):
+    alloc_locals
+    let (z : Uint256) = uint256_checked_mul(x, y)
+
+    let (dominator_is_zero : felt) = uint256_is_zero(denominator)
+    assert dominator_is_zero = FALSE
+
+    let (x_is_zero : felt) = uint256_is_zero(x)
+    let (div : Uint256, _) = uint256_checked_div_rem(z, x)
+    let (is_eq : felt) = uint256_eq(div, y)
+    let (_or : felt) = or(x_is_zero, is_eq)
+    assert _or = TRUE
+
+    let (res : Uint256, _) = uint256_checked_div_rem(z, denominator)
+    return (res)
 end

@@ -234,7 +234,7 @@ def set_block_timestamp(starknet_state, timestamp):
     )
 
 
-def assert_approx_eq(a: int, b: int, max_delta: int):
+def approx_eq(a: int, b: int, max_delta: int):
     delta = a - b if a > b else b - a
 
     if delta > max_delta:

@@ -3,7 +3,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_le
-from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 
 from openzeppelin.token.erc20.library import (
@@ -23,8 +23,8 @@ from openzeppelin.token.erc20.library import (
 )
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 
-from contracts.utils import uint256_is_zero, or
-from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
+from contracts.utils import uint256_is_zero, or, mul_div_down
+from openzeppelin.security.safemath import uint256_checked_mul
 
 @storage_var
 func underlying_address() -> (address : felt):
@@ -62,7 +62,7 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amo
     let (_base_unit : Uint256) = base_unit.read()
     let (mul : Uint256) = uint256_checked_mul(amount, _base_unit)
     let (exchange_rate : Uint256) = exchangeRate()
-    let (amount_to_mint : Uint256) = mulDivDown(amount, _base_unit, exchange_rate)
+    let (amount_to_mint : Uint256) = mul_div_down(amount, _base_unit, exchange_rate)
 
     let (caller : felt) = get_caller_address()
     ERC20_mint(caller, amount_to_mint)
@@ -78,7 +78,8 @@ func redeemUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 ) -> (res : Uint256):
     alloc_locals
     let (_underlying : felt) = underlying()
-    let (underlying_balance_of_this : Uint256) = balanceOfUnderlying()
+    let (address_this : felt) = get_contract_address()
+    let (underlying_balance_of_this : Uint256) = IERC20.balanceOf(_underlying, address_this)
     let (not_over_balance : felt) = uint256_le(amount, underlying_balance_of_this)
     assert not_over_balance = TRUE
 
@@ -89,7 +90,7 @@ func redeemUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 end
 
 @external
-func balanceOfUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+func balanceOfUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt) -> (
     res : Uint256
 ):
     let (_underlying : felt) = underlying()
@@ -117,27 +118,10 @@ func exchangeRate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     if supply_is_zero == TRUE:
         return (_base_unit)
     end
-    let (underlying_balance_of_this : Uint256) = balanceOfUnderlying()
+    let (address_this : felt) = get_contract_address()
+    let (_underlying : felt) = underlying()
+    let (underlying_balance_of_this : Uint256) = IERC20.balanceOf(_underlying, address_this)
 
-    let (res : Uint256) = mulDivDown(underlying_balance_of_this, _base_unit, total_supply)
-    return (res)
-end
-
-func mulDivDown{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    x : Uint256, y : Uint256, denominator : Uint256
-) -> (res : Uint256):
-    alloc_locals
-    let (z : Uint256) = uint256_checked_mul(x, y)
-
-    let (dominator_is_zero : felt) = uint256_is_zero(denominator)
-    assert dominator_is_zero = FALSE
-
-    let (x_is_zero : felt) = uint256_is_zero(x)
-    let (div : Uint256, _) = uint256_checked_div_rem(z, x)
-    let (is_eq : felt) = uint256_eq(div, y)
-    let (_or : felt) = or(x_is_zero, is_eq)
-    assert _or = TRUE
-
-    let (res : Uint256, _) = uint256_checked_div_rem(z, denominator)
+    let (res : Uint256) = mul_div_down(underlying_balance_of_this, _base_unit, total_supply)
     return (res)
 end

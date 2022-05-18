@@ -99,8 +99,11 @@ from contracts.erc4626.library import (
     feePercent,
     harvestDelay,
     harvestWindow,
+    nextHarvestDelay,
     targetFloatPercent,
     totalStrategyHoldings,
+    lastHarvestWindowStart,
+    lastHarvest,
     set_fee_percent,
     set_harvest_window,
     set_harvest_delay,
@@ -371,6 +374,9 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
     set_base_unit(asset_addr)
+    setDefaultLockTime(365)
+    setStakeBoost(25)
+    setFeePercent(1) # TODO : Check division later
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
