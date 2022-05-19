@@ -1283,6 +1283,34 @@ async def test_profitable_harvest(contracts_factory, amount):
     assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) <= int(
         1.5e18)
 
+    advance_clock(starknet_state, days_to_seconds(365 * 2))
+
+    user_deposit_amount = (await zk_pad_staking.getUserDeposit(owner_account.contract_address,
+                                                               zk_pad_token.contract_address).call()).result.amount
+    print(f'User deposit {user_deposit_amount}')
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "redeem",
+                                 [*amount, owner_account.contract_address, owner_account.contract_address])
+
+    assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) >= (
+        int(4e18))
+    total_strategy_holding = (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings
+    total_assets = (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets
+    total_float = (await zk_pad_staking.totalFloat().call()).result.float
+    assert from_uint(total_strategy_holding) == from_uint(total_assets) - from_uint(total_float)
+    assert from_uint(total_float) >= 0
+    assert from_uint(total_assets) >= 0
+    assert (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance == uint(0)
+    assert (await zk_pad_staking.convertToAssets(uint(0)).call()).result.assets == uint(0)
+    assert (await zk_pad_staking.totalSupply().call()).result.totalSupply == to_uint(
+        int(0.05e18 * from_uint(amount) / 1e18))
+    assert (await zk_pad_staking.balanceOf(zk_pad_staking.contract_address).call()).result.balance == to_uint(
+        int(0.05e18 * from_uint(amount) / 1e18))
+
+    assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) >= int(
+        1.4e18)
+    assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) <= int(
+        1.5e18)
+
 
 @pytest.mark.asyncio
 async def test_updating_harvest_delay(contracts_factory):

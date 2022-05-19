@@ -41,7 +41,6 @@ from contracts.erc4626.library import (
     decrease_allowance_by_amount,
     set_default_lock_time,
     days_to_seconds,
-    calculate_lock_time_bonus,
     default_lock_time_days,
     last_harvest,
     last_harvest_window_start

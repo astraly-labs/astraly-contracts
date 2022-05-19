@@ -15,6 +15,9 @@ end
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         array_len : felt, array : felt*, mapping_ref : felt) -> ():
 
+    if array_len == 0:
+        return ()
+    end
     let index = array_len - 1
     tempvar args = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*)
     invoke(mapping_ref, 4, args)
@@ -22,10 +25,6 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     let pedersen_ptr = cast([ap - 3], HashBuiltin*)
     let range_check_ptr = [ap - 2]
     assert array[index] = [ap - 1]
-
-    if index == 0:
-        return ()
-    end
 
     return get_array(array_len - 1, array, mapping_ref)
 end

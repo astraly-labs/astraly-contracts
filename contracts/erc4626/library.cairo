@@ -829,8 +829,9 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     let (old_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
     let (current_locked_profit : Uint256) = lockedProfit()
 
+    let (address_this : felt) = get_contract_address()
     let (total_profit_accrued : Uint256, new_total_strategy_holdings : Uint256) = _check_strategies(
-        strategies_len, strategies, 0, Uint256(0, 0), old_total_strategy_holdings
+        strategies_len, strategies, 0, Uint256(0, 0), old_total_strategy_holdings, address_this
     )
     let (no_fees_earned : felt) = uint256_is_zero(total_profit_accrued)
 
@@ -845,7 +846,6 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         let (fees_accrued : Uint256) = mul_div_down(total_profit_accrued, Uint256(current_fee_percent, 0), Uint256(10 ** 18, 0))
         let (new_max_locked_profit : Uint256) = uint256_sub(total_profit_accrued, fees_accrued)
         max_locked_profit.write(new_max_locked_profit)
-        let (address_this : felt) = get_contract_address()
         let (base_unit_value : felt) = base_unit.read()
         let (base_unit_to_asset : Uint256) = ERC4626_convertToAssets(Uint256(base_unit_value, 0))
         let (value_to_mint : Uint256) = mul_div_down(fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset)
@@ -884,6 +884,7 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     index,
     total_profit_accrued : Uint256,
     total_strategy_holdings : Uint256,
+    address_this : felt
 ) -> (total_profit_accrued : Uint256, total_strategy_holdings : Uint256):
     alloc_locals
     if index == strategies_len:
@@ -893,7 +894,6 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
     let (underlying_asset : felt) = ERC4626_asset()
     let balance_last_harvest : Uint256 = current_strategy_data.balance
-    let (address_this : felt) = get_contract_address()
     let (balance_this_harvest : Uint256) = IStrategy.balanceOfUnderlying(strategies[index], address_this)
 
     strategy_data.write(strategies[index], StrategyData(TRUE, balance_this_harvest))
@@ -911,10 +911,11 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
             index + 1,
             new_total_profit_accrued,
             new_total_strategy_holdings,
+            address_this
         )
     else:
         return _check_strategies(
-            strategies_len, strategies, index + 1, total_profit_accrued, new_total_strategy_holdings
+            strategies_len, strategies, index + 1, total_profit_accrued, new_total_strategy_holdings, address_this
         )
     end
 end
@@ -943,6 +944,10 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
         let (minted_zero_tokens : felt) = uint256_is_zero(minted)
         assert minted_zero_tokens = FALSE
     end
+
+    withdrawal_queue_length.write(1) # Suport only one strategy for now
+    withdrawal_queue.write(0, strategy_address)
+
     let (caller : felt) = get_caller_address()
     StrategyDeposit.emit(caller, strategy_address, underlying_amount)
     return ()
@@ -970,9 +975,9 @@ func withdraw_from_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     let (withdrawed_amount : Uint256) = IStrategy.redeemUnderlying(
         strategy_address, underlying_amount
     )
-    let (is_zero : felt) = uint256_is_zero(withdrawed_amount)
+    let (zero_withdrawn : felt) = uint256_is_zero(withdrawed_amount)
     with_attr error_message("REDEEM_FAILED"):
-        assert is_zero = FALSE
+        assert zero_withdrawn = FALSE
     end
 
     return ()
