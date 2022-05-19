@@ -32,13 +32,20 @@ end
 @contract_interface
 namespace IERC1155_Receiver:
     func onERC1155Received(
-            operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt,
-            data : felt*) -> (selector : felt):
+        operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt, data : felt*
+    ) -> (selector : felt):
     end
 
     func onERC1155BatchReceived(
-            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, values_len : felt,
-            values : Uint256*, data_len : felt, data : felt*) -> (selector : felt):
+        operator : felt,
+        _from : felt,
+        ids_len : felt,
+        ids : Uint256*,
+        values_len : felt,
+        values : Uint256*,
+        data_len : felt,
+        data : felt*,
+    ) -> (selector : felt):
     end
 
     func supportsInterface(interfaceId : felt) -> (success : felt):
@@ -123,5 +130,8 @@ namespace IERC20:
     end
 
     func approve(spender : felt, amount : Uint256) -> (success : felt):
+    end
+
+    func mint(to : felt, amount : Uint256) -> (success : felt):
     end
 end
