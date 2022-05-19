@@ -30,7 +30,6 @@ from starkware.starknet.common.syscalls import (
 )
 
 from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
     uint256_checked_add,
@@ -121,8 +120,7 @@ from contracts.erc4626.library import (
 )
 from contracts.utils import uint256_is_zero, and
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
-
-# from contracts.ZkPadStrategyManager import constructor
+from InterfaceAll import IERC20
 
 @contract_interface
 namespace IMintCalculator:
