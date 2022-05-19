@@ -13,8 +13,8 @@ func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
 end
 
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        array_len : felt, array : felt*, mapping_ref : felt) -> ():
-
+    array_len : felt, array : felt*, mapping_ref : felt
+) -> ():
     if array_len == 0:
         return ()
     end
@@ -37,7 +37,7 @@ func and{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
 end
 
 func or{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
-    if (lhs-1) * (rhs-1) == 0:
+    if (lhs - 1) * (rhs - 1) == 0:
         return (1)
     end
     return (0)

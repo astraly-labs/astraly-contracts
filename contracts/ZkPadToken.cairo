@@ -5,9 +5,20 @@ from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uin
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
 
 from openzeppelin.token.erc20.library import (
-    ERC20_name, ERC20_symbol, ERC20_totalSupply, ERC20_decimals, ERC20_balanceOf, ERC20_allowance,
-    ERC20_initializer, ERC20_approve, ERC20_increaseAllowance, ERC20_decreaseAllowance,
-    ERC20_transfer, ERC20_transferFrom, ERC20_mint)
+    ERC20_name,
+    ERC20_symbol,
+    ERC20_totalSupply,
+    ERC20_decimals,
+    ERC20_balanceOf,
+    ERC20_allowance,
+    ERC20_initializer,
+    ERC20_approve,
+    ERC20_increaseAllowance,
+    ERC20_decreaseAllowance,
+    ERC20_transfer,
+    ERC20_transferFrom,
+    ERC20_mint,
+)
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
@@ -23,8 +34,15 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        name : felt, symbol : felt, decimals : felt, initial_supply : Uint256, recipient : felt, owner : felt,
-        _cap : Uint256, _distribution_address : felt):
+    name : felt,
+    symbol : felt,
+    decimals : felt,
+    initial_supply : Uint256,
+    recipient : felt,
+    owner : felt,
+    _cap : Uint256,
+    _distribution_address : felt,
+):
     uint256_check(_cap)
     let (cap_valid) = uint256_le(_cap, Uint256(0, 0))
     assert_not_zero(1 - cap_valid)
@@ -61,28 +79,32 @@ end
 
 @view
 func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        totalSupply : Uint256):
+    totalSupply : Uint256
+):
     let (totalSupply : Uint256) = ERC20_totalSupply()
     return (totalSupply)
 end
 
 @view
 func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        decimals : felt):
+    decimals : felt
+):
     let (decimals) = ERC20_decimals()
     return (decimals)
 end
 
 @view
 func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        account : felt) -> (balance : Uint256):
+    account : felt
+) -> (balance : Uint256):
     let (balance : Uint256) = ERC20_balanceOf(account)
     return (balance)
 end
 
 @view
 func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        owner : felt, spender : felt) -> (remaining : Uint256):
+    owner : felt, spender : felt
+) -> (remaining : Uint256):
     let (remaining : Uint256) = ERC20_allowance(owner, spender)
     return (remaining)
 end
@@ -93,43 +115,50 @@ end
 
 @external
 func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        recipient : felt, amount : Uint256) -> (success : felt):
+    recipient : felt, amount : Uint256
+) -> (success : felt):
     ERC20_transfer(recipient, amount)
     return (TRUE)
 end
 
 @external
 func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        sender : felt, recipient : felt, amount : Uint256) -> (success : felt):
+    sender : felt, recipient : felt, amount : Uint256
+) -> (success : felt):
     ERC20_transferFrom(sender, recipient, amount)
     return (TRUE)
 end
 
 @external
 func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        spender : felt, amount : Uint256) -> (success : felt):
+    spender : felt, amount : Uint256
+) -> (success : felt):
     ERC20_approve(spender, amount)
     return (TRUE)
 end
 
 @external
 func increaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        spender : felt, added_value : Uint256) -> (success : felt):
+    spender : felt, added_value : Uint256
+) -> (success : felt):
     ERC20_increaseAllowance(spender, added_value)
     return (TRUE)
 end
 
 @external
 func decreaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        spender : felt, subtracted_value : Uint256) -> (success : felt):
+    spender : felt, subtracted_value : Uint256
+) -> (success : felt):
     ERC20_decreaseAllowance(spender, subtracted_value)
     return (TRUE)
 end
 
 @external
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        to : felt, amount : Uint256):
+    to : felt, amount : Uint256
+):
     alloc_locals
+    # TODO: Authorize Staking contract to mint
     Ownable_only_owner()
     let (totalSupply : Uint256) = ERC20_totalSupply()
     let (cap : Uint256) = cap_.read()

@@ -1287,7 +1287,6 @@ async def test_profitable_harvest(contracts_factory, amount):
 
     user_deposit_amount = (await zk_pad_staking.getUserDeposit(owner_account.contract_address,
                                                                zk_pad_token.contract_address).call()).result.amount
-    print(f'User deposit {user_deposit_amount}')
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "redeem",
                                  [*amount, owner_account.contract_address, owner_account.contract_address])
 

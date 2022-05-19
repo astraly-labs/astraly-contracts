@@ -322,19 +322,24 @@ func lockedProfit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
 end
 
 @view
-func lastHarvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (time : felt):
+func lastHarvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    time : felt
+):
     let (time : felt) = last_harvest.read()
     return (time)
 end
 
 @view
-func lastHarvestWindowStart{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (res : felt):
+func lastHarvestWindowStart{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> (res : felt):
     let (res : felt) = last_harvest_window_start.read()
     return (res)
 end
 
 @view
-func nextHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (delay : felt):
+func nextHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    delay : felt
+):
     let (res : felt) = next_harvest_delay.read()
     return (res)
 end
@@ -843,12 +848,16 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     else:
         let (current_fee_percent : felt) = fee_percent.read()
-        let (fees_accrued : Uint256) = mul_div_down(total_profit_accrued, Uint256(current_fee_percent, 0), Uint256(10 ** 18, 0))
+        let (fees_accrued : Uint256) = mul_div_down(
+            total_profit_accrued, Uint256(current_fee_percent, 0), Uint256(10 ** 18, 0)
+        )
         let (new_max_locked_profit : Uint256) = uint256_sub(total_profit_accrued, fees_accrued)
         max_locked_profit.write(new_max_locked_profit)
         let (base_unit_value : felt) = base_unit.read()
         let (base_unit_to_asset : Uint256) = ERC4626_convertToAssets(Uint256(base_unit_value, 0))
-        let (value_to_mint : Uint256) = mul_div_down(fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset)
+        let (value_to_mint : Uint256) = mul_div_down(
+            fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset
+        )
         ERC20_mint(address_this, value_to_mint)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -884,7 +893,7 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     index,
     total_profit_accrued : Uint256,
     total_strategy_holdings : Uint256,
-    address_this : felt
+    address_this : felt,
 ) -> (total_profit_accrued : Uint256, total_strategy_holdings : Uint256):
     alloc_locals
     if index == strategies_len:
@@ -894,7 +903,9 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     let (current_strategy_data : StrategyData) = strategy_data.read(strategies[index])
     let (underlying_asset : felt) = ERC4626_asset()
     let balance_last_harvest : Uint256 = current_strategy_data.balance
-    let (balance_this_harvest : Uint256) = IStrategy.balanceOfUnderlying(strategies[index], address_this)
+    let (balance_this_harvest : Uint256) = IStrategy.balanceOfUnderlying(
+        strategies[index], address_this
+    )
 
     strategy_data.write(strategies[index], StrategyData(TRUE, balance_this_harvest))
 
@@ -911,11 +922,16 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
             index + 1,
             new_total_profit_accrued,
             new_total_strategy_holdings,
-            address_this
+            address_this,
         )
     else:
         return _check_strategies(
-            strategies_len, strategies, index + 1, total_profit_accrued, new_total_strategy_holdings, address_this
+            strategies_len,
+            strategies,
+            index + 1,
+            total_profit_accrued,
+            new_total_strategy_holdings,
+            address_this,
         )
     end
 end
@@ -945,7 +961,7 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
         assert minted_zero_tokens = FALSE
     end
 
-    withdrawal_queue_length.write(1) # Suport only one strategy for now
+    withdrawal_queue_length.write(1)  # Suport only one strategy for now
     withdrawal_queue.write(0, strategy_address)
 
     let (caller : felt) = get_caller_address()

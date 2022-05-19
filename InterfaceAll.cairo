@@ -190,6 +190,9 @@ namespace IERC20:
 
     func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
+
+    func mint(to : felt, amount : Uint256) -> (success : felt):
+    end
 end
 
 const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d

@@ -43,7 +43,7 @@ from contracts.erc4626.library import (
     days_to_seconds,
     default_lock_time_days,
     last_harvest,
-    last_harvest_window_start
+    last_harvest_window_start,
 )
 
 #
