@@ -119,7 +119,7 @@ from contracts.erc4626.library import (
     distrust_strategy,
     claim_fees,
 )
-from contracts.utils import uint256_is_zero
+from contracts.utils import uint256_is_zero, and
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
 
 # from contracts.ZkPadStrategyManager import constructor
@@ -1320,6 +1320,57 @@ func _updatePool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     end
 
     return ()
+end
+
+@view
+func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt
+) -> (rewards : Uint256):
+    alloc_locals
+    # Calcuating pending rewards
+    let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    let (block_number) = get_block_number()
+    let (last_reward_block : felt) = lastRewardBlock.read()
+    let (reward_per_block : Uint256) = rewardPerBlock.read()
+    let (acc_token_per_share : Uint256) = accTokenPerShare.read()
+    let (total_assets : Uint256) = totalAssets()
+
+    let (is_lower_block : felt) = is_le(last_reward_block, block_number - 1)
+    let (has_staked_supply : felt) = uint256_is_zero(total_assets)
+    let (is_valid : felt) = and(is_lower_block, has_staked_supply)
+    if is_valid == TRUE:
+        let (multiplier : felt) = _getMultiplier(last_reward_block, block_number)
+        let (u_multiplier : Uint256) = _felt_to_uint(multiplier)
+        let (tokenReward : Uint256) = uint256_checked_mul(u_multiplier, reward_per_block)
+        let (newTokenReward : Uint256) = uint256_checked_mul(tokenReward, PRECISION_FACTOR)
+        let (modifiedTokenReward : Uint256, _) = uint256_checked_div_rem(newTokenReward, total_assets)
+        let (adjustedTokenPerShare : Uint256) = uint256_checked_add(
+            acc_token_per_share, modifiedTokenReward
+        )
+        let (cur_user_info : UserInfo) = userInfo.read(user)
+        let userAmount : Uint256 = cur_user_info.amount
+        let userRewardDebt : Uint256 = cur_user_info.rewardDebt
+        let (final_pending_amount : Uint256) = uint256_checked_mul(userAmount, adjustedTokenPerShare)
+        let (precise_final_pamount : Uint256, _) = uint256_checked_div_rem(
+            final_pending_amount, PRECISION_FACTOR
+        )
+        let (pendingRewards : Uint256) = uint256_checked_sub_le(precise_final_pamount, userRewardDebt)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        return (rewards=pendingRewards)
+    else:
+        let (cur_user_info : UserInfo) = userInfo.read(user)
+        let (acc_token_per_share : Uint256) = accTokenPerShare.read()
+        let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, acc_token_per_share)
+        let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+        let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+        let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.rewardDebt)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        return (rewards=pending_rewards)
+    end
 end
 
 # @notice Return reward multiplier over the given "from" to "to" block.
