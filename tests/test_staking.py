@@ -17,7 +17,7 @@ NAME = str_to_felt("xZkPad")
 SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
-REWARDS_PER_BLOCK = to_uint(100)
+REWARDS_PER_BLOCK = to_uint(10)
 
 owner = Signer(1234)
 
@@ -110,6 +110,8 @@ async def contacts_init(contract_defs, get_starknet):
                                  [6 * 60 * 60])  # 6 hours
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "setTargetFloatPercent",
                                  [int(0.1e18)])
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "set_vault_address", [zk_pad_stake_proxy.contract_address])
 
     return (
         owner_account,
