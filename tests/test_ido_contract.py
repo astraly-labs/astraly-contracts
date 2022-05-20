@@ -6,7 +6,7 @@ from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.public.abi import get_selector_from_name
 from datetime import datetime, date, timedelta
-from conftest import get_block_timestamp, set_block_timestamp
+from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 
 TRUE = 1
