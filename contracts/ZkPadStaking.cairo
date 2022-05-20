@@ -115,6 +115,7 @@ from contracts.erc4626.library import (
     distrust_strategy,
     claim_fees,
     calculate_lock_time_bonus,
+    check_enough_underlying_balance
 )
 from contracts.utils import uint256_is_zero, and
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
@@ -472,11 +473,10 @@ func deposit{
     # Update pool
     _updatePool()
 
-    let (default_lock_time : felt) = default_lock_time_days.read()
+    let (default_lock_time : felt) = getDefaultLockTime()
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
-    let (default_lock_period : felt) = getDefaultLockTime()
-    set_new_deposit_unlock_time(receiver, default_lock_period)
+    set_new_deposit_unlock_time(receiver, default_lock_time)
     update_user_after_deposit(receiver, underlying_asset, assets)
 
     # Update user info
@@ -497,10 +497,10 @@ func depositForTime{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
-    set_new_deposit_unlock_time(receiver, lock_time_days)
     # Update pool
     _updatePool()
+    let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
+    set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
     update_user_after_deposit(receiver, underlying_asset, assets)
 
@@ -607,7 +607,8 @@ func redeem{
     ReentrancyGuard_start()
 
     assert_not_before_unlock_time(owner)
-
+    let (withdraw_amount : Uint256) = previewRedeem(shares)
+    check_enough_underlying_balance(withdraw_amount)
     # Update pool
     _updatePool()
 
@@ -655,7 +656,7 @@ func withdraw{
     ReentrancyGuard_start()
 
     assert_not_before_unlock_time(owner)
-
+    check_enough_underlying_balance(assets)
     # Update pool
     _updatePool()
 
@@ -876,7 +877,6 @@ func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 ):
     Ownable_only_owner()
     deposit_into_strategy(strategy_address, underlying_amount)
-    deposit_into_strategy(strategy_address, underlying_amount)
     return ()
 end
 
@@ -1059,15 +1059,7 @@ func update_user_after_deposit{
     let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
     if is_first_deposit == TRUE:
         add_token_to_user_mask(user, token)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+        return ()
     end
     return ()
 end
@@ -1078,12 +1070,12 @@ func remove_from_deposit{
 }(user : felt, token : felt, withdrawned_amount : Uint256):
     alloc_locals
     let (current_user_deposit_amount : Uint256) = deposits.read(user, token)
-    with_attr error_message("ZkPadStaking::Withdraw more than deposit"):
-        let (not_over_deposited_amount : felt) = uint256_le(
-            withdrawned_amount, current_user_deposit_amount
-        )
-        assert not_over_deposited_amount = TRUE
-    end
+    # with_attr error_message("ZkPadStaking::Withdraw more than deposit"):
+    #     let (not_over_deposited_amount : felt) = uint256_le(
+    #         withdrawned_amount, current_user_deposit_amount
+    #     )
+    #     assert not_over_deposited_amount = TRUE
+    # end
     let (withdraw_all : felt) = uint256_eq(current_user_deposit_amount, withdrawned_amount)
     if withdraw_all == TRUE:
         deposits.write(user, token, Uint256(0, 0))
@@ -1093,50 +1085,17 @@ func remove_from_deposit{
             user_current_tokens_mask, whitelisted_token.bit_mask
         )
         user_staked_tokens.write(user, new_user_tokens_mask)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+        return ()
     else:
         let (new_user_deposit_amount : Uint256) = uint256_checked_sub_lt(
             current_user_deposit_amount, withdrawned_amount
         )
         deposits.write(user, token, new_user_deposit_amount)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+        return ()
     end
-    return ()
 end
 
-func check_enough_underlying_balance{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(amount_to_withdraw : Uint256):
-    alloc_locals
-    let (address_this : felt) = get_contract_address()
-    let (underlying : felt) = asset()
-    let (contract_balance : Uint256) = IERC20.balanceOf(underlying, address_this)
-    let (enough_token_balance : felt) = uint256_le(amount_to_withdraw, contract_balance)
-    if enough_token_balance == FALSE:
-        let (_, withdrawal_queue : felt*) = getWithdrawalQueue()
-        let (withdraw_amount_required : Uint256) = uint256_checked_sub_le(
-            amount_to_withdraw, contract_balance
-        )
-        let first_strategy : felt = withdrawal_queue[0]
-        assert_not_zero(first_strategy)
-        withdraw_from_strategy(first_strategy, withdraw_amount_required)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    end
 
-    return ()
-end
 #
 # Staking Rewards
 #
@@ -1295,13 +1254,7 @@ func _updatePool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     if is_lower == TRUE:
         lastRewardBlock.write(block_number)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+        return ()
     end
 
     return ()
@@ -1346,9 +1299,6 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
         let (pendingRewards : Uint256) = uint256_checked_sub_le(
             precise_final_pamount, userRewardDebt
         )
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
         return (rewards=pendingRewards)
     else:
         let (cur_user_info : UserInfo) = userInfo.read(user)
@@ -1357,9 +1307,7 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
         let PRECISION_FACTOR = Uint256(10 ** 12, 0)
         let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
         let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.rewardDebt)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+
         return (rewards=pending_rewards)
     end
 end

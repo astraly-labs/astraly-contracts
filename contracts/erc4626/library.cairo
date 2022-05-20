@@ -32,7 +32,7 @@ from openzeppelin.token.erc20.library import (
     ERC20_balanceOf,
     ERC20_allowances,
 )
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+
 from openzeppelin.security.safemath import (
     uint256_checked_mul,
     uint256_checked_div_rem,
@@ -42,6 +42,7 @@ from openzeppelin.security.safemath import (
 )
 
 from contracts.utils import get_array, uint256_is_zero, mul_div_down
+from InterfaceAll import IERC20
 
 @event
 func Deposit(caller : felt, owner : felt, assets : Uint256, shares : Uint256):
@@ -994,6 +995,39 @@ func withdraw_from_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     let (zero_withdrawn : felt) = uint256_is_zero(withdrawed_amount)
     with_attr error_message("REDEEM_FAILED"):
         assert zero_withdrawn = FALSE
+    end
+
+    return ()
+end
+
+func check_enough_underlying_balance{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(amount_to_withdraw : Uint256):
+    alloc_locals
+    let (address_this : felt) = get_contract_address()
+    let (underlying : felt) = ERC4626_asset()
+    let (contract_balance : Uint256) = IERC20.balanceOf(underlying, address_this)
+    let (enough_token_balance : felt) = uint256_le(amount_to_withdraw, contract_balance)
+    if enough_token_balance == FALSE:
+        let (_, withdrawal_queue : felt*) = getWithdrawalQueue()
+        let (withdraw_amount_required : Uint256) = uint256_checked_sub_le(
+            amount_to_withdraw, contract_balance
+        )
+        let first_strategy : felt = withdrawal_queue[0]
+        assert_not_zero(first_strategy)
+        let (strategy_details : StrategyData) = strategy_data.read(first_strategy)
+        
+        let (enough_balance_in_strategy : felt) = uint256_le(strategy_details.balance, amount_to_withdraw)
+        
+        if enough_balance_in_strategy == TRUE:
+            withdraw_from_strategy(first_strategy, withdraw_amount_required)
+            return ()
+        else:
+            let (remaining_amount : Uint256) = uint256_checked_sub_lt(withdraw_amount_required, strategy_details.balance)
+            let (address_this) = get_contract_address()
+            IERC20.mint(underlying, address_this, remaining_amount)
+        end
+        return ()
     end
 
     return ()

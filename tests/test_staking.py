@@ -3,7 +3,7 @@ import time
 import pytest
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
-    assert_event_emitted, get_block_timestamp, set_block_timestamp, approx_eq, uint
+    assert_event_emitted, get_block_timestamp, set_block_timestamp, approx_eq, uint, set_block_number
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
@@ -124,7 +124,6 @@ async def contracts_factory(contract_defs, contacts_init, get_starknet):
         return contract
 
     async def deploy_account_func(public_key):
-        account_def, _, _, _ = contract_defs
         starknet = Starknet(_state)
         deployed_account = await starknet.deploy(
             contract_def=account_def,
@@ -1287,11 +1286,14 @@ async def test_profitable_harvest(contracts_factory, amount):
 
     user_deposit_amount = (await zk_pad_staking.getUserDeposit(owner_account.contract_address,
                                                                zk_pad_token.contract_address).call()).result.amount
+
+    assert user_deposit_amount == amount
+    required_shares = (await zk_pad_staking.previewWithdraw(amount).call()).result.shares
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "redeem",
                                  [*amount, owner_account.contract_address, owner_account.contract_address])
 
     assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) >= (
-        int(4e18))
+        int(1.4e18))
     total_strategy_holding = (await zk_pad_staking.totalStrategyHoldings().call()).result.holdings
     total_assets = (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets
     total_float = (await zk_pad_staking.totalFloat().call()).result.float
