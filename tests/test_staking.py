@@ -1,5 +1,5 @@
 import time
-
+import asyncio
 import pytest
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
@@ -7,6 +7,7 @@ from utils import (
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
+
 
 INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
@@ -40,6 +41,11 @@ def advance_clock(starknet_state, num_seconds):
 
 def days_to_seconds(days: int):
     return days * 24 * 60 * 60
+
+
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 
 @pytest.fixture(scope='module')

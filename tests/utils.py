@@ -1,6 +1,7 @@
 """Utilities for testing Cairo contracts."""
 from collections import namedtuple
 from pathlib import Path
+import asyncio
 import math
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements

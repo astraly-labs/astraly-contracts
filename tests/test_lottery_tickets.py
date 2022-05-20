@@ -73,9 +73,9 @@ NB_QUEST = 2
 
 # Fixtures
 
-# @pytest.fixture(scope='module')
-# def event_loop():
-#     return asyncio.new_event_loop()
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 
 @pytest.fixture(scope='module')
