@@ -20,7 +20,9 @@ from openzeppelin.token.erc20.library import (
     ERC20_mint,
 )
 
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
+from starkware.starknet.common.syscalls import get_caller_address
+from contracts.utils import or, get_is_equal
 
 from openzeppelin.utils.constants import TRUE
 
@@ -30,6 +32,10 @@ end
 
 @storage_var
 func distribution_address() -> (res : felt):
+end
+
+@storage_var
+func vault_address() -> (res : felt):
 end
 
 @constructor
@@ -114,6 +120,16 @@ end
 #
 
 @external
+func set_vault_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _vault_address : felt
+):
+    Ownable_only_owner()
+    assert_not_zero(_vault_address)
+    vault_address.write(_vault_address)
+    return ()
+end
+
+@external
 func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     recipient : felt, amount : Uint256
 ) -> (success : felt):
@@ -158,8 +174,7 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     to : felt, amount : Uint256
 ):
     alloc_locals
-    # TODO: Authorize Staking contract to mint
-    Ownable_only_owner()
+    Authorized_only()
     let (totalSupply : Uint256) = ERC20_totalSupply()
     let (cap : Uint256) = cap_.read()
     let (local sum : Uint256, is_overflow) = uint256_add(totalSupply, amount)
@@ -167,5 +182,21 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (enough_supply) = uint256_le(sum, cap)
     assert_not_zero(enough_supply)
     ERC20_mint(to, amount)
+    return ()
+end
+
+func Authorized_only{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    let (owner : felt) = Ownable_get_owner()
+    let (xzkp_address : felt) = vault_address.read()
+    let (caller : felt) = get_caller_address()
+
+    let (is_owner : felt) = get_is_equal(owner, caller)
+    let (is_vault : felt) = get_is_equal(xzkp_address, caller)
+
+    with_attr error_message("ZkPadToken:: Caller should be owner or vault"):
+        let (is_valid : felt) = or(is_vault, is_owner)
+        assert is_valid = TRUE
+    end
+
     return ()
 end

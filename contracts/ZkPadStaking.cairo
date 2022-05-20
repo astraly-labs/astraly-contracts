@@ -191,9 +191,41 @@ func WithdrawLP(
 ):
 end
 
+@event
+func NewRewardPerBlockAndEndBlock(newRewardPerBlock : Uint256, newEndBlock : felt):
+end
+
+@event
+func HarvestRewards(user : felt, harvestAmount : Uint256):
+end
+
 #
 # Storage variables
 #
+
+@storage_var
+func lastRewardBlock() -> (res : felt):
+end
+
+@storage_var
+func rewardPerBlock() -> (res : Uint256):
+end
+
+@storage_var
+func accTokenPerShare() -> (res : Uint256):
+end
+
+@storage_var
+func endBlock() -> (res : felt):
+end
+
+@storage_var
+func startBlock() -> (res : felt):
+end
+
+@storage_var
+func userInfo(user : felt) -> (userInfo : UserInfo):
+end
 
 @storage_var
 func whitelisted_tokens(lp_token : felt) -> (details : WhitelistedToken):
@@ -1112,38 +1144,6 @@ end
 #
 # Staking Rewards
 #
-
-@storage_var
-func lastRewardBlock() -> (res : felt):
-end
-
-@storage_var
-func rewardPerBlock() -> (res : Uint256):
-end
-
-@storage_var
-func accTokenPerShare() -> (res : Uint256):
-end
-
-@storage_var
-func endBlock() -> (res : felt):
-end
-
-@storage_var
-func startBlock() -> (res : felt):
-end
-
-@storage_var
-func userInfo(user : felt) -> (userInfo : UserInfo):
-end
-
-@event
-func NewRewardPerBlockAndEndBlock(newRewardPerBlock : Uint256, newEndBlock : felt):
-end
-
-@event
-func HarvestRewards(user : felt, harvestAmount : Uint256):
-end
 
 # @notice Update reward per block and the end block
 # @param newRewardPerBlock the new reward per block

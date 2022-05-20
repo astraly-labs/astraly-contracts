@@ -61,3 +61,11 @@ func mul_div_down{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     let (res : Uint256, _) = uint256_checked_div_rem(z, denominator)
     return (res)
 end
+
+func get_is_equal(a : felt, b : felt) -> (res : felt):
+    if a == b:
+        return (TRUE)
+    else:
+        return (FALSE)
+    end
+end
