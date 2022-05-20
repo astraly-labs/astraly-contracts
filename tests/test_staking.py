@@ -87,7 +87,7 @@ async def contacts_init(contract_defs, get_starknet):
     zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
                                                constructor_calldata=[zk_pad_stake_implementation.contract_address])
 
-    START_BLOCK = get_block_number(starknet.state)
+    START_BLOCK = 0
     END_BLOCK = START_BLOCK + 10000
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
         NAME,
