@@ -232,6 +232,16 @@ def set_block_number(starknet_state, block_number):
     )
 
 
+def get_block_number(starknet_state):
+    return starknet_state.state.block_info.block_number
+
+
+def set_block_number(starknet_state, block_number):
+    starknet_state.state.block_info = BlockInfo.create_for_testing(
+        block_number, starknet_state.state.block_info.block_timestamp
+    )
+
+
 def approx_eq(a: int, b: int, max_delta: int):
     delta = a - b if a > b else b - a
 

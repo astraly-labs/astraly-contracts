@@ -377,7 +377,13 @@ end
 
 @external
 func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    name : felt, symbol : felt, asset_addr : felt, owner : felt
+    name : felt,
+    symbol : felt,
+    asset_addr : felt,
+    owner : felt,
+    reward_per_block : Uint256,
+    start_block : felt,
+    end_block : felt,
 ):
     alloc_locals
     assert_not_zero(owner)
@@ -393,6 +399,13 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     token_mask_addresses.write(1, asset_addr)
     whitelisted_tokens_mask.write(1)
     whitelisted_tokens.write(asset_addr, WhitelistedToken(1, 0, FALSE))
+
+    # Initialize Rewards params
+    rewardPerBlock.write(reward_per_block)
+    startBlock.write(start_block)
+    endBlock.write(end_block)
+    lastRewardBlock.write(start_block)
+
     return ()
 end
 
