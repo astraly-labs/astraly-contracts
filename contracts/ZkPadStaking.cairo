@@ -1218,10 +1218,15 @@ func _updatePool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     alloc_locals
     let (block_number : felt) = get_block_number()
     let (last_reward_block : felt) = lastRewardBlock.read()
+    let (is_lower : felt) = is_le(last_reward_block, block_number - 1)
 
-    with_attr error_message("update pool not possible"):
-        assert_lt(last_reward_block, block_number)
+    if is_lower == TRUE:
+        return ()
     end
+
+    # with_attr error_message("update pool not possible"):
+    #     assert_lt(last_reward_block, block_number)
+    # end
 
     let (staked_supply : Uint256) = totalAssets()
 
