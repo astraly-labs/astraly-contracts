@@ -243,15 +243,15 @@ def set_block_number(starknet_state, block_number):
     )
 
 
-def approx_eq(a: int, b: int, max_delta: int):
+def assert_approx_eq(a: int, b: int, max_delta: int):
     delta = a - b if a > b else b - a
 
     if delta > max_delta:
         print(f"a: {a}")
         print(f"b: {b}")
         print(f"delta: {delta}")
-        return False
-    return True
+        assert False
+    assert True
 
 
 def get_next_level(level):

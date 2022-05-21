@@ -12,6 +12,15 @@ func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     return (yesno)
 end
 
+func uint256_is_not_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
+    let (is_zero : felt) = uint256_eq(v, Uint256(0, 0))
+    if is_zero == TRUE:
+        return (FALSE)
+    else:
+        return (TRUE)
+    end
+end
+
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     array_len : felt, array : felt*, mapping_ref : felt
 ) -> ():
