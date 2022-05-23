@@ -645,14 +645,14 @@ func decrease_allowance_by_amount{
 
     let (max_allowance : Uint256) = uint256_max()
     let (is_max_allowance) = uint256_eq(spender_allowance, max_allowance)
-    if is_max_allowance == 1:
+    if is_max_allowance == TRUE:
         return ()
     end
 
     with_attr error_message("insufficient allowance"):
         # amount <= spender_allowance
         let (is_spender_allowance_sufficient) = uint256_le(amount, spender_allowance)
-        assert is_spender_allowance_sufficient = 1
+        assert is_spender_allowance_sufficient = TRUE
     end
 
     let (new_allowance : Uint256) = uint256_sub(spender_allowance, amount)
@@ -1007,27 +1007,32 @@ func check_enough_underlying_balance{
     let (address_this : felt) = get_contract_address()
     let (underlying : felt) = ERC4626_asset()
     let (contract_balance : Uint256) = IERC20.balanceOf(underlying, address_this)
-    let (enough_token_balance : felt) = uint256_le(amount_to_withdraw, contract_balance)
-    if enough_token_balance == FALSE:
+    let (not_enough_balance_in_contract : felt) = uint256_lt(contract_balance, amount_to_withdraw)
+    if not_enough_balance_in_contract == TRUE:
         let (_, withdrawal_queue : felt*) = getWithdrawalQueue()
-        let (withdraw_amount_required : Uint256) = uint256_checked_sub_le(
-            amount_to_withdraw, contract_balance
-        )
+        let (withdraw_amount_required : Uint256) = uint256_checked_sub_lt(
+           amount_to_withdraw, contract_balance)
         let first_strategy : felt = withdrawal_queue[0]
         assert_not_zero(first_strategy)
         let (strategy_details : StrategyData) = strategy_data.read(first_strategy)
         
-        let (enough_balance_in_strategy : felt) = uint256_le(strategy_details.balance, amount_to_withdraw)
+        let (enough_balance_in_strategy : felt) = uint256_le(withdraw_amount_required, strategy_details.balance)
         
         if enough_balance_in_strategy == TRUE:
             withdraw_from_strategy(first_strategy, withdraw_amount_required)
             return ()
         else:
-            let (remaining_amount : Uint256) = uint256_checked_sub_lt(withdraw_amount_required, strategy_details.balance)
             let (address_this) = get_contract_address()
-            IERC20.mint(underlying, address_this, remaining_amount)
+            let (strategy_balance_is_zero : felt) = uint256_is_zero(strategy_details.balance)
+            if strategy_balance_is_zero == TRUE:
+                IERC20.mint(underlying, address_this, withdraw_amount_required)
+                return ()
+            else:
+                let (remaining_amount : Uint256) = uint256_checked_sub_le(withdraw_amount_required, strategy_details.balance)
+                IERC20.mint(underlying, address_this, remaining_amount)
+                return ()
+            end
         end
-        return ()
     end
 
     return ()

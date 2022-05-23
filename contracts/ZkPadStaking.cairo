@@ -1116,13 +1116,7 @@ func remove_from_deposit{
 }(user : felt, token : felt, withdrawned_amount : Uint256):
     alloc_locals
     let (current_user_deposit_amount : Uint256) = deposits.read(user, token)
-    with_attr error_message("ZkPadStaking::Withdraw more than deposit"):
-        let (not_over_deposited_amount : felt) = uint256_le(
-            withdrawned_amount, current_user_deposit_amount
-        )
-        assert not_over_deposited_amount = TRUE
-    end
-    let (withdraw_all : felt) = uint256_eq(current_user_deposit_amount, withdrawned_amount)
+    let (withdraw_all : felt) = uint256_le(current_user_deposit_amount, withdrawned_amount) # can withdraw more than
     if withdraw_all == TRUE:
         deposits.write(user, token, Uint256(0, 0))
         let (user_current_tokens_mask : felt) = user_staked_tokens.read(user)

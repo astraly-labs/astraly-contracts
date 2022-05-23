@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
-    assert_event_emitted, get_block_timestamp, set_block_timestamp, assert_approx_eq, uint
+    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, assert_approx_eq, uint
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
@@ -602,13 +602,11 @@ async def test_allowances(contracts_factory):
            ).result.remaining == to_uint(0)
 
     # user3 tries withdrawing again, has insufficient allowance, :burn:
-    assert (await zk_pad_staking.allowance(owner_account.contract_address,
-                                           user3_account.contract_address).call()).result.remaining == to_uint(0)
     await assert_revert(user3.send_transaction(
         user3_account,
         zk_pad_staking.contract_address,
         "withdraw",
-        [*to_uint(1), user3_account.contract_address,
+        [*to_uint(10), user3_account.contract_address,
          user1_account.contract_address],
     ), error_code=StarknetErrorCode.TRANSACTION_FAILED)
 
@@ -639,6 +637,8 @@ async def test_permissions(contracts_factory):
 async def test_deposit_lp(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, deploy_contract_func, starknet_state = contracts_factory
 
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "updateRewardPerBlockAndEndBlock",
+                                 [*uint(0), get_block_number(starknet_state) + 1])
     user1 = Signer(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
@@ -731,27 +731,27 @@ async def test_deposit_lp(contracts_factory):
     vault_balance_before_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
 
     withdraw_tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "withdrawLP", [
-        mock_lp_token.contract_address, *to_uint(deposit_amount), user1_account.contract_address,
+        mock_lp_token.contract_address, *
+        to_uint(deposit_amount), user1_account.contract_address,
         user1_account.contract_address])
 
     vault_balance_after_redeem = (await mock_lp_token.balanceOf(zk_pad_staking.contract_address).call()).result.balance
 
-    rewards = (await zk_pad_staking.calculatePendingRewards(user1_account.contract_address).call()).result.rewards
-
     assert from_uint(vault_balance_before_redeem) == from_uint(
-        vault_balance_after_redeem) + from_uint(preview_deposit) + from_uint(rewards)
+        vault_balance_after_redeem) + deposit_amount
 
     assert_event_emitted(withdraw_tx, zk_pad_staking.contract_address, "WithdrawLP", [
         user1_account.contract_address,
         user1_account.contract_address,
+        user1_account.contract_address,
         mock_lp_token.contract_address,
         *to_uint(deposit_amount),
-        *preview_deposit
+        *to_uint(deposit_amount),
     ])
 
     assert (
                await mock_lp_token.balanceOf(user1_account.contract_address).call()
-           ).result.balance == preview_deposit
+           ).result.balance == to_uint(deposit_amount)
 
 
 @pytest.mark.asyncio
@@ -1331,11 +1331,11 @@ async def test_profitable_harvest(contracts_factory, amount):
 
     user_deposit_amount = (await zk_pad_staking.getUserDeposit(owner_account.contract_address,
                                                                zk_pad_token.contract_address).call()).result.amount
-
     assert user_deposit_amount == amount
 
-    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "redeem",
-                                 [*amount, owner_account.contract_address, owner_account.contract_address])
+    user_vault_balance = (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "withdraw",
+                                 [*user_vault_balance, owner_account.contract_address, owner_account.contract_address])
 
     assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) >= (
         int(1.4e18))
@@ -1346,18 +1346,6 @@ async def test_profitable_harvest(contracts_factory, amount):
         total_assets) - from_uint(total_float)
     assert from_uint(total_float) >= 0
     assert from_uint(total_assets) >= 0
-    assert (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance == uint(0)
-    assert (await zk_pad_staking.convertToAssets(uint(0)).call()).result.assets == uint(0)
-    assert (await zk_pad_staking.totalSupply().call()).result.totalSupply == to_uint(
-        int(0.05e18 * from_uint(amount) / 1e18))
-    assert (await zk_pad_staking.balanceOf(zk_pad_staking.contract_address).call()).result.balance == to_uint(
-        int(0.05e18 * from_uint(amount) / 1e18))
-
-    assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) >= int(
-        1.4e18)
-    assert from_uint((await zk_pad_staking.convertToAssets(to_uint(10 ** decimals)).call()).result.assets) <= int(
-        1.5e18)
-
 
 @pytest.mark.asyncio
 async def test_updating_harvest_delay(contracts_factory):
