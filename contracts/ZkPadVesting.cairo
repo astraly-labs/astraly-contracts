@@ -115,10 +115,7 @@ func release{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     # Transfer tokens to payee
     let (token_address) = token.read()
     let (success : felt) = IERC20.transfer(
-        contract_address=token_address,
-        sender=this_address,
-        recipient=caller,
-        amount=updated_releasable,
+        contract_address=token_address, recipient=caller, amount=updated_releasable
     )
     with_attr error_message("ZkPadVesting::Transfer failed"):
         assert success = TRUE
