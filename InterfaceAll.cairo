@@ -220,3 +220,64 @@ namespace ITask:
     func setIDOContractAddress(address : felt) -> ():
     end
 end
+
+
+@contract_interface
+namespace IVault:
+    func feePercent() -> (fee_percent : felt):
+    end
+
+    func harvestDelay() -> (harvest_delay : felt):
+    end
+
+    func harvestWindow() -> (harvest_window : felt):
+    end
+
+    func targetFloatPercent() -> (float_percent : felt):
+    end
+
+    func canHarvest() -> (yes_no : felt):
+    end
+
+    func lastHarvestWindowStart() -> (last_harvest_window_start : felt):
+    end
+
+    func getWithdrawalStack() -> (strategies_len : felt, strategies : felt*):
+    end
+
+    func totalFloat() -> (float : Uint256):
+    end
+
+    func harvest(strategies_len : felt, strategies : felt*):
+    end    
+
+    func setFeePercent(new_fee_percent : felt):
+    end
+
+    func setHarvestDelay(new_harvest_delay : felt):
+    end
+
+    func setHarvestWindow(new_harvest_window : felt):
+    end
+
+    func setTargetFloatPercent(float_percent : felt):
+    end
+
+    func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    end
+
+    func pushToWithdrawalStack(strategy : felt):
+    end
+
+    func popFromWithdrawalStack():
+    end
+
+    func setWithdrawalStack(stack_len : felt, stack : felt*):
+    end
+
+    func replaceWithdrawalStackIndex(index : felt, address : felt):
+    end
+
+    func swapWithdrawalStackIndexes(index1 : felt, index2 : felt):
+    end
+end

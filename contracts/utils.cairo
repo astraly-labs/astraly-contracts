@@ -21,6 +21,14 @@ func uint256_is_not_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     end
 end
 
+# EXAMPLE
+# @storage_var
+# func array(index : felt) -> (value : felt):
+# end
+
+# @storage_var
+# func array_length() -> (length : felt):
+# end
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     array_len : felt, array : felt*, mapping_ref : felt
 ) -> ():
@@ -36,6 +44,32 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     assert array[index] = [ap - 1]
 
     return get_array(array_len - 1, array, mapping_ref)
+end
+
+
+# EXAMPLE
+# @storage_var
+# func array(index : felt) -> (value : felt):
+# end
+
+# @storage_var
+# func array_length() -> (length : felt):
+# end
+
+func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        array_len : felt, array : felt*, mapping_ref : felt) -> ():
+    if array_len == 0:
+        return ()
+    end
+    let index = array_len - 1
+    tempvar value_to_write = [array + index]
+    tempvar args = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index, value_to_write), felt*)
+    invoke(mapping_ref, 5, args)
+    let syscall_ptr = cast([ap - 3], felt*)
+    let pedersen_ptr = cast([ap - 2], HashBuiltin*)
+    let range_check_ptr = [ap - 1]
+
+    return write_to_array(array_len - 1, array, mapping_ref)
 end
 
 func and{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):

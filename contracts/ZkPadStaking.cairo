@@ -92,7 +92,7 @@ from contracts.erc4626.ERC4626 import (
     default_lock_time_days,
 )
 from contracts.erc4626.library import (
-    getWithdrawalQueue,
+    getWithdrawalStack,
     totalFloat,
     lockedProfit,
     feePercent,
@@ -115,7 +115,13 @@ from contracts.erc4626.library import (
     distrust_strategy,
     claim_fees,
     calculate_lock_time_bonus,
-    check_enough_underlying_balance
+    check_enough_underlying_balance,
+    can_harvest,
+    push_to_withdrawal_stack,
+    pop_from_withdrawal_stack,
+    set_withdrawal_stack,
+    replace_withdrawal_stack_index,
+    swap_withdrawal_stack_indexes
 )
 from contracts.utils import uint256_is_zero, uint256_is_not_zero, and
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
@@ -127,36 +133,6 @@ namespace IMintCalculator:
     end
 
     func getAmountToMint(input : Uint256) -> (amount : Uint256):
-    end
-end
-
-@contract_interface
-namespace IVault:
-    func feePercent() -> (fee_percent : felt):
-    end
-
-    func harvestDelay() -> (harvest_delay : felt):
-    end
-
-    func harvestWindow() -> (harvest_window : felt):
-    end
-
-    func targetFloatPercent() -> (float_percent : felt):
-    end
-
-    func setFeePercent(new_fee_percent : felt):
-    end
-
-    func setHarvestDelay(new_harvest_delay : felt):
-    end
-
-    func setHarvestWindow(new_harvest_window : felt):
-    end
-
-    func setTargetFloatPercent(float_percent : felt):
-    end
-
-    func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
     end
 end
 
@@ -259,6 +235,10 @@ end
 
 @storage_var
 func emergency_breaker() -> (address : felt):
+end
+
+@storage_var
+func harvest_task_contract() -> (address : felt):
 end
 
 #
@@ -402,6 +382,18 @@ func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 ):
     let (lock_time_days : felt) = default_lock_time_days.read()
     return (lock_time_days)
+end
+
+@view
+func getHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (address : felt):
+    let (address : felt) = harvest_task_contract.read()
+    return (address)
+end
+
+@view
+func canHarvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (yes_no : felt):
+    let (res : felt) = can_harvest()
+    return (res)
 end
 #
 # Externals
@@ -909,10 +901,20 @@ func setTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
 end
 
 @external
+func setHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    address : felt
+):
+    Ownable_only_owner()
+    assert_not_zero(address)
+    harvest_task_contract.write(address)
+    return ()
+end
+
+@external
 func harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategies_len : felt, strategies : felt*
 ):
-    Ownable_only_owner()
+    only_owner_or_harvest_task_contract()
     harvest_investment(strategies_len, strategies)
     return ()
 end
@@ -961,15 +963,50 @@ func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 end
 
 @external
+func pushToWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(strategy : felt):
+    Ownable_only_owner()
+    push_to_withdrawal_stack(strategy)
+    return ()
+end
+
+@external
+func popFromWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    Ownable_only_owner()
+    pop_from_withdrawal_stack()
+    return ()
+end
+
+@external
+func setWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(stack_len : felt, stack : felt*):
+    Ownable_only_owner()
+    set_withdrawal_stack(stack_len, stack)
+    return ()
+end
+
+@external
+func replaceWithdrawalStackIndex{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index : felt, address : felt):
+    Ownable_only_owner()
+    replace_withdrawal_stack_index(index, address)
+    return ()
+end
+
+@external
+func swapWithdrawalStackIndexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index1 : felt, index2 : felt):
+    Ownable_only_owner()
+    swap_withdrawal_stack_indexes(index1, index2)
+    return ()
+end
+
+@external
 func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (emergency_breaker_address : felt) = emergency_breaker.read()
     let (owner : felt) = Ownable_get_owner()
     local permissions
     if owner == caller_address:
         permissions = TRUE
     end
+    let (emergency_breaker_address : felt) = emergency_breaker.read()
     if emergency_breaker_address == caller_address:
         permissions = TRUE  # either owner or emergency breaker have permission to pause the contract
     end
@@ -990,6 +1027,25 @@ end
 #
 # Internal
 #
+
+func only_owner_or_harvest_task_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    let (caller_address : felt) = get_caller_address()
+    let (owner : felt) = Ownable_get_owner()
+    local permissions
+    if owner == caller_address:
+        permissions = TRUE
+    end
+    let (harvest_task_contract_address : felt) = harvest_task_contract.read()
+    if harvest_task_contract_address == caller_address:
+        permissions = TRUE 
+    end
+    with_attr error_message("Ownable: caller is not the owner or harvest task contract"):
+        assert permissions = TRUE
+    end
+
+    return ()
+end
 
 func only_whitelisted_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     address : felt

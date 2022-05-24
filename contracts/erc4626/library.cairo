@@ -5,7 +5,7 @@ from starkware.starknet.common.syscalls import (
     get_contract_address,
     get_block_timestamp,
 )
-from starkware.cairo.common.math import assert_le, assert_not_zero
+from starkware.cairo.common.math import assert_le, assert_lt, assert_not_zero
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
@@ -41,7 +41,7 @@ from openzeppelin.security.safemath import (
     uint256_checked_sub_lt,
 )
 
-from contracts.utils import get_array, uint256_is_zero, mul_div_down
+from contracts.utils import get_array, write_to_array, uint256_is_zero, uint256_is_not_zero, mul_div_down
 from InterfaceAll import IERC20
 
 @event
@@ -136,6 +136,26 @@ end
 func FeesClaimed(user : felt, amount : Uint256):
 end
 
+@event 
+func WithdrawalStackPushed(user : felt, strategy_address : felt):
+end
+
+@event 
+func WithdrawalStackPopped(user : felt, strategy_address : felt):
+end
+
+@event 
+func WithdrawalStackSet(user : felt, stack_len : felt, stack : felt*):
+end
+
+@event 
+func WithdrawalStackIndexReplaced(user : felt, index : felt, old_strategy : felt, new_strategy : felt):
+end
+
+@event 
+func WithdrawalStackIndexesSwapped(user : felt, index1 : felt, index2 : felt, new_strategy1 : felt, new_strategy2 : felt):
+end
+
 #
 # Storage
 #
@@ -202,14 +222,12 @@ func last_harvest_window_start() -> (start : felt):
 end
 
 # # @notice An ordered array of strategies representing the withdrawal queue.
-# # @dev The queue is processed in descending order.
-# # @dev Returns a tupled-array of (array_len, Strategy[])
 @storage_var
-func withdrawal_queue(index : felt) -> (strategy_address : felt):
+func withdrawal_stack(index : felt) -> (strategy_address : felt):
 end
 
 @storage_var
-func withdrawal_queue_length() -> (length : felt):
+func withdrawal_stack_length() -> (length : felt):
 end
 
 #
@@ -229,12 +247,12 @@ end
 # # @notice Gets the full withdrawal queue.
 # # @return An ordered array of strategies representing the withdrawal queue.
 @view
-func getWithdrawalQueue{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    queue_len : felt, queue : felt*
+func getWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*
 ):
     alloc_locals
-    let (length : felt) = withdrawal_queue_length.read()
-    let (mapping_ref : felt) = get_label_location(withdrawal_queue.read)
+    let (length : felt) = withdrawal_stack_length.read()
+    let (mapping_ref : felt) = get_label_location(withdrawal_stack.read)
     let (array : felt*) = alloc()
 
     get_array(length, array, mapping_ref)
@@ -819,13 +837,9 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     else:
-        let (current_last_harvest_window_start_value : felt) = last_harvest_window_start.read()
-        let (current_harvest_window : felt) = harvest_window.read()
         with_attr error_message("BAD_HARVEST_TIME"):
-            # We know this harvest is not the first in the window so we need to ensure it's within it.
-            assert_le(
-                block_timestamp, current_last_harvest_window_start_value + current_harvest_window
-            )
+            let (can_harvest_now : felt) = can_harvest()
+            assert_not_zero(can_harvest_now)
         end
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -886,6 +900,16 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 
     Harvest.emit(caller, strategies_len, strategies)
     return ()
+end
+
+func can_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (yes_no : felt):
+    alloc_locals
+    let (current_last_harvest_window_start_value : felt) = last_harvest_window_start.read()
+    let (current_harvest_window : felt) = harvest_window.read()
+    let (block_timestamp : felt) = get_block_timestamp()
+    # We know this harvest is not the first in the window so we need to ensure it's within it.
+    let (yes_no : felt) = is_le(block_timestamp, current_last_harvest_window_start_value + current_harvest_window)
+    return (yes_no)
 end
 
 func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -962,8 +986,8 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
         assert minted_zero_tokens = FALSE
     end
 
-    withdrawal_queue_length.write(1)  # Suport only one strategy for now
-    withdrawal_queue.write(0, strategy_address)
+    withdrawal_stack_length.write(1)  # Suport only one strategy for now
+    withdrawal_stack.write(0, strategy_address)
 
     let (caller : felt) = get_caller_address()
     StrategyDeposit.emit(caller, strategy_address, underlying_amount)
@@ -1009,32 +1033,124 @@ func check_enough_underlying_balance{
     let (contract_balance : Uint256) = IERC20.balanceOf(underlying, address_this)
     let (not_enough_balance_in_contract : felt) = uint256_lt(contract_balance, amount_to_withdraw)
     if not_enough_balance_in_contract == TRUE:
-        let (_, withdrawal_queue : felt*) = getWithdrawalQueue()
+        let (strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*) = getWithdrawalStack()
         let (withdraw_amount_required : Uint256) = uint256_checked_sub_lt(
            amount_to_withdraw, contract_balance)
-        let first_strategy : felt = withdrawal_queue[0]
-        assert_not_zero(first_strategy)
-        let (strategy_details : StrategyData) = strategy_data.read(first_strategy)
-        
-        let (enough_balance_in_strategy : felt) = uint256_le(withdraw_amount_required, strategy_details.balance)
-        
-        if enough_balance_in_strategy == TRUE:
-            withdraw_from_strategy(first_strategy, withdraw_amount_required)
+
+        let (amount_to_mint : Uint256) = pull_from_withdrawal_stack(withdraw_amount_required, strategies_withdrawal_stack_len, strategies_withdrawal_stack)
+        let (need_to_mint : felt) = uint256_is_not_zero(amount_to_mint)
+
+        if need_to_mint == TRUE:
+            IERC20.mint(underlying, address_this, amount_to_mint) 
             return ()
-        else:
-            let (address_this) = get_contract_address()
-            let (strategy_balance_is_zero : felt) = uint256_is_zero(strategy_details.balance)
-            if strategy_balance_is_zero == TRUE:
-                IERC20.mint(underlying, address_this, withdraw_amount_required)
-                return ()
-            else:
-                let (remaining_amount : Uint256) = uint256_checked_sub_le(withdraw_amount_required, strategy_details.balance)
-                IERC20.mint(underlying, address_this, remaining_amount)
-                return ()
-            end
         end
+        return ()
     end
 
+    return ()
+end
+
+func pull_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        amount_to_withdraw : Uint256, strategies_len : felt, strategies : felt*) -> (remaining : Uint256):
+    alloc_locals
+    if strategies_len == 0:
+        return (amount_to_withdraw)
+    end
+    tempvar index = strategies_len -1
+
+    tempvar strategy_address : felt = strategies[index]
+    assert_not_zero(strategy_address)
+    let (strategy_details : StrategyData) = strategy_data.read(strategy_address)
+
+    if strategy_details.trusted == FALSE:
+        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len-1, strategies)
+    end
+
+    let (no_strategy_balance : felt) = uint256_is_zero(strategy_details.balance)
+    if no_strategy_balance == TRUE:
+        pop_from_withdrawal_stack()
+        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len-1, strategies)
+    end
+
+    let (enough_balance_in_strategy : felt) = uint256_le(amount_to_withdraw, strategy_details.balance)
+
+    if enough_balance_in_strategy == TRUE:
+        withdraw_from_strategy(strategies[index], amount_to_withdraw)
+        let (remaining_amount_in_strategy_balance : Uint256) = uint256_checked_sub_le(strategy_details.balance, amount_to_withdraw)
+        strategy_data.write(strategies[index], StrategyData(TRUE, remaining_amount_in_strategy_balance))
+        return (Uint256(0, 0))
+    else:
+        let (remaining_amount : Uint256) = uint256_checked_sub_le(amount_to_withdraw, strategy_details.balance)
+        strategy_data.write(strategies[index], StrategyData(TRUE, Uint256(0, 0)))
+        pop_from_withdrawal_stack()
+        return pull_from_withdrawal_stack(remaining_amount, strategies_len-1, strategies)
+    end
+end
+
+func push_to_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(strategy_address : felt):
+    alloc_locals
+    assert_not_zero(strategy_address)
+    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read() 
+    withdrawal_stack_length.write(strategies_withdrawal_stack_len+1)
+    withdrawal_stack.write(strategies_withdrawal_stack_len, strategy_address)
+
+    let (caller : felt) = get_caller_address()
+    WithdrawalStackPushed.emit(caller, strategy_address)
+    return ()
+end
+
+func pop_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
+    assert_not_zero(strategies_withdrawal_stack_len)
+
+    withdrawal_stack_length.write(strategies_withdrawal_stack_len-1)
+    let (removed_strategy : felt) = withdrawal_stack.read(strategies_withdrawal_stack_len-1)
+    withdrawal_stack.write(strategies_withdrawal_stack_len-1, 0)
+    
+    let (caller : felt) = get_caller_address()
+    WithdrawalStackPopped.emit(caller, removed_strategy)
+    return ()
+end
+
+func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(stack_len : felt, stack : felt*):
+    alloc_locals
+    let (withdrawal_stack_ptr : felt) = get_label_location(withdrawal_stack.write)
+    write_to_array(stack_len, stack, withdrawal_stack_ptr)
+    withdrawal_stack_length.write(stack_len)
+
+    let (caller : felt) = get_caller_address()
+    WithdrawalStackSet.emit(caller, stack_len, stack)
+    return ()
+end
+
+func replace_withdrawal_stack_index{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index : felt, address : felt):
+    alloc_locals
+    assert_not_zero(address)
+    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
+    assert_lt(index, strategies_withdrawal_stack_len)
+    let (old_address : felt) = withdrawal_stack.read(index)
+    withdrawal_stack.write(index, address)
+
+    let (caller : felt) = get_caller_address()
+    WithdrawalStackIndexReplaced.emit(caller, index, old_address, address)
+    return ()
+end
+
+func swap_withdrawal_stack_indexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index1 : felt, index2 : felt):
+    alloc_locals
+    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
+    assert_lt(index1, strategies_withdrawal_stack_len)
+    assert_lt(index2, strategies_withdrawal_stack_len)
+
+    let (address1 : felt) = withdrawal_stack.read(index1)
+    let (address2 : felt) = withdrawal_stack.read(index2)
+    
+    withdrawal_stack.write(index1, address2)
+    withdrawal_stack.write(index2, address1)
+
+    let (caller : felt) = get_caller_address()
+    WithdrawalStackIndexesSwapped.emit(caller, index1, index2, address1, address2)
     return ()
 end
 
