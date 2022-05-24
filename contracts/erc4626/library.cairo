@@ -1026,17 +1026,25 @@ end
 
 func check_enough_underlying_balance{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(amount_to_withdraw : Uint256):
+}(underlying_amount : Uint256):
     alloc_locals
     let (address_this : felt) = get_contract_address()
     let (underlying : felt) = ERC4626_asset()
-    let (contract_balance : Uint256) = IERC20.balanceOf(underlying, address_this)
-    let (not_enough_balance_in_contract : felt) = uint256_lt(contract_balance, amount_to_withdraw)
-    if not_enough_balance_in_contract == TRUE:
-        let (strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*) = getWithdrawalStack()
-        let (withdraw_amount_required : Uint256) = uint256_checked_sub_lt(
-           amount_to_withdraw, contract_balance)
+    let (total_float : Uint256) = totalFloat()
 
+    let (not_enough_balance_in_contract : felt) = uint256_lt(total_float, underlying_amount)
+    if not_enough_balance_in_contract == TRUE:
+        let (total_assets : Uint256) = ERC4626_totalAssets()
+        let (current_target_float_percent : felt) = target_float_percent.read()
+        let (sub : Uint256) = uint256_checked_sub_lt(total_assets, underlying_amount)
+        
+        let (float_missing_for_target : Uint256) = mul_div_down(sub, Uint256(current_target_float_percent, 0), Uint256(10 ** 18, 0))
+        let (float_missing_for_withdrawal : Uint256) = uint256_checked_sub_lt(underlying_amount, total_float)
+
+        let (withdraw_amount_required : Uint256) = uint256_checked_add(float_missing_for_target, float_missing_for_withdrawal)
+
+
+        let (strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*) = getWithdrawalStack()
         let (amount_to_mint : Uint256) = pull_from_withdrawal_stack(withdraw_amount_required, strategies_withdrawal_stack_len, strategies_withdrawal_stack)
         let (need_to_mint : felt) = uint256_is_not_zero(amount_to_mint)
 
