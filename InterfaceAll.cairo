@@ -263,6 +263,9 @@ namespace IVault:
     func setTargetFloatPercent(float_percent : felt):
     end
 
+    func setHarvestTaskContract(address : felt):
+    end
+
     func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
     end
 
