@@ -13,10 +13,6 @@ from starkware.cairo.common.uint256 import (
     ALL_ONES,
     Uint256,
     uint256_eq,
-    uint256_add,
-    uint256_mul,
-    uint256_sub,
-    uint256_unsigned_div_rem,
     uint256_le,
     uint256_lt,
 )
@@ -401,7 +397,7 @@ func ERC4626_convertToShares{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     else:
         let (product : Uint256) = uint256_checked_mul(assets, total_supply)
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (shares, _) = uint256_unsigned_div_rem(product, total_assets)
+        let (shares, _) = uint256_checked_div_rem(product, total_assets)
         return (shares)
     end
 end
@@ -419,7 +415,7 @@ func ERC4626_convertToAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
         let (product : Uint256) = uint256_checked_mul(shares, total_assets)
-        let (assets, _) = uint256_unsigned_div_rem(product, total_supply)
+        let (assets, _) = uint256_checked_div_rem(product, total_supply)
         return (assets)
     end
 end
@@ -673,7 +669,7 @@ func decrease_allowance_by_amount{
         assert is_spender_allowance_sufficient = TRUE
     end
 
-    let (new_allowance : Uint256) = uint256_sub(spender_allowance, amount)
+    let (new_allowance : Uint256) = uint256_checked_sub_le(spender_allowance, amount)
     ERC20_allowances.write(owner, spender, new_allowance)
 
     return ()
@@ -746,6 +742,9 @@ end
 
 func set_fee_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(fee : felt):
     assert_not_zero(fee)
+    with_attr error_message("FEE_TOO_HIGH"):
+        assert_le(fee, 10 ** 18)
+    end
     fee_percent.write(fee)
     let (caller : felt) = get_caller_address()
     FeePercentUpdated.emit(caller, fee)
@@ -866,14 +865,16 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         let (fees_accrued : Uint256) = mul_div_down(
             total_profit_accrued, Uint256(current_fee_percent, 0), Uint256(10 ** 18, 0)
         )
-        let (new_max_locked_profit : Uint256) = uint256_sub(total_profit_accrued, fees_accrued)
-        max_locked_profit.write(new_max_locked_profit)
         let (base_unit_value : felt) = base_unit.read()
         let (base_unit_to_asset : Uint256) = ERC4626_convertToAssets(Uint256(base_unit_value, 0))
         let (value_to_mint : Uint256) = mul_div_down(
             fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset
         )
         ERC20_mint(address_this, value_to_mint)
+
+        let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
+        let (new_max_locked_profit : Uint256) = uint256_checked_sub_le(sum, fees_accrued)
+        max_locked_profit.write(new_max_locked_profit)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr

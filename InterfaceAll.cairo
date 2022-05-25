@@ -227,6 +227,9 @@ namespace IVault:
     func feePercent() -> (fee_percent : felt):
     end
 
+    func lockedProfit() -> (res : Uint256):
+    end
+
     func harvestDelay() -> (harvest_delay : felt):
     end
 
