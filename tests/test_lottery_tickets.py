@@ -70,6 +70,10 @@ UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
 NB_QUEST = 2
 
+REWARDS_PER_BLOCK = to_uint(10)
+START_BLOCK = 0
+END_BLOCK = START_BLOCK + 10000
+
 
 # Fixtures
 
@@ -138,7 +142,10 @@ async def erc1155_init(contract_defs):
         str_to_felt("xZkPad"),
         str_to_felt("xZKP"),
         zk_pad_token.contract_address,
-        account1.contract_address
+        account1.contract_address,
+        *REWARDS_PER_BLOCK,
+        START_BLOCK,
+        END_BLOCK
     ])
     MERKLE_INFO = get_leaves(
         [account1.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
