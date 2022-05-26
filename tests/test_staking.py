@@ -1,9 +1,12 @@
 import time
 import asyncio
 import pytest
+from starkware.starknet.public.abi import get_selector_from_name
+
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
-    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, assert_approx_eq, uint
+    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, assert_approx_eq, uint,
+    set_block_number
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
@@ -1347,6 +1350,7 @@ async def test_profitable_harvest(contracts_factory, amount):
     assert from_uint(total_float) >= 0
     assert from_uint(total_assets) >= 0
 
+
 @pytest.mark.asyncio
 async def test_updating_harvest_delay(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, _, deploy_contract_func, starknet_state = contracts_factory
@@ -1389,6 +1393,41 @@ async def test_claim_fees(contracts_factory):
 
     assert (await zk_pad_staking.balanceOf(zk_pad_staking.contract_address).call()).result.balance == uint(0)
     assert (await zk_pad_staking.balanceOf(owner_account.contract_address).call()).result.balance == INIT_SUPPLY
+
+
+@pytest.mark.asyncio
+async def test_reward_system(contracts_factory):
+    zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
+
+    user1 = Signer(2345)
+    user1_account = await deploy_account_func(user1.public_key)
+
+    await owner.send_transaction(owner_account, zk_pad_token.contract_address, "transfer",
+                                 [user1_account.contract_address, *INIT_SUPPLY])
+    # max approve
+    await user1.send_transaction(
+        user1_account,
+        zk_pad_token.contract_address,
+        "approve",
+        [zk_pad_staking.contract_address, *INIT_SUPPLY],
+    )
+    await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "deposit",
+                                 [*INIT_SUPPLY, user1_account.contract_address])
+    user_balance_after_initial_deposit = (
+        await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
+
+    advance_clock(starknet_state, days_to_seconds(365) + 1)
+    set_block_number(starknet_state, END_BLOCK)
+    pending_rewards = (
+        await zk_pad_staking.calculatePendingRewards(user1_account.contract_address).call()).result.rewards
+    assert pending_rewards != uint(0)
+    tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "harvestRewards", [])
+    event_signature = get_selector_from_name("HarvestRewards")
+    assert next(
+        (x for x in tx.raw_events if event_signature in x.keys), None) is not None
+    user_balance = (await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
+    assert from_uint(user_balance) > from_uint(
+        user_balance_after_initial_deposit)
 
 
 # Bound a value between a min and max.

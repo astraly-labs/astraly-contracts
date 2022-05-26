@@ -13,6 +13,11 @@
 %lang starknet
 from starkware.cairo.common.uint256 import Uint256
 
+struct UserInfo:
+    member amount : Uint256
+    member rewardDebt : Uint256
+end
+
 struct Purchase_Round:
     member time_starts : felt
     member time_ends : felt
@@ -221,7 +226,6 @@ namespace ITask:
     end
 end
 
-
 @contract_interface
 namespace IVault:
     func feePercent() -> (fee_percent : felt):
@@ -248,11 +252,32 @@ namespace IVault:
     func getWithdrawalStack() -> (strategies_len : felt, strategies : felt*):
     end
 
+    func rewardPerBlock() -> (reward : Uint256):
+    end
+
+    func startBlock() -> (block : felt):
+    end
+
+    func endBlock() -> (block : felt):
+    end
+
+    func lastRewardBlock() -> (block : felt):
+    end
+
+    func accTokenPerShare() -> (res : Uint256):
+    end
+
+    func getMultiplier(_from : felt, _to : felt) -> (multiplier : felt):
+    end
+
+    func userInfo(user : felt) -> (info : UserInfo):
+    end
+
     func totalFloat() -> (float : Uint256):
     end
 
     func harvest(strategies_len : felt, strategies : felt*):
-    end    
+    end
 
     func setFeePercent(new_fee_percent : felt):
     end
@@ -269,7 +294,16 @@ namespace IVault:
     func setHarvestTaskContract(address : felt):
     end
 
+    func updateRewardPerBlockAndEndBlock(_reward_per_block : Uint256, new_end_block : felt):
+    end
+
     func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    end
+
+    func harvestRewards():
+    end
+
+    func calculatePendingRewards(user : felt) -> (rewards : Uint256):
     end
 
     func pushToWithdrawalStack(strategy : felt):

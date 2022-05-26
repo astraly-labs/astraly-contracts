@@ -226,14 +226,6 @@ def set_block_timestamp(starknet_state: Starknet, timestamp):
     new_block_number = int((timestamp - 1609452000) / 7)  # calculate blocks at every 7 sec from 01.01.2020
     starknet_state.state.block_info = BlockInfo.create_for_testing(new_block_number, timestamp)
 
-def get_block_number(starknet_state):
-    return starknet_state.state.block_info.block_number
-
-def set_block_number(starknet_state, block_number):
-    starknet_state.state.block_info = BlockInfo.create_for_testing(
-        block_number, starknet_state.state.block_info.block_timestamp
-    )
-
 
 def get_block_number(starknet_state):
     return starknet_state.state.block_info.block_number

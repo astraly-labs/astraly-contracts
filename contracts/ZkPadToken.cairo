@@ -172,7 +172,7 @@ end
 @external
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     to : felt, amount : Uint256
-):
+) -> (success : felt):
     alloc_locals
     Authorized_only()
     let (totalSupply : Uint256) = ERC20_totalSupply()
@@ -182,7 +182,7 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (enough_supply) = uint256_le(sum, cap)
     assert_not_zero(enough_supply)
     ERC20_mint(to, amount)
-    return ()
+    return (TRUE)
 end
 
 func Authorized_only{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
