@@ -49,6 +49,12 @@ namespace IZkPadIDOContract:
 end
 
 @contract_interface
+namespace IAccount:
+    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
+    end
+end
+
+@contract_interface
 namespace IZKPadIDOFactory:
     func get_ido_launch_date(id : felt) -> (res : felt):
     end
