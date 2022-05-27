@@ -16,7 +16,6 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 from starkware.cairo.common.alloc import alloc
-
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
 from openzeppelin.utils.constants import TRUE, FALSE
 
