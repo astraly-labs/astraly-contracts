@@ -35,7 +35,7 @@ func getAmountToMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 ) -> (amount : Uint256):
     alloc_locals
     let (pool_address : felt) = getPoolAddress()
-    let (reserve_token_0 : Uint256, reserve_token_1 : Uint256) = IJediSwapPair.get_reserves(
+    let (reserve_token_0 : Uint256, reserve_token_1 : Uint256, _) = IJediSwapPair.get_reserves(
         pool_address
     )
     let (total_supply : Uint256) = IERC20.totalSupply(pool_address)
