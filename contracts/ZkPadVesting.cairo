@@ -7,15 +7,26 @@ from starkware.starknet.common.syscalls import get_block_number, get_block_times
 from starkware.cairo.common.math import assert_lt, assert_not_zero, assert_le
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_sub, uint256_le, uint256_lt, uint256_check, uint256_eq, uint256_neg,
-    uint256_signed_nn)
+    Uint256,
+    uint256_sub,
+    uint256_le,
+    uint256_lt,
+    uint256_check,
+    uint256_eq,
+    uint256_neg,
+    uint256_signed_nn,
+)
 from starkware.cairo.common.bool import TRUE
 
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+from InterfaceAll import IERC20
 from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer
 from openzeppelin.security.safemath import (
-    uint256_checked_add, uint256_checked_sub_lt, uint256_checked_mul, uint256_checked_div_rem,
-    uint256_checked_sub_le)
+    uint256_checked_add,
+    uint256_checked_sub_lt,
+    uint256_checked_mul,
+    uint256_checked_div_rem,
+    uint256_checked_sub_le,
+)
 from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
 
 @event
@@ -52,8 +63,14 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        payees_len : felt, payees : felt*, shares_len : felt, shares : Uint256*,
-        _start_timestamp : felt, duration_seconds : felt, token_address : felt):
+    payees_len : felt,
+    payees : felt*,
+    shares_len : felt,
+    shares : Uint256*,
+    _start_timestamp : felt,
+    duration_seconds : felt,
+    token_address : felt,
+):
     alloc_locals
     let (caller) = get_caller_address()
     Ownable_initializer(caller)
@@ -97,11 +114,9 @@ func release{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 
     # Transfer tokens to payee
     let (token_address) = token.read()
-    let (success : felt) = IERC20.transferFrom(
-        contract_address=token_address,
-        sender=this_address,
-        recipient=caller,
-        amount=updated_releasable)
+    let (success : felt) = IERC20.transfer(
+        contract_address=token_address, recipient=caller, amount=updated_releasable
+    )
     with_attr error_message("ZkPadVesting::Transfer failed"):
         assert success = TRUE
     end
@@ -111,7 +126,8 @@ end
 
 @view
 func vested_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        user : felt, timestamp : Uint256) -> (amount : Uint256):
+    user : felt, timestamp : Uint256
+) -> (amount : Uint256):
     alloc_locals
     let (this_address) = get_contract_address()
     let (token_address) = token.read()
@@ -127,7 +143,8 @@ end
 
 @view
 func _vesting_schedule{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        total_allocation : Uint256, timestamp : Uint256) -> (amount : Uint256):
+    total_allocation : Uint256, timestamp : Uint256
+) -> (amount : Uint256):
     alloc_locals
     let (start) = start_timestamp.read()
     let (start_uint) = _felt_to_uint(start)
@@ -153,7 +170,8 @@ func _vesting_schedule{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 end
 
 func _populate_arrays{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        len : felt, _payees : felt*, _shares : Uint256*, index : felt):
+    len : felt, _payees : felt*, _shares : Uint256*, index : felt
+):
     if len == 0:
         return ()
     end
