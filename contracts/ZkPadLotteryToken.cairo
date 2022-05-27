@@ -17,7 +17,7 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.signature import verify_ecdsa_signature
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
 from openzeppelin.utils.constants import TRUE, FALSE
 
 from contracts.erc1155.ERC1155_struct import TokenUri
@@ -51,7 +51,7 @@ from contracts.utils.Math64x61 import (
 
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
-from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory
+from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory, IAccount
 
 from starkware.cairo.common.hash import hash2
 
@@ -486,17 +486,18 @@ func _balance_to_tickets{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range
     return (nb_tickets)
 end
 
-@external
+@view
 func checkKYCSignature{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*
-}(admin_p_k : felt, sig : (felt, felt)):
+}(sig_len : felt, sig : felt*):
+    alloc_locals
     let (caller) = get_caller_address()
+    let (admin_address) = Ownable_get_owner()
+
     let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0)
+
     # Verify the user's signature.
-    with_attr error_message("ZkPadLotteryToken:: user is not kyc"):
-        verify_ecdsa_signature(
-            message=user_hash, public_key=admin_p_k, signature_r=sig[0], signature_s=sig[1]
-        )
-    end
+    IAccount.is_valid_signature(admin_address, user_hash, sig_len, sig)
+
     return ()
 end
