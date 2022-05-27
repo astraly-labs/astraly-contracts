@@ -8,6 +8,8 @@ from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_
 
 from contracts.AMMs.jedi_swap.interfaces import IJediSwapPair
 
+from InterfaceAll import IERC20
+
 @storage_var
 func pool_address() -> (address : felt):
 end
@@ -36,6 +38,7 @@ func getAmountToMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (reserve_token_0 : Uint256, reserve_token_1 : Uint256) = IJediSwapPair.get_reserves(
         pool_address
     )
+    let (total_supply : Uint256) = IERC20.totalSupply(pool_address)
     let (mul : Uint256) = uint256_checked_mul(lp_amount, reserve_token_1)  # TODO: Check the order of the pairs
     let (res : Uint256, _) = uint256_checked_div_rem(mul, total_supply)
 
