@@ -92,12 +92,41 @@ from contracts.erc4626.ERC4626 import (
     calculate_lock_time_bonus,
     default_lock_time_days,
 )
-from contracts.ZkPadInvestment import ZkPadInvestment
-from contracts.utils import uint256_is_zero
-
-# from contracts.ZkPadStrategyManager import constructor
-
-const IERC721_ID = 0x80ac58cd
+from contracts.erc4626.library import (
+    getWithdrawalStack,
+    totalFloat,
+    lockedProfit,
+    feePercent,
+    harvestDelay,
+    harvestWindow,
+    nextHarvestDelay,
+    targetFloatPercent,
+    totalStrategyHoldings,
+    lastHarvestWindowStart,
+    lastHarvest,
+    set_fee_percent,
+    set_harvest_window,
+    set_harvest_delay,
+    set_target_float_percent,
+    set_base_unit,
+    harvest_investment,
+    deposit_into_strategy,
+    withdraw_from_strategy,
+    trust_strategy,
+    distrust_strategy,
+    claim_fees,
+    calculate_lock_time_bonus,
+    check_enough_underlying_balance,
+    can_harvest,
+    push_to_withdrawal_stack,
+    pop_from_withdrawal_stack,
+    set_withdrawal_stack,
+    replace_withdrawal_stack_index,
+    swap_withdrawal_stack_indexes,
+)
+from contracts.utils import uint256_is_zero, uint256_is_not_zero, uint256_assert_not_zero, and, is_lt
+from contracts.utils.Uint256_felt_conv import _felt_to_uint
+from InterfaceAll import IERC20, UserInfo
 
 @contract_interface
 namespace IMintCalculator:
@@ -409,8 +438,131 @@ end
 func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     lock_time : felt
 ):
-    let (lock_time : felt) = default_lock_time_days.read()
-    return (lock_time)
+    let (lock_time_days : felt) = default_lock_time_days.read()
+    return (lock_time_days)
+end
+
+@view
+func getHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> (address : felt):
+    let (address : felt) = harvest_task_contract.read()
+    return (address)
+end
+
+@view
+func canHarvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    yes_no : felt
+):
+    let (res : felt) = can_harvest()
+    return (res)
+end
+
+@view
+func rewardPerBlock{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    reward : Uint256
+):
+    let (reward : Uint256) = reward_per_block.read()
+    return (reward)
+end
+
+@view
+func startBlock{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    block : felt
+):
+    let (res : felt) = start_block.read()
+    return (res)
+end
+
+@view
+func endBlock{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    block : felt
+):
+    let (res : felt) = end_block.read()
+    return (res)
+end
+
+@view
+func lastRewardBlock{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    block : felt
+):
+    let (block : felt) = last_reward_block.read()
+    return (block)
+end
+
+@view
+func accTokenPerShare{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    res : Uint256
+):
+    let (res : Uint256) = acc_token_per_share.read()
+    return (res)
+end
+
+@view
+func userInfo{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt) -> (
+    info : UserInfo
+):
+    let (res : UserInfo) = user_info.read(user)
+    return (res)
+end
+
+@view
+func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt
+) -> (rewards : Uint256):
+    alloc_locals
+    tempvar PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    let (staked_token_supply : Uint256) = totalAssets()
+    let (block_number : felt) = get_block_number()
+    let (current_last_reward_block : felt) = lastRewardBlock()
+
+    let (block_no_higher_than_last_reward : felt) = is_lt(current_last_reward_block, block_number)
+    let (staked_token_supply_not_zero : felt) = uint256_is_not_zero(staked_token_supply)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (cur_user_info : UserInfo) = userInfo(user)
+    let (yes_no : felt) = and(block_no_higher_than_last_reward, staked_token_supply_not_zero)
+    if yes_no == TRUE:
+        let (multiplier : felt) = getMultiplier(current_last_reward_block, block_number)
+        let (current_reward_per_block : Uint256) = rewardPerBlock()
+        let (token_reward : Uint256) = uint256_checked_mul(Uint256(multiplier, 0), current_reward_per_block)
+
+        let (mul : Uint256) = uint256_checked_mul(token_reward, PRECISION_FACTOR)
+        let (div : Uint256, _) = uint256_checked_div_rem(mul, staked_token_supply)
+        let (adjusted_token_per_share : Uint256) = uint256_checked_add(current_acc_token_per_share, div)
+
+        let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, adjusted_token_per_share)
+        let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+        let (res : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+        return (res)
+    else:
+        let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, current_acc_token_per_share)
+        let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+        let (res : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+        return (res)
+    end
+end
+
+# @notice Return reward multiplier over the given "from" to "to" block.
+#   @param from block to start calculating reward
+#   @param to block to finish calculating reward
+#   @return the multiplier for the period
+@view
+func getMultiplier{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _from : felt, _to : felt
+) -> (multiplier : felt):
+    alloc_locals
+    let (current_end_block : felt) = endBlock()
+    let (is_lower : felt) = is_le(_to, current_end_block)
+    if is_lower == TRUE:
+        return (multiplier=_to - _from)
+    end
+    let (is_greater : felt) = is_le(current_end_block, _from)
+
+    if is_greater == TRUE:
+        return (multiplier=0)
+    else:
+        return (multiplier=current_end_block - _from)
+    end
 end
 
 #
@@ -511,7 +663,11 @@ func deposit{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    let (default_lock_time : felt) = default_lock_time_days.read()
+    uint256_assert_not_zero(assets)
+    # Update pool
+    update_pool()
+
+    let (default_lock_time : felt) = getDefaultLockTime()
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
@@ -529,6 +685,9 @@ func depositForTime{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
+    uint256_assert_not_zero(assets)
+    # Update pool
+    update_pool()
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
     set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
@@ -545,10 +704,12 @@ func depositLP{
     alloc_locals
     Pausable_when_not_paused()
     ReentrancyGuard_start()
+    uint256_assert_not_zero(assets)
     different_than_underlying(lp_token)
     only_whitelisted_token(lp_token)
     set_new_deposit_unlock_time(receiver, lock_time_days)
-
+    # Update pool
+    update_pool()
     let (caller_address : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (is_nft : felt) = IERC165.supportsInterface(lp_token, IERC721_ID)
@@ -583,11 +744,34 @@ func mint{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
+    uint256_assert_not_zero(shares)
+    update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
 
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
+    update_user_after_deposit(receiver, underlying_asset, assets)
+    ReentrancyGuard_end()
+    return (assets)
+end
+
+@external
+func mintForTime{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
+}(shares : Uint256, receiver : felt, lock_time_days : felt) -> (assets : Uint256):
+    alloc_locals
+    ReentrancyGuard_start()
+    Pausable_when_not_paused()
+    uint256_assert_not_zero(shares)
+    update_pool()
+    let (assets : Uint256) = ERC4626_mint(shares, receiver)
+
+    # Update user info
+    update_user_info_on_deposit(receiver, assets)
+
+    let (underlying_asset : felt) = asset()
+    set_new_deposit_unlock_time(receiver, lock_time_days)
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
     return (assets)
@@ -600,6 +784,11 @@ func redeem{
     alloc_locals
     Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
+    let (withdraw_amount : Uint256) = previewRedeem(shares)
+    check_enough_underlying_balance(withdraw_amount)
+    # Update pool
+    update_pool()
+
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
     remove_from_deposit(owner, zkp_address, assets)
@@ -620,8 +809,15 @@ func redeemLP{
     assert_not_before_unlock_time(owner)
     let (caller : felt) = get_caller_address()
 
-    if caller != owner:
-        decrease_allowance_by_amount(owner, caller, shares)
+    let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    # Update user info
+    update_user_info_on_withdraw(receiver, assets)
+
+    # Send rewards
+    let (is_positive : felt) = uint256_is_not_zero(pending_rewards)
+    if is_positive == TRUE:
+        IERC20.mint(zkp_address, receiver, pending_rewards)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
@@ -669,9 +865,40 @@ func withdraw{
     alloc_locals
     Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
+    check_enough_underlying_balance(assets)
+    # Update pool
+    update_pool()
+
     let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
     let (zkp_address : felt) = asset()
     remove_from_deposit(owner, zkp_address, assets)
+
+    # Harvest pending rewards
+    let (cur_user_info : UserInfo) = userInfo(owner)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, current_acc_token_per_share)
+    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+    let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    # Update user info
+    update_user_info_on_withdraw(owner, assets)
+
+    # Send rewards
+    let (is_positive : felt) = uint256_lt(Uint256(0, 0), pending_rewards)
+    if is_positive == TRUE:
+        IERC20.mint(zkp_address, receiver, pending_rewards)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    ReentrancyGuard_end()
     return (shares)
 end
 
@@ -682,6 +909,10 @@ func withdrawLP{
     alloc_locals
     Pausable_when_not_paused()
     assert_not_before_unlock_time(owner)
+
+    # Update pool
+    update_pool()
+
     let (caller : felt) = get_caller_address()
     let (shares : Uint256) = previewWithdrawLP(lp_token, assets)
     if caller != owner:
@@ -713,6 +944,39 @@ func withdrawLP{
     ERC20_burn(owner, shares)
     IERC20.transfer(lp_token, receiver, assets)
     WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
+
+    # Harvest pending rewards
+    let (cur_user_info : UserInfo) = userInfo(owner)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, current_acc_token_per_share)
+    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+    let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    # convert to ZKP
+    let (token_details : WhitelistedToken) = whitelisted_tokens.read(lp_token)
+    let (zkp_quote : Uint256) = IMintCalculator.getAmountToMint(
+        token_details.mint_calculator_address, assets
+    )
+    # Update user info
+    update_user_info_on_withdraw(owner, zkp_quote)
+
+    # Send rewards
+    let (zkp_address : felt) = asset()
+    let (is_positive : felt) = uint256_lt(Uint256(0, 0), pending_rewards)
+    if is_positive == TRUE:
+        IERC20.mint(zkp_address, receiver, pending_rewards)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
     return (shares)
 end
 
@@ -723,6 +987,7 @@ func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}
     Pausable_when_not_paused()
     let (caller_address : felt) = get_caller_address()
     assert_not_before_unlock_time(caller_address)
+    update_pool()
     ERC20_transfer(recipient, amount)
     return (TRUE)
 end
@@ -733,6 +998,7 @@ func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
 ) -> (success : felt):
     Pausable_when_not_paused()
     assert_not_before_unlock_time(sender)
+    update_pool()
     ERC20_transferFrom(sender, recipient, amount)
     return (TRUE)
 end
@@ -817,7 +1083,145 @@ func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     strategy_address : felt
 ):
     Ownable_only_owner()
-    deposit_into_strategy(strategy_address)
+    trust_strategy(strategy_address)
+    return ()
+end
+
+@external
+func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
+    Ownable_only_owner()
+    distrust_strategy(strategy_address)
+    return ()
+end
+
+@external
+func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
+    Ownable_only_owner()
+    claim_fees(amount)
+    return ()
+end
+
+@external
+func pushToWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy : felt
+):
+    Ownable_only_owner()
+    push_to_withdrawal_stack(strategy)
+    return ()
+end
+
+@external
+func popFromWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    Ownable_only_owner()
+    pop_from_withdrawal_stack()
+    return ()
+end
+
+@external
+func setWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    stack_len : felt, stack : felt*
+):
+    Ownable_only_owner()
+    set_withdrawal_stack(stack_len, stack)
+    return ()
+end
+
+@external
+func replaceWithdrawalStackIndex{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt, address : felt
+):
+    Ownable_only_owner()
+    replace_withdrawal_stack_index(index, address)
+    return ()
+end
+
+@external
+func swapWithdrawalStackIndexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index1 : felt, index2 : felt
+):
+    Ownable_only_owner()
+    swap_withdrawal_stack_indexes(index1, index2)
+    return ()
+end
+
+#
+# Staking Rewards
+#
+
+# @notice Update reward per block and the end block
+# @param newRewardPerBlock the new reward per block
+# @param newEndBlock the new end block
+@external
+func updateRewardPerBlockAndEndBlock{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(_reward_per_block : Uint256, new_end_block : felt):
+    alloc_locals
+    Ownable_only_owner()
+    let (local current_start_block : felt) = startBlock()
+    let (block_number : felt) = get_block_number()
+    let (is_lower : felt) = is_le(current_start_block, block_number)
+
+    if is_lower == TRUE:
+        update_pool()
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    with_attr error_message("Owner: New endBlock must be after current block"):
+        assert_lt(block_number, new_end_block)
+    end
+    with_attr error_message("Owner: New endBlock must be after start block"):
+        assert_lt(current_start_block, new_end_block)
+    end
+
+    end_block.write(new_end_block)
+    reward_per_block.write(_reward_per_block)
+
+    NewRewardPerBlockAndEndBlock.emit(
+        newRewardPerBlock=_reward_per_block, newEndBlock=new_end_block
+    )
+
+    return ()
+end
+
+# @notice Harvest pending rewards
+@external
+func harvestRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    ReentrancyGuard_start()
+    Pausable_when_not_paused()
+    # Update pool
+    update_pool()
+    let (caller : felt) = get_caller_address()
+    let (cur_user_info : UserInfo) = userInfo(caller)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, current_acc_token_per_share)
+    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+    let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    let (rewards_not_zero : felt) = uint256_is_not_zero(pending_rewards)
+
+    with_attr error_message("Harvest: Pending rewards must be > 0"):
+        assert rewards_not_zero = TRUE
+    end
+
+    let new_user_info : UserInfo = UserInfo(amount=cur_user_info.amount, reward_debt=div)
+    user_info.write(caller, new_user_info)
+
+    let (zkp_address : felt) = asset()
+    IERC20.mint(zkp_address, caller, pending_rewards)
+
+    HarvestRewards.emit(caller, pending_rewards)
+    ReentrancyGuard_end()
     return ()
 end
 
@@ -1011,10 +1415,102 @@ func remove_from_deposit{
             current_user_deposit_amount, withdraw_amount
         )
         deposits.write(user, token, new_user_deposit_amount)
+        return ()
+    end
+end
+
+# @notice Update reward variables of the pool to be up-to-date.
+func update_pool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    let (block_number : felt) = get_block_number()
+    let (current_last_reward_block : felt) = lastRewardBlock()
+    let (is_lower_or_eq : felt) = is_le(block_number, current_last_reward_block)
+
+    if is_lower_or_eq == TRUE:
+        return ()
+    end
+
+    # with_attr error_message("update pool not possible"):
+    #     assert_lt(current_last_reward_block, block_number)
+    # end
+
+    let (staked_supply : Uint256) = totalAssets()
+
+    let (yesno : felt) = uint256_eq(staked_supply, Uint256(0, 0))
+    if yesno == TRUE:
+        last_reward_block.write(block_number)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
         tempvar range_check_ptr = range_check_ptr
         tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
     end
+
+    let (multiplier : felt) = getMultiplier(current_last_reward_block, block_number)
+    let (u_multiplier : Uint256) = _felt_to_uint(multiplier)
+    let (current_reward_per_block : Uint256) = rewardPerBlock()
+    let (token_reward : Uint256) = uint256_checked_mul(u_multiplier, current_reward_per_block)
+
+    # Update only if token reward for staking is not null
+    let (is_positive : felt) = uint256_is_not_zero(token_reward)
+    if is_positive == TRUE:
+        let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+        let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
+        
+        let (precise_token_reward : Uint256) = uint256_checked_mul(token_reward, PRECISION_FACTOR)
+        let (divider : Uint256, _) = uint256_checked_div_rem(precise_token_reward, staked_supply)
+        let (new_acc_token_per_share : Uint256) = uint256_checked_add(
+            cur_acc_token_per_share, divider
+        )
+        acc_token_per_share.write(new_acc_token_per_share)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    # Update last reward block only if it wasn't updated after or at the end block
+    let (current_end_block : felt) = endBlock()
+    let (is_lower : felt) = is_le(current_last_reward_block, current_end_block)
+
+    if is_lower == TRUE:
+        last_reward_block.write(block_number)
+        return ()
+    end
+
+    return ()
+end
+
+func update_user_info_on_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt, assets : Uint256
+):
+    alloc_locals
+    let (cur_user_info : UserInfo) = userInfo(user)
+    let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
+    let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (new_amount : Uint256) = uint256_checked_add(cur_user_info.amount, assets)
+    let new_user_info : UserInfo = UserInfo(amount=new_amount, reward_debt=new_reward_debt)
+    user_info.write(user, new_user_info)
+    return ()
+end
+
+func update_user_info_on_withdraw{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(user : felt, assets : Uint256):
+    alloc_locals
+    let (cur_user_info : UserInfo) = userInfo(user)
+    let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
+    let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (new_amount : Uint256) = uint256_checked_sub_le(cur_user_info.amount, assets)
+    let new_user_info : UserInfo = UserInfo(amount=new_amount, reward_debt=new_reward_debt)
+    user_info.write(user, new_user_info)
     return ()
 end
