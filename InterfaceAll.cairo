@@ -17,6 +17,23 @@ namespace IAccount:
     end
 end
 
+struct UserInfo:
+    member amount : Uint256
+    member reward_debt : Uint256
+end
+
+struct Purchase_Round:
+    member time_starts : felt
+    member time_ends : felt
+    member number_of_purchases : Uint256
+end
+
+struct Registration:
+    member registration_time_starts : felt
+    member registration_time_ends : felt
+    member number_of_registrants : Uint256
+end
+
 @contract_interface
 namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
