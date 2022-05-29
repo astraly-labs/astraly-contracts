@@ -142,6 +142,9 @@ namespace IERC20:
     func balanceOf(account : felt) -> (balance : Uint256):
     end
 
+    func mint(to: felt, amount: Uint256):
+    end
+
     func allowance(owner : felt, spender : felt) -> (remaining : Uint256):
     end
 
