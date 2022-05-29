@@ -1,9 +1,11 @@
 import time
 
 import pytest
+from starkware.starknet.public.abi import get_selector_from_name
+
 from utils import (
     Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
-    assert_event_emitted, get_block_timestamp, set_block_timestamp
+    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, set_block_number, assert_approx_eq
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
@@ -99,7 +101,10 @@ async def contacts_init(contract_defs, get_starknet):
         NAME,
         SYMBOL,
         zk_pad_token.contract_address,
-        owner_account.contract_address
+        owner_account.contract_address,
+        *REWARDS_PER_BLOCK,
+        START_BLOCK,
+        END_BLOCK
     ])
 
     return (
@@ -188,7 +193,7 @@ async def test_proxy_upgrade(contract_defs, contacts_init):
                                                                                                 constructor_calldata=[
                                                                                                     zk_pad_stake_implementation.contract_address]))
 
-    START_BLOCK = get_block_number(starknet_state)
+    START_BLOCK = get_block_number(starknet.state)
     END_BLOCK = START_BLOCK + 10000
 
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
@@ -196,6 +201,9 @@ async def test_proxy_upgrade(contract_defs, contacts_init):
         SYMBOL,
         erc20_contract.contract_address,
         owner_account.contract_address
+        *REWARDS_PER_BLOCK,
+        START_BLOCK,
+        END_BLOCK
     ])
 
     current_zk_pad_stake_implementation_address = (
@@ -1398,10 +1406,8 @@ async def test_reward_system(contracts_factory):
     )
     user_balance_before_initial_deposit = (
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
-    tx1 = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "deposit",
-                                       [*stake_amount, user1_account.contract_address])
-
-    acc_token_per_share = (await zk_pad_staking.accTokenPerShare().call()).result.res
+    await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "deposit",
+                                 [*stake_amount, user1_account.contract_address])
 
     user_balance_after_initial_deposit = (
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
@@ -1416,15 +1422,15 @@ async def test_reward_system(contracts_factory):
         "approve",
         [zk_pad_staking.contract_address, *INIT_SUPPLY],
     )
-    tx2 = await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
-                                       [*INIT_SUPPLY, owner_account.contract_address])
+    await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
+                                 [*INIT_SUPPLY, owner_account.contract_address])
 
     set_block_number(starknet_state, END_BLOCK - 1)
     pending_rewards = (
         await zk_pad_staking.calculatePendingRewards(user1_account.contract_address).call()).result.rewards
 
     assert pending_rewards != UINT_ZERO
-    tx5 = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "harvestRewards", [])
+    tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "harvestRewards", [])
     user_balance = (await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
     event_signature = get_selector_from_name("HarvestRewards")
     assert next(
