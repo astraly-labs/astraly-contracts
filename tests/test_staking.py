@@ -212,7 +212,7 @@ async def test_proxy_upgrade(contract_defs):
                                                                                                 constructor_calldata=[
                                                                                                     zk_pad_stake_implementation.contract_address]))
 
-    START_BLOCK = get_block_number(starknet.state)
+    START_BLOCK = 0
     END_BLOCK = START_BLOCK + 10_000
 
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
