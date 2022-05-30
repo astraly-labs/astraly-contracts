@@ -13,7 +13,6 @@ from starkware.starknet.common.syscalls import (
     
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
 from openzeppelin.utils.constants import TRUE, FALSE
-from openzeppelin.account.IAccount
 
 from contracts.erc1155.ERC1155_struct import TokenUri
 
@@ -29,7 +28,7 @@ from contracts.utils.Math64x61 import (
 
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
-from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory
+from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory, IAccount
 
 @storage_var
 func ido_factory_address() -> (res : felt):
