@@ -29,11 +29,26 @@ struct Registration:
 end
 
 @contract_interface
+namespace IAccount:
+    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
+    end
+end
+
+@contract_interface
 namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
     func register_user(amount : Uint256, account : felt) -> (res : felt):
+    end
+
+    func get_purchase_round() -> (res : Purchase_Round):
+    end
+
+    func get_registration() -> (res : Registration):
+    end
+
+    func calculate_allocation():
     end
 end
 
@@ -43,6 +58,24 @@ namespace IZKPadIDOFactory:
     end
 
     func get_ido_address(id : felt) -> (res : felt):
+    end
+
+    func set_sale_owner_and_token(sale_owner_address : felt, sale_token_address : felt):
+    end
+
+    func is_sale_created_through_factory(sale_address : felt) -> (res : felt):
+    end
+
+    func get_lottery_ticket_contract_address() -> (lottery_ticket_address : felt):
+    end
+
+    func get_random_number_generator_address() -> (random_number_generator_address : felt):
+    end
+
+    func get_payment_token_address() -> (payment_token_address : felt):
+    end
+
+    func get_merkle_root(id : felt) -> (merkle_root : felt):
     end
 end
 
@@ -66,6 +99,12 @@ namespace IERC1155_Receiver:
     end
 
     func supportsInterface(interfaceId : felt) -> (success : felt):
+    end
+end
+
+@contract_interface
+namespace IAdmin:
+    func is_admin(user_address : felt) -> (res : felt):
     end
 end
 
@@ -254,5 +293,28 @@ namespace IVault:
     end
 
     func swapWithdrawalStackIndexes(index1 : felt, index2 : felt):
+    end
+end
+
+const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
+
+@contract_interface
+namespace IXoroshiro:
+    func next() -> (rnd : felt):
+    end
+end
+
+@contract_interface
+namespace ITask:
+    # # @notice Called by task automators to see if task needs to be executed.
+    # # @dev Do not return other values as keeper behavior is undefined.
+    # # @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
+    func probeTask() -> (taskReady : felt):
+    end
+
+    # # @notice Main endpoint for task execution. Task automators call this to execute your task.
+    # # @dev This function should not have access restrictions. However, this function could
+    # # still be called even if `probeTask` returns 0 and needs to be protected accordingly.
+    func executeTask() -> ():
     end
 end
