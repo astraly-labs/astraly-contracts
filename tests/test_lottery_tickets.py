@@ -1451,3 +1451,11 @@ async def test_claim_expired(full_factory):
 
     await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
+
+@pytest.mark.asyncio
+async def test_kyc(erc1155_factory) :
+    erc1155, owner, account, _, _ = erc1155_factory
+    message = pedersen_hash(owner.contract_address, 0)
+    sig = signer.sign(message)
+    print(sig)
+    await signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig),*sig])
