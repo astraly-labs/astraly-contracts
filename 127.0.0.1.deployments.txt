@@ -1,6 +1,0 @@
-0x07df77bc942026916ff>5352fe3bfd0a695ad03f8a860b2cc7f541fe5cfda7077:/home/filip/Work/zkpad-contracts/.venv/lib/python3.8/site-packages/nile/artifacts/abis/Account.json:account-0
-0x02d67ab1ec69f448ff01e7cc270058bad00d7b844df79dffabd99967fd65d6c1:/home/filip/Work/zkpad-contracts/.venv/lib/python3.8/site-packages/nile/artifacts/abis/Account.json:account-1
-0x0670ac7e003576952c009764c089cc28f99fe241b1cab689911d0b6cd8e609dd:artifacts/abis/ZkPadToken.json:zkp_token
-0x03d4f1bd602156002553ad95d5bec07dca10de852ec787b6761f3caa65a8241f:artifacts/abis/ZkPadStaking.json:xzkp_token_implementation
-0x02b02a3c3a5eafabb9c5637c1a70bf631e26c4a09e93052ba56c7ccf32019a97:artifacts/abis/OZProxy.json:xzkp_token_proxy
-0x06f1e93ca7615b10bef67999f55637cbe9832763fea3a90b5695be7e7001c6ff:artifacts/abis/ZkPadVaultHarvestTask.json:harvest_task

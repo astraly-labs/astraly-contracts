@@ -3,10 +3,8 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import (
     Uint256,
-    uint256_add,
     uint256_le,
     uint256_lt,
-    uint256_sub,
     uint256_check,
 )
 from starkware.cairo.common.math import (
@@ -429,20 +427,6 @@ func getImplementation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 end
 
 @view
-func previewRedeemLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    lp_token : felt, shares : Uint256
-) -> (amount : Uint256):
-    alloc_locals
-    only_whitelisted_token(lp_token)
-    let (caller_address : felt) = get_caller_address()
-    assert_not_before_unlock_time(caller_address)
-    let (lp_withdraw_amount : Uint256) = calculate_withdraw_lp_amount(
-        caller_address, lp_token, shares
-    )
-    return (lp_withdraw_amount)
-end
-
-@view
 func previewWithdrawLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     lp_token : felt, input : Uint256
 ) -> (amount : Uint256):
@@ -607,6 +591,9 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
     set_base_unit(asset_addr)
+    setDefaultLockTime(365)
+    setStakeBoost(25)
+    setFeePercent(1)  # TODO : Check division later
 
     let (decimals : felt) = IERC20.decimals(asset_addr)
     let (asset_base_unit : felt) = pow(10, decimals)
@@ -731,6 +718,8 @@ func depositForTime{
     set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
     update_user_after_deposit(receiver, underlying_asset, assets)
+
+    update_user_info_on_deposit(receiver, assets)
     ReentrancyGuard_end()
     return (shares)
 end
@@ -799,6 +788,7 @@ func mint{
     let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
     update_user_after_deposit(receiver, underlying_asset, assets)
+    update_user_info_on_deposit(receiver, assets)
     ReentrancyGuard_end()
     return (assets)
 end
@@ -830,6 +820,7 @@ func redeem{
 }(shares : Uint256, receiver : felt, owner : felt) -> (assets : Uint256):
     alloc_locals
     Pausable_when_not_paused()
+    ReentrancyGuard_start()
     assert_not_before_unlock_time(owner)
     let (withdraw_amount : Uint256) = previewRedeem(shares)
     check_enough_underlying_balance(withdraw_amount)
@@ -839,6 +830,34 @@ func redeem{
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
     remove_from_deposit(owner, zkp_address, assets)
+
+
+    # Harvest pending rewards
+    let (cur_user_info : UserInfo) = userInfo(owner)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, current_acc_token_per_share)
+    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+    let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+
+    let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    # Update user info
+    update_user_info_on_withdraw(receiver, assets)
+
+    # Send rewards
+    let (is_positive : felt) = uint256_is_not_zero(pending_rewards)
+    if is_positive == TRUE:
+        IERC20.mint(zkp_address, receiver, pending_rewards)
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    else:
+        tempvar syscall_ptr : felt* = syscall_ptr
+        tempvar range_check_ptr = range_check_ptr
+        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
+    end
+
+    ReentrancyGuard_end()
     return (assets)
 end
 
@@ -848,6 +867,7 @@ func withdraw{
 }(assets : Uint256, receiver : felt, owner : felt) -> (shares : Uint256):
     alloc_locals
     Pausable_when_not_paused()
+    ReentrancyGuard_start()
     assert_not_before_unlock_time(owner)
     check_enough_underlying_balance(assets)
     # Update pool
@@ -968,11 +988,14 @@ end
 func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     recipient : felt, amount : Uint256
 ) -> (success : felt):
+    alloc_locals
     Pausable_when_not_paused()
     let (caller_address : felt) = get_caller_address()
     assert_not_before_unlock_time(caller_address)
     update_pool()
     ERC20_transfer(recipient, amount)
+    update_user_info_on_withdraw(caller_address, amount)
+    update_user_info_on_deposit(recipient, amount)
     return (TRUE)
 end
 
@@ -984,6 +1007,8 @@ func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     assert_not_before_unlock_time(sender)
     update_pool()
     ERC20_transferFrom(sender, recipient, amount)
+    update_user_info_on_withdraw(sender, amount)
+    update_user_info_on_deposit(recipient, amount)
     return (TRUE)
 end
 
@@ -1067,13 +1092,32 @@ end
 func harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategies_len : felt, strategies : felt*
 ):
-    Ownable_only_owner()
+    only_owner_or_harvest_task_contract()
     harvest_investment(strategies_len, strategies)
     return ()
 end
 
+
 @external
 func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt, underlying_amount : Uint256
+):
+    Ownable_only_owner()
+    deposit_into_strategy(strategy_address, underlying_amount)
+    return ()
+end
+
+@external
+func withdrawFromStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt, underlying_amount : Uint256
+):
+    Ownable_only_owner()
+    withdraw_from_strategy(strategy_address, underlying_amount)
+    return ()
+end
+
+@external
+func trustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt
 ):
     Ownable_only_owner()
@@ -1223,12 +1267,12 @@ end
 func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (emergency_breaker_address : felt) = emergency_breaker.read()
     let (owner : felt) = Ownable_get_owner()
     local permissions
     if owner == caller_address:
         permissions = TRUE
     end
+    let (emergency_breaker_address : felt) = emergency_breaker.read()
     if emergency_breaker_address == caller_address:
         permissions = TRUE  # either owner or emergency breaker have permission to pause the contract
     end
@@ -1290,14 +1334,6 @@ func different_than_underlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
         let (underlying_asset : felt) = asset()
         assert_not_equal(underlying_asset, address)
     end
-    return ()
-end
-
-func withdraw_from_investment_strategies{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}(lp_token_address : felt, amount : Uint256):
-    # TODO: implement
-    assert 0 = 1
     return ()
 end
 
@@ -1394,20 +1430,12 @@ func update_user_after_deposit{
     let (is_first_deposit : felt) = uint256_is_zero(current_deposit_amount)
     if is_first_deposit == TRUE:
         add_token_to_user_mask(user, token)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-        tempvar bitwise_ptr : BitwiseBuiltin* = bitwise_ptr
+        return ()
     end
     return ()
 end
 
-# remove user staked tokens from the bit mask is new balance is 0
+# remove user staked tokens from the bit mask if new balance is 0
 func remove_from_deposit{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
 }(user : felt, token : felt, withdrawned_amount : Uint256):
