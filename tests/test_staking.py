@@ -106,7 +106,7 @@ async def contacts_init(contract_defs, get_starknet):
                                                constructor_calldata=[zk_pad_stake_implementation.contract_address])
 
     START_BLOCK = get_block_number(starknet.state)
-    END_BLOCK = START_BLOCK + 10000
+    END_BLOCK = START_BLOCK + 10_000
 
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
         NAME,
@@ -182,7 +182,7 @@ async def cache_on_state(state, contract_def, deployment_func):
 
 
 @pytest.mark.asyncio
-async def test_proxy_upgrade(contract_defs, contacts_init):
+async def test_proxy_upgrade(contract_defs):
     account_def, proxy_def, _, zk_pad_stake_def = contract_defs
     erc20_def = get_contract_def('openzeppelin/token/erc20/ERC20.cairo')
     starknet = await Starknet.empty()
@@ -213,7 +213,7 @@ async def test_proxy_upgrade(contract_defs, contacts_init):
                                                                                                     zk_pad_stake_implementation.contract_address]))
 
     START_BLOCK = get_block_number(starknet.state)
-    END_BLOCK = START_BLOCK + 10000
+    END_BLOCK = START_BLOCK + 10_000
 
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "initializer", [
         NAME,

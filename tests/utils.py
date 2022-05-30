@@ -144,29 +144,22 @@ def cached_contract(state, definition, deployed):
     return contract
 
 
-class Signer():
+class Signer:
     """
     Utility for sending signed transactions to an Account on Starknet.
-
     Parameters
     ----------
-
     private_key : int
-
     Examples
     ---------
     Constructing a Signer object
-
     >>> signer = Signer(1234)
-
     Sending a transaction
-
     >>> await signer.send_transaction(account,
                                       account.contract_address,
                                       'set_public_key',
                                       [other.public_key]
                                      )
-
     """
 
     def __init__(self, private_key):

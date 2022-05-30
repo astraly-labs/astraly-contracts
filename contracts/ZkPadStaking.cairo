@@ -1,12 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import (
-    Uint256,
-    uint256_le,
-    uint256_lt,
-    uint256_check,
-)
+from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_lt, uint256_check
 from starkware.cairo.common.math import (
     assert_not_equal,
     assert_not_zero,
@@ -23,7 +18,7 @@ from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_contract_address,
     get_block_timestamp,
-    get_block_number
+    get_block_number,
 )
 
 from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
@@ -83,7 +78,7 @@ from contracts.erc4626.ERC4626 import (
     ERC4626_mint,
     ERC4626_previewDeposit,
     ERC4626_previewMint,
-    ERC4626_convertToShares
+    ERC4626_convertToShares,
 )
 from contracts.erc4626.library import (
     getWithdrawalStack,
@@ -101,7 +96,6 @@ from contracts.erc4626.library import (
     set_harvest_window,
     set_harvest_delay,
     set_target_float_percent,
-    set_base_unit,
     harvest_investment,
     deposit_into_strategy,
     withdraw_from_strategy,
@@ -119,9 +113,15 @@ from contracts.erc4626.library import (
     decrease_allowance_by_amount,
     set_default_lock_time,
     days_to_seconds,
-    default_lock_time_days
+    default_lock_time_days,
 )
-from contracts.utils import uint256_is_zero, uint256_is_not_zero, uint256_assert_not_zero, and, is_lt
+from contracts.utils import (
+    uint256_is_zero,
+    uint256_is_not_zero,
+    uint256_assert_not_zero,
+    and,
+    is_lt,
+)
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
 from InterfaceAll import IERC20, UserInfo
 
@@ -149,10 +149,6 @@ func DepositLP(
 end
 
 @event
-func RedeemLP(receiver : felt, owner : felt, lp_token : felt, assets : Uint256, shares : Uint256):
-end
-
-@event
 func WithdrawLP(
     caller : felt,
     receiver : felt,
@@ -169,6 +165,7 @@ end
 
 @event
 func HarvestRewards(user : felt, harvestAmount : Uint256):
+end
 
 #
 # Storage variables
@@ -235,72 +232,17 @@ end
 func harvest_task_contract() -> (address : felt):
 end
 
-func base_unit() -> (unit : felt):
-end
-
-@storage_var
-func fee_percent() -> (fee : felt):
-end
-
-@storage_var
-func harvest_window() -> (window : felt):
-end
-
-@storage_var
-func harvest_delay() -> (delay : felt):
-end
-
-@storage_var
-func next_harvest_delay() -> (delay : felt):
-end
-
-# # @notice The desired float percentage of holdings.
-# # @dev A fixed point number where 1e18 represents 100% and 0 represents 0%.
-@storage_var
-func target_float_percent() -> (percent : Uint256):
-end
-
-# # @notice The total amount of underlying tokens held in strategies at the time of the last harvest.
-# # @dev Includes maxLockedProfit, must be correctly subtracted to compute available/free holdings.
-@storage_var
-func total_strategy_holdings() -> (holdings : Uint256):
-end
-
-# # @notice Maps strategies to data the Vault holds on them.
-@storage_var
-func strategy_data(strategy : felt) -> (data : StrategyData):
-end
-
-# # @notice A timestamp representing when the first harvest in the most recent harvest window occurred.
-# # @dev May be equal to lastHarvest if there was/has only been one harvest in the most last/current window.
-@storage_var
-func last_harvest_window_start() -> (start : felt):
-end
-
-# # @notice A timestamp representing when the most recent harvest occurred.
-@storage_var
-func last_harvest() -> (harvest : felt):
-end
-
-# # @notice The amount of locked profit at the end of the last harvest.
-@storage_var
-func max_locked_profit() -> (profit : felt):
-end
-
-# # @notice An ordered array of strategies representing the withdrawal queue.
-# # @dev The queue is processed in descending order.
-# # @dev Returns a tupled-array of (array_len, Strategy[])
-@storage_var
-func withdrawal_queue(index : felt) -> (strategy_address : felt):
-end
-
-@storage_var
-func withdrawal_queue_length() -> (length : felt):
-end
-
 #
 # View
 #
+
+@view
+func getUserDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt, token : felt
+) -> (amount : Uint256):
+    let (amount : Uint256) = deposits.read(user, token)
+    return (amount)
+end
 
 @view
 func isTokenWhitelisted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -529,11 +471,15 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     if yes_no == TRUE:
         let (multiplier : felt) = getMultiplier(current_last_reward_block, block_number)
         let (current_reward_per_block : Uint256) = rewardPerBlock()
-        let (token_reward : Uint256) = uint256_checked_mul(Uint256(multiplier, 0), current_reward_per_block)
+        let (token_reward : Uint256) = uint256_checked_mul(
+            Uint256(multiplier, 0), current_reward_per_block
+        )
 
         let (mul : Uint256) = uint256_checked_mul(token_reward, PRECISION_FACTOR)
         let (div : Uint256, _) = uint256_checked_div_rem(mul, staked_token_supply)
-        let (adjusted_token_per_share : Uint256) = uint256_checked_add(current_acc_token_per_share, div)
+        let (adjusted_token_per_share : Uint256) = uint256_checked_add(
+            current_acc_token_per_share, div
+        )
 
         let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, adjusted_token_per_share)
         let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
@@ -590,14 +536,9 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     Proxy_initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
-    set_base_unit(asset_addr)
     setDefaultLockTime(365)
     setStakeBoost(25)
     setFeePercent(1)  # TODO : Check division later
-
-    let (decimals : felt) = IERC20.decimals(asset_addr)
-    let (asset_base_unit : felt) = pow(10, decimals)
-    base_unit.write(asset_base_unit)
 
     # # Add ZKP token to the whitelist and bit mask on first position
     token_mask_addresses.write(1, asset_addr)
@@ -830,7 +771,6 @@ func redeem{
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
     remove_from_deposit(owner, zkp_address, assets)
-
 
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(owner)
@@ -1097,7 +1037,6 @@ func harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     return ()
 end
 
-
 @external
 func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
@@ -1293,7 +1232,6 @@ end
 #
 # Internal
 #
-
 
 func only_owner_or_harvest_task_contract{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
@@ -1492,7 +1430,7 @@ func update_pool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     if is_positive == TRUE:
         let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
         let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
-        
+
         let (precise_token_reward : Uint256) = uint256_checked_mul(token_reward, PRECISION_FACTOR)
         let (divider : Uint256, _) = uint256_checked_div_rem(precise_token_reward, staked_supply)
         let (new_acc_token_per_share : Uint256) = uint256_checked_add(

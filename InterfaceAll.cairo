@@ -11,12 +11,6 @@
 %lang starknet
 from starkware.cairo.common.uint256 import Uint256
 
-@contract_interface
-namespace IAccount:
-    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
-    end
-end
-
 struct UserInfo:
     member amount : Uint256
     member reward_debt : Uint256
@@ -35,17 +29,17 @@ struct Registration:
 end
 
 @contract_interface
+namespace IAccount:
+    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
+    end
+end
+
+@contract_interface
 namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
     func register_user(amount : Uint256, account : felt) -> (res : felt):
-    end
-end
-
-@contract_interface
-namespace IAccount:
-    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
     end
 end
 
@@ -61,13 +55,20 @@ end
 @contract_interface
 namespace IERC1155_Receiver:
     func onERC1155Received(
-            operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt,
-            data : felt*) -> (selector : felt):
+        operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt, data : felt*
+    ) -> (selector : felt):
     end
 
     func onERC1155BatchReceived(
-            operator : felt, _from : felt, ids_len : felt, ids : Uint256*, values_len : felt,
-            values : Uint256*, data_len : felt, data : felt*) -> (selector : felt):
+        operator : felt,
+        _from : felt,
+        ids_len : felt,
+        ids : Uint256*,
+        values_len : felt,
+        values : Uint256*,
+        data_len : felt,
+        data : felt*,
+    ) -> (selector : felt):
     end
 
     func supportsInterface(interfaceId : felt) -> (success : felt):
@@ -142,7 +143,7 @@ namespace IERC20:
     func balanceOf(account : felt) -> (balance : Uint256):
     end
 
-    func mint(to: felt, amount: Uint256):
+    func mint(to : felt, amount : Uint256):
     end
 
     func allowance(owner : felt, spender : felt) -> (remaining : Uint256):
@@ -155,5 +156,109 @@ namespace IERC20:
     end
 
     func approve(spender : felt, amount : Uint256) -> (success : felt):
+    end
+end
+
+@contract_interface
+namespace IVault:
+    func feePercent() -> (fee_percent : felt):
+    end
+
+    func lockedProfit() -> (res : Uint256):
+    end
+
+    func harvestDelay() -> (harvest_delay : felt):
+    end
+
+    func harvestWindow() -> (harvest_window : felt):
+    end
+
+    func targetFloatPercent() -> (float_percent : felt):
+    end
+
+    func canHarvest() -> (yes_no : felt):
+    end
+
+    func lastHarvestWindowStart() -> (last_harvest_window_start : felt):
+    end
+
+    func getWithdrawalStack() -> (strategies_len : felt, strategies : felt*):
+    end
+
+    func rewardPerBlock() -> (reward : Uint256):
+    end
+
+    func startBlock() -> (block : felt):
+    end
+
+    func endBlock() -> (block : felt):
+    end
+
+    func lastRewardBlock() -> (block : felt):
+    end
+
+    func accTokenPerShare() -> (res : Uint256):
+    end
+
+    func getMultiplier(_from : felt, _to : felt) -> (multiplier : felt):
+    end
+
+    func userInfo(user : felt) -> (info : UserInfo):
+    end
+
+    func totalFloat() -> (float : Uint256):
+    end
+
+    func harvest(strategies_len : felt, strategies : felt*):
+    end
+
+    func setFeePercent(new_fee_percent : felt):
+    end
+
+    func setHarvestDelay(new_harvest_delay : felt):
+    end
+
+    func setHarvestWindow(new_harvest_window : felt):
+    end
+
+    func setTargetFloatPercent(float_percent : felt):
+    end
+
+    func setHarvestTaskContract(address : felt):
+    end
+
+    func updateRewardPerBlockAndEndBlock(reward_per_block : Uint256, new_end_block : felt):
+    end
+
+    func initializer(
+        name : felt,
+        symbol : felt,
+        asset_addr : felt,
+        owner : felt,
+        reward_per_block : Uint256,
+        start_reward_block : felt,
+        end_reward_block : felt,
+    ):
+    end
+
+    func harvestRewards():
+    end
+
+    func calculatePendingRewards(user : felt) -> (rewards : Uint256):
+    end
+
+    func pushToWithdrawalStack(strategy : felt):
+    end
+
+    func popFromWithdrawalStack():
+    end
+
+    func setWithdrawalStack(stack_len : felt, stack : felt*):
+    end
+
+    func replaceWithdrawalStackIndex(index : felt, address : felt):
+    end
+
+    func swapWithdrawalStackIndexes(index1 : felt, index2 : felt):
     end
 end
