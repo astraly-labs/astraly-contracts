@@ -529,7 +529,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     owner : felt,
     _reward_per_block : Uint256,
     start_reward_block : felt,
-    end_reward_block : felt,
+    end_reward_block : felt
 ):
     alloc_locals
     assert_not_zero(owner)
