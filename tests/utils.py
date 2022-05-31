@@ -2,6 +2,7 @@
 from collections import namedtuple
 from pathlib import Path
 import math
+import asyncio
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
@@ -11,6 +12,7 @@ from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event
+from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 
 MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
