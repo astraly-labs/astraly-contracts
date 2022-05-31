@@ -15,7 +15,7 @@ from starkware.cairo.common.uint256 import Uint256
 
 struct UserInfo:
     member amount : Uint256
-    member rewardDebt : Uint256
+    member reward_debt : Uint256
 end
 
 struct Purchase_Round:
@@ -202,7 +202,7 @@ namespace IERC20:
     func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
 
-    func mint(to : felt, amount : Uint256) -> (success : felt):
+    func mint(to : felt, amount : Uint256):
     end
 end
 
@@ -303,7 +303,15 @@ namespace IVault:
     func updateRewardPerBlockAndEndBlock(_reward_per_block : Uint256, new_end_block : felt):
     end
 
-    func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
+    func initializer(
+        name : felt,
+        symbol : felt,
+        asset_addr : felt,
+        owner : felt,
+        reward_per_block : Uint256,
+        start_reward_block : felt,
+        end_reward_block : felt,
+    ):
     end
 
     func harvestRewards():

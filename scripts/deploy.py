@@ -17,8 +17,12 @@ def str_to_felt(text):
     return int.from_bytes(b_text, "big")
 
 
-INITIAL_SUPPLY = "10000000000000000000000"
-MAX_SUPPLY = "100000000000000000000000000"
+def parse_ether(value: int):
+    return int(value * 1e18)
+
+
+INITIAL_SUPPLY = parse_ether(10_000_000)  # TODO: check value before deploy
+MAX_SUPPLY = parse_ether(100_000_000)  # TODO: check value before deploy
 DECIMALS = "18"
 NAME = str_to_felt("ZkPad")
 SYMBOL = str_to_felt("ZKP")
@@ -26,7 +30,7 @@ SYMBOL = str_to_felt("ZKP")
 XZKP_NAME = str_to_felt("xZkPad")
 XZKP_SYMBOL = str_to_felt("xZKP")
 
-REWARDS_PER_BLOCK = to_uint(10)
+REWARDS_PER_BLOCK = to_uint(parse_ether(10))
 START_BLOCK = 0
 END_BLOCK = START_BLOCK + 10000
 
@@ -103,7 +107,8 @@ def run(nre: NileRuntimeEnvironment):
 
     harvest_task_contract = None
     try:
-        harvest_task_contract, _ = nre.deploy("ZkPadVaultHarvestTask", arguments=[xzkp_token], alias="harvest_task")
+        harvest_task_contract, _ = nre.deploy("ZkPadVaultHarvestTask", arguments=[
+                                              xzkp_token], alias="harvest_task")
     except Exception as error:
         if "already exists" in str(error):
             harvest_task_contract, _ = nre.get_deployment("harvest_task")
@@ -112,4 +117,5 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed harvest task contract to {xzkp_token}")
 
-    signer.send(xzkp_token, "setHarvestTaskContract", calldata=[int(harvest_task_contract, 16)])
+    signer.send(xzkp_token, "setHarvestTaskContract",
+                calldata=[int(harvest_task_contract, 16)])

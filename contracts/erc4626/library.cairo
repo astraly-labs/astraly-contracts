@@ -235,6 +235,9 @@ func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 ):
     alloc_locals
     let (decimals) = IERC20.decimals(contract_address=asset_addr)
+    let (asset_base_unit : felt) = pow(10, decimals)
+    base_unit.write(asset_base_unit)
+    
     ERC20_initializer(name, symbol, decimals)
     ERC4626_asset_addr.write(asset_addr)
     return ()
@@ -802,14 +805,6 @@ func set_target_float_percent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, 
     target_float_percent.write(new_float)
     let (caller : felt) = get_caller_address()
     TargetFloatPercentUpdated.emit(caller, new_float)
-    return ()
-end
-
-func set_base_unit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(token : felt):
-    alloc_locals
-    let (decimals : felt) = IERC20.decimals(token)
-    let (asset_base_unit : felt) = pow(10, decimals)
-    base_unit.write(asset_base_unit)
     return ()
 end
 

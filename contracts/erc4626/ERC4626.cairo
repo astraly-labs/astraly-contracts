@@ -169,32 +169,6 @@ func previewWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
 end
 
 @view
-func previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    assets : Uint256
-) -> (shares : Uint256):
-    let (default_lock_period : felt) = default_lock_time_days.read()
-    let (shares) = ERC4626_previewDeposit(assets, default_lock_period)
-    return (shares)
-end
-
-@view
-func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256
-) -> (assets : Uint256):
-    let (default_lock_period : felt) = default_lock_time_days.read()
-    let (assets) = ERC4626_previewMint(shares, default_lock_period)
-    return (assets)
-end
-
-@view
-func previewMintForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256, lock_time : felt
-) -> (assets : Uint256):
-    let (assets) = ERC4626_previewMint(shares, lock_time)
-    return (assets)
-end
-
-@view
 func maxRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(owner : felt) -> (
     maxShares : Uint256
 ):

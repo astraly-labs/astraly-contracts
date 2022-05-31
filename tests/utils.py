@@ -1,7 +1,6 @@
 """Utilities for testing Cairo contracts."""
 from collections import namedtuple
 from pathlib import Path
-import asyncio
 import math
 import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
@@ -10,9 +9,8 @@ from starkware.starknet.business_logic.state.state import BlockInfo
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
-from starkware.starknet.testing.starknet import StarknetContract, Starknet
+from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event
-from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 
 MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
@@ -138,29 +136,22 @@ def cached_contract(state, definition, deployed):
     return contract
 
 
-class Signer():
+class Signer:
     """
     Utility for sending signed transactions to an Account on Starknet.
-
     Parameters
     ----------
-
     private_key : int
-
     Examples
     ---------
     Constructing a Signer object
-
     >>> signer = Signer(1234)
-
     Sending a transaction
-
     >>> await signer.send_transaction(account,
                                       account.contract_address,
                                       'set_public_key',
                                       [other.public_key]
                                      )
-
     """
 
     def __init__(self, private_key):
@@ -222,9 +213,10 @@ def get_block_timestamp(starknet_state):
     return starknet_state.state.block_info.block_timestamp
 
 
-def set_block_timestamp(starknet_state: Starknet, timestamp):
-    new_block_number = int((timestamp - 1609452000) / 7)  # calculate blocks at every 7 sec from 01.01.2020
-    starknet_state.state.block_info = BlockInfo.create_for_testing(new_block_number, timestamp)
+def set_block_timestamp(starknet_state, timestamp):
+    starknet_state.state.block_info = BlockInfo.create_for_testing(
+        starknet_state.state.block_info.block_number, timestamp
+    )
 
 
 def get_block_number(starknet_state):

@@ -4,6 +4,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.math_cmp import is_le
 
 from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
 
@@ -19,6 +20,23 @@ func uint256_is_not_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     else:
         return (TRUE)
     end
+end
+
+func uint256_mul_checked{range_check_ptr}(a : Uint256, b : Uint256) -> (product : Uint256):
+    alloc_locals
+
+    let (product, carry) = uint256_mul(a, b)
+    let (in_range) = uint256_is_zero(carry)
+    with_attr error_message("number too big"):
+        assert in_range = 1
+    end
+    return (product)
+end
+
+func uint256_assert_not_zero{range_check_ptr}(value : Uint256):
+    let (is_zero : felt) = uint256_is_not_zero(value)
+    assert is_zero = TRUE
+    return ()
 end
 
 # EXAMPLE
@@ -84,6 +102,14 @@ func or{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
         return (1)
     end
     return (0)
+end
+
+func is_lt{syscall_ptr : felt*, range_check_ptr}(lhs : felt, rhs : felt) -> (res : felt):
+    if rhs == 0:
+        return (FALSE)
+    end
+    let (res : felt) = is_le(lhs, rhs - 1)
+    return (res)
 end
 
 func mul_div_down{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
