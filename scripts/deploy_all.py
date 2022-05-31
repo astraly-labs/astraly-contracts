@@ -92,7 +92,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed Admin to {admin_contract}")
 
-    # deploy random nunber generator contract
+    # deploy random number generator contract
     xoroshiro_contract = None
     try:
         xoroshiro_contract, xoroshiro_contract_abi = nre.deploy(

@@ -1,12 +1,13 @@
 from tracemalloc import start
 import pytest
 from utils import *
+import asyncio
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.public.abi import get_selector_from_name
 from datetime import datetime, date, timedelta
-from conftest import get_block_timestamp, set_block_timestamp
+from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 
 TRUE = 1
@@ -58,6 +59,11 @@ def advance_clock(starknet_state, num_seconds):
 
 def days_to_seconds(days: int):
     return days * 24 * 60 * 60
+
+
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 
 @pytest.fixture(scope='module')

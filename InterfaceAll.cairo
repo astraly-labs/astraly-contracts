@@ -13,6 +13,11 @@
 %lang starknet
 from starkware.cairo.common.uint256 import Uint256
 
+struct UserInfo:
+    member amount : Uint256
+    member reward_debt : Uint256
+end
+
 struct Purchase_Round:
     member time_starts : felt
     member time_ends : felt
@@ -40,6 +45,12 @@ namespace IZkPadIDOContract:
     end
 
     func calculate_allocation():
+    end
+end
+
+@contract_interface
+namespace IAccount:
+    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
     end
 end
 
@@ -190,6 +201,9 @@ namespace IERC20:
 
     func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
+
+    func mint(to : felt, amount : Uint256):
+    end
 end
 
 const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
@@ -215,5 +229,109 @@ namespace ITask:
     end
 
     func setIDOContractAddress(address : felt) -> ():
+    end
+end
+
+@contract_interface
+namespace IVault:
+    func feePercent() -> (fee_percent : felt):
+    end
+
+    func lockedProfit() -> (res : Uint256):
+    end
+
+    func harvestDelay() -> (harvest_delay : felt):
+    end
+
+    func harvestWindow() -> (harvest_window : felt):
+    end
+
+    func targetFloatPercent() -> (float_percent : felt):
+    end
+
+    func canHarvest() -> (yes_no : felt):
+    end
+
+    func lastHarvestWindowStart() -> (last_harvest_window_start : felt):
+    end
+
+    func getWithdrawalStack() -> (strategies_len : felt, strategies : felt*):
+    end
+
+    func rewardPerBlock() -> (reward : Uint256):
+    end
+
+    func startBlock() -> (block : felt):
+    end
+
+    func endBlock() -> (block : felt):
+    end
+
+    func lastRewardBlock() -> (block : felt):
+    end
+
+    func accTokenPerShare() -> (res : Uint256):
+    end
+
+    func getMultiplier(_from : felt, _to : felt) -> (multiplier : felt):
+    end
+
+    func userInfo(user : felt) -> (info : UserInfo):
+    end
+
+    func totalFloat() -> (float : Uint256):
+    end
+
+    func harvest(strategies_len : felt, strategies : felt*):
+    end
+
+    func setFeePercent(new_fee_percent : felt):
+    end
+
+    func setHarvestDelay(new_harvest_delay : felt):
+    end
+
+    func setHarvestWindow(new_harvest_window : felt):
+    end
+
+    func setTargetFloatPercent(float_percent : felt):
+    end
+
+    func setHarvestTaskContract(address : felt):
+    end
+
+    func updateRewardPerBlockAndEndBlock(_reward_per_block : Uint256, new_end_block : felt):
+    end
+
+    func initializer(
+        name : felt,
+        symbol : felt,
+        asset_addr : felt,
+        owner : felt,
+        reward_per_block : Uint256,
+        start_reward_block : felt,
+        end_reward_block : felt,
+    ):
+    end
+
+    func harvestRewards():
+    end
+
+    func calculatePendingRewards(user : felt) -> (rewards : Uint256):
+    end
+
+    func pushToWithdrawalStack(strategy : felt):
+    end
+
+    func popFromWithdrawalStack():
+    end
+
+    func setWithdrawalStack(stack_len : felt, stack : felt*):
+    end
+
+    func replaceWithdrawalStackIndex(index : felt, address : felt):
+    end
+
+    func swapWithdrawalStackIndexes(index1 : felt, index2 : felt):
     end
 end

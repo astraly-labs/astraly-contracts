@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 
 from starkware.starknet.testing.starknet import Starknet
 from utils import (
@@ -18,6 +19,11 @@ UINT_ZERO = to_uint(0)
 NAME = str_to_felt("ZkPad")
 SYMBOL = str_to_felt("ZKP")
 DECIMALS = 18
+
+
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 
 @pytest.fixture(scope='module')

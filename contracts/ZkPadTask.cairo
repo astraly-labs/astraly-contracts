@@ -11,7 +11,6 @@ from InterfaceAll import IZkPadIDOContract, Registration
 from openzeppelin.access.ownable import (
     Ownable_initializer,
     Ownable_only_owner,
-    Ownable_transfer_ownership,
 )
 
 # # @title Yagi Task

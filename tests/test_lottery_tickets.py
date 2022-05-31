@@ -70,12 +70,16 @@ UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
 NB_QUEST = 2
 
+REWARDS_PER_BLOCK = to_uint(10)
+START_BLOCK = 0
+END_BLOCK = START_BLOCK + 10000
+
 
 # Fixtures
 
-# @pytest.fixture(scope='module')
-# def event_loop():
-#     return asyncio.new_event_loop()
+@pytest.fixture(scope='module')
+def event_loop():
+    return asyncio.new_event_loop()
 
 
 @pytest.fixture(scope='module')
@@ -138,7 +142,10 @@ async def erc1155_init(contract_defs):
         str_to_felt("xZkPad"),
         str_to_felt("xZKP"),
         zk_pad_token.contract_address,
-        account1.contract_address
+        account1.contract_address,
+        *REWARDS_PER_BLOCK,
+        START_BLOCK,
+        END_BLOCK
     ])
     MERKLE_INFO = get_leaves(
         [account1.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
@@ -1444,3 +1451,11 @@ async def test_claim_expired(full_factory):
 
     await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
+
+@pytest.mark.asyncio
+async def test_kyc(erc1155_factory) :
+    erc1155, owner, account, _, _ = erc1155_factory
+    message = pedersen_hash(owner.contract_address, 0)
+    sig = signer.sign(message)
+    print(sig)
+    await signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig),*sig])
