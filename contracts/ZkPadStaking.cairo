@@ -1,7 +1,13 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_lt, uint256_check
+from starkware.cairo.common.uint256 import (
+    Uint256,
+    uint256_le,
+    uint256_lt,
+    uint256_check,
+    uint256_eq,
+)
 from starkware.cairo.common.math import (
     assert_not_equal,
     assert_not_zero,
@@ -62,22 +68,23 @@ from contracts.erc4626.ERC4626 import (
     balanceOf,
     allowance,
     asset,
-    totalAssets,
     convertToShares,
     convertToAssets,
     maxDeposit,
     maxMint,
     maxWithdraw,
     previewWithdraw,
+    previewDeposit,
+    previewMint,
+    previewMintForTime,
     maxRedeem,
+    totalAssets,
     previewRedeem,
     ERC4626_withdraw,
     ERC4626_deposit,
     ERC4626_initializer,
     ERC4626_redeem,
     ERC4626_mint,
-    ERC4626_previewDeposit,
-    ERC4626_previewMint,
     ERC4626_convertToShares,
 )
 from contracts.erc4626.library import (
@@ -235,6 +242,13 @@ end
 #
 # View
 #
+@view
+func getUserDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt, token : felt
+) -> (amount : Uint256):
+    let (amount : Uint256) = deposits.read(user, token)
+    return (amount)
+end
 
 @view
 func getUserDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -266,10 +280,10 @@ end
 
 @view
 func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    assets : Uint256, lock_time : felt
+    assets : Uint256, lock_time_days : felt
 ) -> (shares : Uint256):
     let (shares : Uint256) = ERC4626_convertToShares(assets)
-    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time_days)
     return (result)
 end
 
@@ -279,7 +293,7 @@ end
 # lock_time Number of days user lock the tokens
 @view
 func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    lp_token : felt, assets : Uint256, lock_time : felt
+    lp_token : felt, assets : Uint256, lock_time_days : felt
 ) -> (shares : Uint256):
     alloc_locals
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
@@ -294,7 +308,7 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (zkp_quote : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, assets
     )
-    let (shares : Uint256) = ERC4626_previewDeposit(zkp_quote, lock_time)
+    let (shares : Uint256) = previewDepositForTime(zkp_quote, lock_time_days)
     let (current_lp_boost : felt) = lp_stake_boost.read()
     if current_lp_boost == 0:
         return (shares)
@@ -302,23 +316,6 @@ func previewDepositLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
     let (applied_boost : Uint256) = uint256_checked_mul(shares, Uint256(current_lp_boost, 0))
     let (res : Uint256, _) = uint256_checked_div_rem(applied_boost, Uint256(10, 0))
     return (res)
-end
-
-@view
-func previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256
-) -> (assets : Uint256):
-    let (default_lock_period : felt) = default_lock_time_days.read()
-    let (assets) = ERC4626_previewMint(shares, default_lock_period)
-    return (assets)
-end
-
-@view
-func previewMintForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    shares : Uint256, lock_time : felt
-) -> (assets : Uint256):
-    let (assets) = ERC4626_previewMint(shares, lock_time)
-    return (assets)
 end
 
 @view
@@ -374,7 +371,6 @@ func previewWithdrawLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 ) -> (amount : Uint256):
     only_whitelisted_token(lp_token)
     let (caller_address : felt) = get_caller_address()
-    assert_not_before_unlock_time(caller_address)
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     let (output : Uint256) = IMintCalculator.getAmountToMint(
         whitelisted_token.mint_calculator_address, input
@@ -384,7 +380,7 @@ end
 
 @view
 func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    lock_time : felt
+    lock_time_days : felt
 ):
     let (lock_time_days : felt) = default_lock_time_days.read()
     return (lock_time_days)
@@ -529,7 +525,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     owner : felt,
     _reward_per_block : Uint256,
     start_reward_block : felt,
-    end_reward_block : felt
+    end_reward_block : felt,
 ):
     alloc_locals
     assert_not_zero(owner)
@@ -660,7 +656,9 @@ func depositForTime{
     let (underlying_asset : felt) = asset()
     update_user_after_deposit(receiver, underlying_asset, assets)
 
+    # Update user info
     update_user_info_on_deposit(receiver, assets)
+
     ReentrancyGuard_end()
     return (shares)
 end
@@ -724,6 +722,9 @@ func mint{
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
+
+    # Update user info
+    update_user_info_on_deposit(receiver, assets)
 
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
@@ -873,7 +874,7 @@ func withdrawLP{
     local syscall_ptr : felt* = syscall_ptr
     local pedersen_ptr : HashBuiltin* = pedersen_ptr
 
-    let (current_xzkp_user_balance) = balanceOf(owner)
+    let (current_xzkp_user_balance : Uint256) = balanceOf(owner)
 
     let (output_le : felt) = uint256_le(shares, current_xzkp_user_balance)
     with_attr error_message("invalid xZKP balance"):

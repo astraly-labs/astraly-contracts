@@ -182,6 +182,22 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (enough_supply) = uint256_le(sum, cap)
     assert_not_zero(enough_supply)
     ERC20_mint(to, amount)
+    return (TRUE)
+end
+
+func Authorized_only{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    let (owner : felt) = Ownable_get_owner()
+    let (xzkp_address : felt) = vault_address.read()
+    let (caller : felt) = get_caller_address()
+
+    let (is_owner : felt) = get_is_equal(owner, caller)
+    let (is_vault : felt) = get_is_equal(xzkp_address, caller)
+
+    with_attr error_message("ZkPadToken:: Caller should be owner or vault"):
+        let (is_valid : felt) = or(is_vault, is_owner)
+        assert is_valid = TRUE
+    end
+
     return ()
 end
 

@@ -5,6 +5,8 @@
 # Interfaces include
 # - IZkIDOContract
 # - IERC4626
+# - ITask
+# - IZkIDOFactory
 # @author zkpad
 ####################################################################################
 
@@ -39,7 +41,7 @@ namespace IZkPadIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
-    func register_user(amount : Uint256, account : felt) -> (res : felt):
+    func register_user(amount : Uint256, account : felt, nb_quest : felt) -> (res : felt):
     end
 
     func get_purchase_round() -> (res : Purchase_Round):
@@ -190,6 +192,35 @@ namespace IERC20:
 
     func approve(spender : felt, amount : Uint256) -> (success : felt):
     end
+
+    func mint(to : felt, amount : Uint256) -> (success : felt):
+    end
+end
+
+const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
+
+@contract_interface
+namespace IXoroshiro:
+    func next() -> (rnd : felt):
+    end
+end
+
+@contract_interface
+namespace ITask:
+    # # @notice Called by task automators to see if task needs to be executed.
+    # # @dev Do not return other values as keeper behavior is undefined.
+    # # @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
+    func probeTask() -> (taskReady : felt):
+    end
+
+    # # @notice Main endpoint for task execution. Task automators call this to execute your task.
+    # # @dev This function should not have access restrictions. However, this function could
+    # # still be called even if `probeTask` returns 0 and needs to be protected accordingly.
+    func executeTask() -> ():
+    end
+
+    func setIDOContractAddress(address : felt) -> ():
+    end
 end
 
 @contract_interface
@@ -260,19 +291,9 @@ namespace IVault:
     func setHarvestTaskContract(address : felt):
     end
 
-    func updateRewardPerBlockAndEndBlock(reward_per_block : Uint256, new_end_block : felt):
+    func updateRewardPerBlockAndEndBlock(_reward_per_block : Uint256, new_end_block : felt):
     end
 
-    func initializer(
-        name : felt,
-        symbol : felt,
-        asset_addr : felt,
-        owner : felt,
-        reward_per_block : Uint256,
-        start_reward_block : felt,
-        end_reward_block : felt,
-    ):
-    end
 
     func harvestRewards():
     end
@@ -296,25 +317,6 @@ namespace IVault:
     end
 end
 
-const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c98683bea7460d
-
-@contract_interface
-namespace IXoroshiro:
-    func next() -> (rnd : felt):
-    end
-end
-
-@contract_interface
 namespace ITask:
-    # # @notice Called by task automators to see if task needs to be executed.
-    # # @dev Do not return other values as keeper behavior is undefined.
-    # # @return taskReady Assumes the value 1 if automation is ready to be called and 0 otherwise.
-    func probeTask() -> (taskReady : felt):
+    func initializer(name : felt, symbol : felt, asset_addr : felt, owner : felt):
     end
-
-    # # @notice Main endpoint for task execution. Task automators call this to execute your task.
-    # # @dev This function should not have access restrictions. However, this function could
-    # # still be called even if `probeTask` returns 0 and needs to be protected accordingly.
-    func executeTask() -> ():
-    end
-end

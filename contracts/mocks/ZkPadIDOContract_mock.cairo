@@ -26,7 +26,8 @@ end
 
 @external
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-        res : felt):
+    res : felt
+):
     let (ido_date : felt) = ido_launch_date.read()
     return (ido_date)
 end
@@ -40,14 +41,16 @@ end
 
 @external
 func set_claim_success{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        success : felt) -> ():
+    success : felt
+) -> ():
     claim_allocation_success.write(success)
     return ()
 end
 
 @external
 func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        amount : Uint256, account : felt) -> (res : felt):
+    amount : Uint256, account : felt, nb_quest : felt
+) -> (res : felt):
     let (success) = claim_allocation_success.read()
     return (success)
 end

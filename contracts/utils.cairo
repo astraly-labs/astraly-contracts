@@ -30,7 +30,6 @@ func uint256_mul_checked{range_check_ptr}(a : Uint256, b : Uint256) -> (product 
     with_attr error_message("number too big"):
         assert in_range = 1
     end
-    return (product)
 end
 
 func uint256_assert_not_zero{range_check_ptr}(value : Uint256):
@@ -64,7 +63,6 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return get_array(array_len - 1, array, mapping_ref)
 end
 
-
 # EXAMPLE
 # @storage_var
 # func array(index : felt) -> (value : felt):
@@ -75,7 +73,8 @@ end
 # end
 
 func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        array_len : felt, array : felt*, mapping_ref : felt) -> ():
+    array_len : felt, array : felt*, mapping_ref : felt
+) -> ():
     if array_len == 0:
         return ()
     end
