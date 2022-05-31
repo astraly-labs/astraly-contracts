@@ -304,7 +304,7 @@ def full_factory(contract_defs, full_init):
 async def test_constructor(erc1155_factory):
     erc1155, _, _, _, _ = erc1155_factory
 
-    execution_info = await erc1155.uri().invoke()
+    execution_info = await erc1155.uri(0).invoke()
     assert execution_info.result.uri == 0
 
 #
