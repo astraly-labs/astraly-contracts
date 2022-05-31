@@ -75,13 +75,13 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    uri : felt, owner : felt, _ido_factory_address : felt
+    uri_len : felt, uri : felt*, owner : felt, _ido_factory_address : felt
 ):
     # Initialize Admin
     assert_not_zero(owner)
     Ownable_initializer(owner)
     # Initialize ERC1155
-    ERC1155_initializer(uri)
+    ERC1155_initializer(uri_len, uri)
     # Setup IDO Factory Params
     assert_not_zero(_ido_factory_address)
     ido_factory_address.write(_ido_factory_address)
@@ -99,8 +99,10 @@ end
 
 # @dev Returns the URI for all token types
 @view
-func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (uri : felt):
-    return ERC1155_uri()
+func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index : felt) -> (
+    uri : felt
+):
+    return ERC1155_uri(index)
 end
 
 # @dev Returns the amount of tokens of token type token_id owned by owner
