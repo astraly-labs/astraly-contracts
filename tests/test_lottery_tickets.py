@@ -135,7 +135,7 @@ async def erc1155_init(contract_defs):
 
     zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/OZProxy.cairo')
     zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
                                                constructor_calldata=[zk_pad_stake_implementation.contract_address])
     await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
@@ -1452,10 +1452,11 @@ async def test_claim_expired(full_factory):
     await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
 
+
 @pytest.mark.asyncio
-async def test_kyc(erc1155_factory) :
+async def test_kyc(erc1155_factory):
     erc1155, owner, account, _, _ = erc1155_factory
     message = pedersen_hash(owner.contract_address, 0)
     sig = signer.sign(message)
     print(sig)
-    await signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig),*sig])
+    await signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig), *sig])

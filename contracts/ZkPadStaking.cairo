@@ -47,12 +47,7 @@ from contracts.openzeppelin.security.reentrancy_guard import (
     ReentrancyGuard_start,
     ReentrancyGuard_end,
 )
-from openzeppelin.upgrades.library import (
-    Proxy_only_admin,
-    Proxy_initializer,
-    Proxy_get_implementation,
-    Proxy_set_implementation,
-)
+from contracts.openzeppelin.upgrades.library import Proxy
 
 from contracts.erc4626.ERC4626 import (
     name,
@@ -364,7 +359,7 @@ end
 func getImplementation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     address : felt
 ):
-    let (address) = Proxy_get_implementation()
+    let (address) = Proxy.get_implementation()
     return (address)
 end
 
@@ -529,11 +524,11 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     owner : felt,
     _reward_per_block : Uint256,
     start_reward_block : felt,
-    end_reward_block : felt
+    end_reward_block : felt,
 ):
     alloc_locals
     assert_not_zero(owner)
-    Proxy_initializer(owner)
+    Proxy.initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
     Ownable_initializer(owner)
     setDefaultLockTime(365)
@@ -557,8 +552,8 @@ end
 func upgrade{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_implementation : felt
 ):
-    Proxy_only_admin()
-    Proxy_set_implementation(new_implementation)
+    Proxy.assert_only_admin()
+    Proxy._set_implementation(new_implementation)
     return ()
 end
 
