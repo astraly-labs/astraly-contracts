@@ -583,7 +583,7 @@ format_nongpl = ["fqdn", "idna", "isoduration", "jsonpointer (>1.13)", "rfc3339-
 
 [[package]]
 name = "lark"
-version = "1.1.2"
+version = "0.12.0"
 description = "a modern parsing library"
 category = "main"
 optional = false
