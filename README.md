@@ -9,18 +9,24 @@
 _Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet. Learn more about it [here](https://wp.zkpad.io)._
 
 ## Documentation
+
 You can find the latest technical documentation [here](https://zkpad.notion.site/Docs-fe24502e89aa479ebb8186c69c96c0c5)
 
 ## Contracts
 
-| Contract                                                 | Title          | Description                                                                                            |
-| -------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
-| [ZkPadStaking](./contracts/ZkPadStaking.cairo)           | xZKP Token     | Lock ZKP or ZKP-LP in the vault. Follows [ERC-4626](https://github.com/fei-protocol/ERC4626) standard. |
-| [ZkPadLotteryToken](./contracts/ZkPadLotteryToken.cairo) | Lottery Ticket | Lottery Ticket tokenized as ERC-1155 token.                                                            |
-| [ZkPadToken](./contracts/ZkPadToken.cairo)               | ZKP Token      | Native token of the platform. Follows ERC-20 standard. Mintable, Burnable, Pausable.                   |
-| [ZkPadIDO](./contracts/ZkPadIDO.cairo)                   | IDO Contract   | Handles the whole business logic of the IDO. Triggers VRF when a lottery ticket is burnt.              |
-| [ZkPadIDOFactory](./contracts/ZkPadIDO.cairo)            | IDO Factory    | Instanciates ZkPadIDO contracts for every new IDO.                                                     |
-| [Utils](./contracts/utils)                               | Cairo utils    |
+| Contract                                                         | Title          | Description                                                                                            |
+| ---------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
+| [ZkPadStaking](./contracts/ZkPadStaking.cairo)                   | xZKP Token     | Lock ZKP or ZKP-LP in the vault. Follows [ERC-4626](https://github.com/fei-protocol/ERC4626) standard. |
+| [ZkPadLotteryToken](./contracts/ZkPadLotteryToken.cairo)         | Lottery Ticket | Lottery Ticket tokenized as ERC-1155 token.                                                            |
+| [ZkPadToken](./contracts/ZkPadToken.cairo)                       | ZKP Token      | Native token of the platform. Follows ERC-20 standard. Mintable, Burnable, Pausable.                   |
+| [ZkPadIDO](./contracts/ZkPadIDO.cairo)                           | IDO Contract   | Handles the whole business logic of the IDO. Triggers VRF when a lottery ticket is burnt.              |
+| [ZkPadIDOFactory](./mocks/ZkPadIDOFactory_mock.cairo)            | IDO Factory    | Instanciates ZkPadIDO contracts for every new IDO.                                                     |
+| [ZkPadVesting](./contracts/ZkPadVesting.cairo)                   | Vesting        | Vests Assets linearly over time for multiple payees.                                                   |
+| [ZkPadFaucet](./contracts/ZkPadFaucet.cairo)                     | IDO Factory    | Simple Faucet to withdraw X ERC20 every Y seconds.                                                     |
+| [ZkPadVaultHarvestTask](./contracts/ZkPadVaultHarvestTask.cairo) | Harvest Task   | Yagi Task to regularly harvest vault's earnings.                                                       |
+| [ZkPadTask](./contracts/ZkPadTask.cairo)                         | IDO Task       | Yagi Task to trigger allocation computation.                                                           |
+| [AMMs](./contracts/AMMs)                                         | AMMs Wrapper   | Wrappers for different AMMs pools.                                                                     |
+| [Utils](./contracts/utils)                                       | Cairo utils    |
 
 # Development Workflow
 
