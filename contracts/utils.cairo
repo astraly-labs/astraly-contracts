@@ -5,6 +5,8 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.memcpy import memcpy
 
 from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
 
@@ -62,6 +64,19 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     assert array[index] = [ap - 1]
 
     return get_array(array_len - 1, array, mapping_ref)
+end
+
+func concat_arr{range_check_ptr}(
+        arr1_len: felt,
+        arr1: felt*,
+        arr2_len: felt,
+        arr2: felt*,
+    ) -> (res: felt*, res_len: felt):
+    alloc_locals
+    let (local res: felt*) = alloc()
+    memcpy(res, arr1, arr1_len)
+    memcpy(res + arr1_len, arr2, arr2_len)
+    return (res, arr1_len + arr2_len)
 end
 
 
