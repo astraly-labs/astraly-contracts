@@ -31,10 +31,6 @@ func cap_() -> (res : Uint256):
 end
 
 @storage_var
-func distribution_address() -> (res : felt):
-end
-
-@storage_var
 func vault_address() -> (res : felt):
 end
 
@@ -47,17 +43,14 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     recipient : felt,
     owner : felt,
     _cap : Uint256,
-    _distribution_address : felt,
 ):
     uint256_check(_cap)
     let (cap_valid) = uint256_le(_cap, Uint256(0, 0))
     assert_not_zero(1 - cap_valid)
-    assert_not_zero(_distribution_address)
     ERC20_initializer(name, symbol, decimals)
     ERC20_mint(recipient, initial_supply)
     Ownable_initializer(owner)
     cap_.write(_cap)
-    distribution_address.write(_distribution_address)
     return ()
 end
 

@@ -1,10 +1,13 @@
 import os
-
+import sys
 from nile.nre import NileRuntimeEnvironment
 
+sys.path.append(os.path.dirname(__file__))
+from utils import deploy_try_catch
+
 # Dummy values, should be replaced by env variables
-os.environ["SIGNER"] = "123456"
-os.environ["USER_1"] = "12345654321"
+# os.environ["SIGNER"] = "123456"
+# os.environ["USER_1"] = "12345654321"
 
 
 def to_uint(a):
@@ -28,17 +31,7 @@ def run(nre: NileRuntimeEnvironment):
     alpha_road_pool = "0x68f02f0573d85b5d54942eea4c1bf97c38ca0e3e34fe3c974d1a3feef6c33be"
 
     # Deploy AlphaRoad Wrapper
-    alpha_road = None
-    try:
-        alpha_road, _ = nre.deploy("AlphaRoadWrapper", arguments=[
-                                   alpha_road_pool], alias="alpha_road")
-    except Exception as error:
-        if "already exists" in str(error):
-            alpha_road, _ = nre.get_deployment("alpha_road")
-        else:
-            print(f"DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Alpha Road wrapper deployed at {alpha_road}")
+    alpha_road = deploy_try_catch(nre, "AlphaRoadWrapper", [alpha_road_pool], "alpha_road")
 
     addTx = signer.send(xzkp_token, "addWhitelistedToken",
                         [int(alpha_road_pool, 16), int(alpha_road, 16), False])

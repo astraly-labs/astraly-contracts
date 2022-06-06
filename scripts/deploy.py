@@ -53,8 +53,7 @@ def run(nre: NileRuntimeEnvironment):
             "0x970e62cb92ae24fb6f1ea455407edf6cb0f3b739940b4dffbf976b65d7830a",
             signer.address,
             MAX_SUPPLY,
-            "0",
-            user_1.address  # distribution address
+            "0"
         ], alias="zkp_token")
 
     except Exception as error:

@@ -1,8 +1,11 @@
-from ast import alias, arguments
 import os
+import sys
 from datetime import datetime, timedelta
 
 from nile.nre import NileRuntimeEnvironment
+
+sys.path.append(os.path.dirname(__file__))
+from utils import deploy_try_catch
 
 
 def to_uint(a):
@@ -23,13 +26,13 @@ def uarr2cd(arr):
 
 
 # Dummy values, should be replaced by env variables
-os.environ["SIGNER"] = "123456"
-os.environ["USER_1"] = "12345654321"
+# os.environ["SIGNER"] = "123456"
+# os.environ["USER_1"] = "12345654321"
 
-os.environ["ADMIN_1"] = "23456765432"
-os.environ["ADMIN_2"] = "34567876543"
-os.environ["NUMBER_OF_ADMINS"] = "2"
-os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
+# os.environ["ADMIN_1"] = "23456765432"
+# os.environ["ADMIN_2"] = "34567876543"
+# os.environ["NUMBER_OF_ADMINS"] = "2"
+# os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
 
 IDO_TOKEN_PRICE = "10000000000000000"  # 0.01 ETH
 IDO_TOKENS_TO_SELL = "100000000000000000000000"  # 100,000 TOKENS
@@ -69,99 +72,34 @@ def run(nre: NileRuntimeEnvironment):
     print(f"Admin2 account: {admin_2.address}")
 
     # deploy admin contract
-    admin_contract = None
-    try:
-        admin_contract, admin_contract_abi = nre.deploy(
-            "ZkPadAdmin",
-            arguments=[
-                os.environ.get("NUMBER_OF_ADMINS"),
-                *[admin_1.address, admin_2.address]
-            ],
-            alias="admin_contract"
-        )
-    except Exception as error:
-        if "already exists" in str(error):
-            admin_contract, admin_contract_abi = nre.get_deployment(
-                "admin_contract")
-        else:
-            print(f"ADMIN Contract DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed Admin to {admin_contract}")
+    admin_contract = deploy_try_catch(nre, "ZkPadAdmin", [
+        os.environ.get("NUMBER_OF_ADMINS"),
+        *[admin_1.address, admin_2.address]
+    ], "admin_contract")
 
     # deploy random nunber generator contract
-    xoroshiro_contract = None
-    try:
-        xoroshiro_contract, xoroshiro_contract_abi = nre.deploy(
-            "xoroshiro128_starstar",
-            arguments=[
-                os.environ.get("XOROSHIRO_RNG_SEED")
-            ],
-            alias="xoroshiro_contract"
-        )
-    except Exception as error:
-        if "already exists" in str(error):
-            xoroshiro_contract, xoroshiro_contract_abi = nre.get_deployment(
-                "xoroshiro_contract")
-        else:
-            print(f"XOROSHIRO Contract DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed xoroshiro to {xoroshiro_contract}")
+    xoroshiro_contract = deploy_try_catch(
+        nre, "xoroshiro128_starstar", [
+            os.environ.get("XOROSHIRO_RNG_SEED")
+        ], "xoroshiro_contract")
 
     # Deploy IDO Factory
-    factory_contract = None
-    try:
-        factory_contract, abi = nre.deploy(
-            "ZkPadIDOFactory_mock", arguments=[], alias="factory_contract")
-
-    except Exception as error:
-        if "already exists" in str(error):
-            factory_contract, abi = nre.get_deployment("factory_contract")
-        else:
-            print(f"DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed IDO Factory to {factory_contract}")
+    factory_contract = deploy_try_catch(
+        nre, "ZkPadIDOFactory_mock", [], "factory_contract")
 
     lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
 
     # deploy Task contract
-    task_contract = None
-    try:
-        task_contract, task_contract_abi = nre.deploy(
-            "ZkPadTask",
-            arguments=[
-                factory_contract
-            ],
-            alias="task_contract"
-        )
-    except Exception as error:
-        if "already exists" in str(error):
-            task_contract, task_contract_abi = nre.get_deployment(
-                "task_contract")
-        else:
-            print(f"TASK Contract DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed task contract to {task_contract}")
+    task_contract = deploy_try_catch(nre, "ZkPadTask", [
+        factory_contract
+    ], "task_contract")
 
     # deploy IDO contract
-    ido_contract_full = None
-    try:
-        ido_contract_full, ido_contract_abi = nre.deploy(
-            "ZkPadIDOContract",
-            arguments=[
-                admin_contract,
-                factory_contract
-            ],
-            alias="ido_contract_full"
-        )
-    except Exception as error:
-        if "already exists" in str(error):
-            ido_contract_full, ido_contract_abi = nre.get_deployment(
-                "ido_contract_full")
-        else:
-            print(f"IDO Contract DEPLOYMENT ERROR: {error}")
-    finally:
-        print(f"Deployed ido to {ido_contract_full}")
+    ido_contract_full = deploy_try_catch(nre, "ZkPadIDOContract", [
+        admin_contract,
+        factory_contract
+    ], f"ido_contract_{day}")
 
     # set IDO Factory contract variables
     signer.send(factory_contract, "set_task_address",

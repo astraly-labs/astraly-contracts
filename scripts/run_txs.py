@@ -1,9 +1,15 @@
-from ast import alias, arguments
 import os
+import sys
+import subprocess
+import re
 from datetime import datetime, timedelta
 import time
 
 from nile.nre import NileRuntimeEnvironment
+
+sys.path.append(os.path.dirname(__file__))
+from utils import run_tx
+
 
 
 def to_uint(a):
@@ -24,13 +30,13 @@ def uarr2cd(arr):
 
 
 # Dummy values, should be replaced by env variables
-os.environ["SIGNER"] = "123456"
-os.environ["USER_1"] = "12345654321"
+# os.environ["SIGNER"] = "123456"
+# os.environ["USER_1"] = "12345654321"
 
-os.environ["ADMIN_1"] = "23456765432"
-os.environ["ADMIN_2"] = "34567876543"
-os.environ["NUMBER_OF_ADMINS"] = "2"
-os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
+# os.environ["ADMIN_1"] = "23456765432"
+# os.environ["ADMIN_2"] = "34567876543"
+# os.environ["NUMBER_OF_ADMINS"] = "2"
+# os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
 
 IDO_TOKEN_PRICE = "10000000000000000"  # 0.01 ETH
 IDO_TOKENS_TO_SELL = "100000000000000000000000"  # 100,000 TOKENS
@@ -85,13 +91,11 @@ def run(nre: NileRuntimeEnvironment):
     ido_contract_full, ido_contract_full_abi = nre.get_deployment(
         "ido_contract_full")
 
-    # tx1 = signer.send(lottery_token, "set_xzkp_contract_address",
-    #                   [int(xzkp_token, 16)])
-    # print(tx1)
+    run_tx(signer, lottery_token,
+           "set_xzkp_contract_address", [int(xzkp_token, 16)])
 
-    # tx2 = signer.send(lottery_token, "set_ido_factory_address",
-    #                   [int(factory_contract, 16)])
-    # print(tx2)
+    run_tx(signer, lottery_token, "set_ido_factory_address",
+           [int(factory_contract, 16)])
 
     # set IDO Factory contract variables
     # tx3 = signer.send(factory_contract, "set_task_address",
@@ -144,9 +148,9 @@ def run(nre: NileRuntimeEnvironment):
     #                    )
     # print(tx7)
 
-    tx8 = admin_1.send(ido_contract_full, "set_registration_time", [
-                       int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
-    print(tx8)
+    # tx8 = admin_1.send(ido_contract_full, "set_registration_time", [
+    #                    int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
+    # print(tx8)
 
     # print("IDO Vesting Params Set...")
 
