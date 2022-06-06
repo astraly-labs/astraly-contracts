@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import deploy_try_catch
+from utils import deploy_try_catch, run_tx
 
 
 def to_uint(a):
@@ -45,6 +45,8 @@ day = datetime.today()
 timeDeltadays = timedelta(days=30)
 timeDeltaWeeks = timedelta(weeks=1)
 IDO_SALE_END = day + timeDeltadays
+REGISTRATION_END = day + timedelta(days=2)
+REGISTRATION_START = day + timedelta(days=1)
 IDO_TOKEN_UNLOCK = IDO_SALE_END + timeDeltaWeeks
 
 # VESTING_PERCENTAGES & VESTING_TIMES_UNLOCKED arrays must match in length
@@ -71,29 +73,18 @@ def run(nre: NileRuntimeEnvironment):
     print(f"Admin1 account: {admin_1.address}")
     print(f"Admin2 account: {admin_2.address}")
 
-    # deploy admin contract
-    admin_contract = deploy_try_catch(nre, "ZkPadAdmin", [
-        os.environ.get("NUMBER_OF_ADMINS"),
-        *[admin_1.address, admin_2.address]
-    ], "admin_contract")
-
-    # deploy random nunber generator contract
-    xoroshiro_contract = deploy_try_catch(
-        nre, "xoroshiro128_starstar", [
-            os.environ.get("XOROSHIRO_RNG_SEED")
-        ], "xoroshiro_contract")
-
-    # Deploy IDO Factory
-    factory_contract = deploy_try_catch(
-        nre, "ZkPadIDOFactory_mock", [], "factory_contract")
-
+    admin_contract, admin_contract_abi = nre.get_deployment("admin_contract")
+    xoroshiro_contract, xoroshiro_contract_abi = nre.get_deployment(
+        "xoroshiro_contract")
+    factory_contract, factory_contract_abi = nre.get_deployment(
+        "factory_contract")
     lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
 
     # deploy Task contract
     task_contract = deploy_try_catch(nre, "ZkPadTask", [
         factory_contract
-    ], "task_contract")
+    ], f"task_contract_{day}")
 
     # deploy IDO contract
     ido_contract_full = deploy_try_catch(nre, "ZkPadIDOContract", [
@@ -101,51 +92,46 @@ def run(nre: NileRuntimeEnvironment):
         factory_contract
     ], f"ido_contract_{day}")
 
-    # set IDO Factory contract variables
-    signer.send(factory_contract, "set_task_address",
-                [int(task_contract, 16)]
-                )
-
-    signer.send(factory_contract, "create_ido",
-                [int(ido_contract_full, 16)]
-                )
-
-    signer.send(factory_contract, "set_lottery_ticket_contract_address",
-                [int(lottery_token, 16)]
-                )
+    # Set Task Address
+    run_tx(signer, factory_contract,
+           "set_task_address", [int(task_contract, 16)])
+    
+    # Create IDO
+    # TODO: Switch to a non-mock system
+    run_tx(signer, factory_contract, "create_ido",
+           [int(ido_contract_full, 16)])
+   
 
     # set IDO contract sale parameters
-    admin_1.send(ido_contract_full, "set_sale_params",
-                 [
-                     # _token_address : felt
-                     int(zkp_token, 16),
-                     # _sale_owner_address : felt
-                     int(signer.address, 16),
-                     # _token_price : Uint256
-                     *to_uint(int(IDO_TOKEN_PRICE)),
-                     # _amount_of_tokens_to_sell : Uint256
-                     *to_uint(int(IDO_TOKENS_TO_SELL)),
-                     # _sale_end_time : felt
-                     int(IDO_SALE_END.timestamp()),
-                     # _tokens_unlock_time : felt
-                     int(IDO_TOKEN_UNLOCK.timestamp()),
-                     # _portion_vesting_precision : Uint256
-                     *to_uint(int(IDO_PORTION_VESTING_PRECISION)),
-                     # _lottery_tickets_burn_cap : Uint256
-                     *to_uint(int(IDO_LOTTERY_TOKENS_BURN_CAP))
-                 ]
-                 )
-    print("IDO Sale Params Set...")
+    run_tx(admin_1, ido_contract_full, "set_sale_params", [
+        # _token_address : felt
+        int(zkp_token, 16),
+        # _sale_owner_address : felt
+        int(signer.address, 16),
+        # _token_price : Uint256
+        *to_uint(int(IDO_TOKEN_PRICE)),
+        # _amount_of_tokens_to_sell : Uint256
+        *to_uint(int(IDO_TOKENS_TO_SELL)),
+        # _sale_end_time : felt
+        int(IDO_SALE_END.timestamp()),
+        # _tokens_unlock_time : felt
+        int(IDO_TOKEN_UNLOCK.timestamp()),
+        # _portion_vesting_precision : Uint256
+        *to_uint(int(IDO_PORTION_VESTING_PRECISION)),
+        # _lottery_tickets_burn_cap : Uint256
+        *to_uint(int(IDO_LOTTERY_TOKENS_BURN_CAP))
+    ])
 
     # set IDO vesting parameters
-    admin_1.send(ido_contract_full, "set_vesting_params",
-                 [
-                     4,
-                     *VESTING_TIMES_UNLOCKED,
-                     *uarr2cd(VESTING_PERCENTAGES),
-                     0
-                 ]
-                 )
-    print("IDO Vesting Params Set...")
+    run_tx(admin_1, ido_contract_full, "set_vesting_params", [
+        4,
+        *VESTING_TIMES_UNLOCKED,
+        *uarr2cd(VESTING_PERCENTAGES),
+        0
+    ])
 
-    print("Done...")
+    # set IDO registration time
+    run_tx(admin_1, ido_contract_full, "set_registration_time", [
+                         int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
+    
+    print("IDO SUCESSFULLY DEPLOYED 🚀")
