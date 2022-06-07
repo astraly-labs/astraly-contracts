@@ -3,7 +3,8 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 
 from starkware.cairo.common.uint256 import Uint256
-from starkware.starknet.common.syscalls import get_block_timestamp
+from starkware.cairo.common.math import assert_not_zero
+from starkware.starknet.common.syscalls import get_block_timestamp, deploy
 
 from openzeppelin.utils.constants import TRUE, FALSE
 from InterfaceAll import IZkPadIDOContract, ITask
@@ -34,6 +35,10 @@ end
 
 @storage_var
 func merkle_root(id : felt) -> (root : felt):
+end
+
+@storage_var
+func ido_contract_class_hash() -> (class_hash : felt):
 end
 
 @view
@@ -86,13 +91,35 @@ func get_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     return (merkle_root=res)
 end
 
+@view
+func get_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ) -> (class_hash : felt):
+    let (class_hash : felt) = ido_contract_class_hash.read()
+    return (class_hash)
+end
+
 @external
-func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(address : felt):
+func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    admin_address : felt
+):
     alloc_locals
+    with_attr error_message("Empty admin address not allowed"):
+        assert_not_zero(admin_address)
+    end
     let (_id) = current_id.read()
-    ido_contract_addresses.write(_id, address)
+    let (ido_contract_class : felt) = get_ido_contract_class_hash()
+    with_attr error_message("IDO contract class hash is not set"):
+        assert_not_zero(ido_contract_class)
+    end
+    let (new_ido_contract_address : felt) = deploy(
+        class_hash=ido_contract_class,
+        contract_address_salt=_id,
+        constructor_calldata_size=1,
+        constructor_calldata=cast(new (admin_address), felt*),
+    )
+    ido_contract_addresses.write(_id, new_ido_contract_address)
     let (task_addr : felt) = task_address.read()
-    ITask.setIDOContractAddress(task_addr, address)
+    ITask.setIDOContractAddress(task_addr, new_ido_contract_address)
     current_id.write(_id + 1)
     return ()
 end
@@ -134,5 +161,14 @@ func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _merkle_root : felt, _id : felt
 ):
     merkle_root.write(_id, _merkle_root)
+    return ()
+end
+
+@external
+func set_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_class_hash : felt
+):
+    assert_not_zero(new_class_hash)
+    ido_contract_class_hash.write(new_class_hash)
     return ()
 end
