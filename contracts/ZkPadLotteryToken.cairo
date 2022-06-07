@@ -10,12 +10,14 @@ from starkware.cairo.common.uint256 import (
     uint256_unsigned_div_rem,
 )
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
+from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.hash import hash2
+from starkware.cairo.common.math_cmp import is_le_felt
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_block_number,
     get_block_timestamp,
 )
-from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
 from openzeppelin.utils.constants import TRUE, FALSE
@@ -52,10 +54,6 @@ from contracts.utils.Math64x61 import (
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
 from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory, IAccount
-
-from starkware.cairo.common.hash import hash2
-
-from starkware.cairo.common.math_cmp import is_le_felt
 
 @storage_var
 func ido_factory_address() -> (res : felt):
@@ -94,7 +92,8 @@ end
 
 @view
 func supportsInterface(interfaceId : felt) -> (is_supported : felt):
-    return ERC1155_supportsInterface(interfaceId)
+    let (supported : felt) = ERC1155_supportsInterface(interfaceId)
+    return (supported)
 end
 
 # @dev Returns the URI for all token types
@@ -124,7 +123,10 @@ end
 func balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*
 ) -> (balances_len : felt, balances : Uint256*):
-    return ERC1155_balanceOfBatch(accounts_len, accounts, ids_len, ids)
+    let (balance_len : felt, balances : Uint256*) = ERC1155_balanceOfBatch(
+        accounts_len, accounts, ids_len, ids
+    )
+    return (balance_len, balances)
 end
 
 # @dev Returns true if operator is approved to transfer account's tokens.
@@ -134,7 +136,8 @@ end
 func isApprovedForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     account : felt, operator : felt
 ) -> (is_approved : felt):
-    return ERC1155_isApprovedForAll(account, operator)
+    let (approved : felt) = ERC1155_isApprovedForAll(account, operator)
+    return (approved)
 end
 
 #

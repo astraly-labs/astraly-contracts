@@ -48,13 +48,13 @@ end
 # func array_length() -> (length : felt):
 # end
 func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    array_len : felt, array : felt*, mapping_ref : felt
+    array_len : felt, array : felt*, mapping_ref : felt*
 ) -> ():
     if array_len == 0:
         return ()
     end
     let index = array_len - 1
-    tempvar args = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*)
+    tempvar args : felt* = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*)
     invoke(mapping_ref, 4, args)
     let syscall_ptr = cast([ap - 4], felt*)
     let pedersen_ptr = cast([ap - 3], HashBuiltin*)
@@ -75,7 +75,7 @@ end
 # end
 
 func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        array_len : felt, array : felt*, mapping_ref : felt) -> ():
+        array_len : felt, array : felt*, mapping_ref : felt*) -> ():
     if array_len == 0:
         return ()
     end

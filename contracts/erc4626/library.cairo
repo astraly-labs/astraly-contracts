@@ -251,7 +251,7 @@ func getWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 ):
     alloc_locals
     let (length : felt) = withdrawal_stack_length.read()
-    let (mapping_ref : felt) = get_label_location(withdrawal_stack.read)
+    let (mapping_ref : felt*) = get_label_location(withdrawal_stack.read)
     let (array : felt*) = alloc()
 
     get_array(length, array, mapping_ref)
@@ -1119,7 +1119,7 @@ end
 
 func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(stack_len : felt, stack : felt*):
     alloc_locals
-    let (withdrawal_stack_ptr : felt) = get_label_location(withdrawal_stack.write)
+    let (withdrawal_stack_ptr : felt*) = get_label_location(withdrawal_stack.write)
     write_to_array(stack_len, stack, withdrawal_stack_ptr)
     withdrawal_stack_length.write(stack_len)
 
