@@ -129,7 +129,6 @@ async def erc1155_init(contract_defs):
             account1.contract_address,  # recipient
             account1.contract_address,  # owner
             *CAP,
-            123124
         ],
     )
 
