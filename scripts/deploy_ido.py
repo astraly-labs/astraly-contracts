@@ -1,3 +1,4 @@
+from utils import deploy_try_catch
 import os
 import sys
 from datetime import datetime, timedelta
@@ -5,7 +6,6 @@ from datetime import datetime, timedelta
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import deploy_try_catch
 
 
 def to_uint(a):
@@ -85,7 +85,7 @@ def run(nre: NileRuntimeEnvironment):
 
     # Deploy IDO Factory
     factory_contract = deploy_try_catch(
-        nre, "ZkPadIDOFactory_mock", [], "factory_contract")
+        nre, "ZkPadIDOFactory", [], "factory_contract")
 
     lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
@@ -107,7 +107,7 @@ def run(nre: NileRuntimeEnvironment):
                 )
 
     signer.send(factory_contract, "create_ido",
-                [int(ido_contract_full, 16)]
+                [int(admin_contract, 16)]
                 )
 
     signer.send(factory_contract, "set_lottery_ticket_contract_address",

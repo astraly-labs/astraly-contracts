@@ -41,6 +41,10 @@ end
 func ido_contract_class_hash() -> (class_hash : felt):
 end
 
+@event
+func IDO_Created(id : felt, address : felt):
+end
+
 @view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     id : felt
@@ -121,6 +125,7 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     let (task_addr : felt) = task_address.read()
     ITask.setIDOContractAddress(task_addr, new_ido_contract_address)
     current_id.write(_id + 1)
+    IDO_Created.emit(_id, new_ido_contract_address)
     return ()
 end
 

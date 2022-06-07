@@ -20,7 +20,7 @@ You can find the latest technical documentation [here](https://zkpad.notion.site
 | [ZkPadLotteryToken](./contracts/ZkPadLotteryToken.cairo)         | Lottery Ticket | Lottery Ticket tokenized as ERC-1155 token.                                                            |
 | [ZkPadToken](./contracts/ZkPadToken.cairo)                       | ZKP Token      | Native token of the platform. Follows ERC-20 standard. Mintable, Burnable, Pausable.                   |
 | [ZkPadIDO](./contracts/ZkPadIDO.cairo)                           | IDO Contract   | Handles the whole business logic of the IDO. Triggers VRF when a lottery ticket is burnt.              |
-| [ZkPadIDOFactory](./mocks/ZkPadIDOFactory_mock.cairo)            | IDO Factory    | Instanciates ZkPadIDO contracts for every new IDO.                                                     |
+| [ZkPadIDOFactory](./ZkPadIDOFactory.cairo)                       | IDO Factory    | Instanciates ZkPadIDO contracts for every new IDO.                                                     |
 | [ZkPadVesting](./contracts/ZkPadVesting.cairo)                   | Vesting        | Vests Assets linearly over time for multiple payees.                                                   |
 | [ZkPadFaucet](./contracts/ZkPadFaucet.cairo)                     | IDO Factory    | Simple Faucet to withdraw X ERC20 every Y seconds.                                                     |
 | [ZkPadVaultHarvestTask](./contracts/ZkPadVaultHarvestTask.cairo) | Harvest Task   | Yagi Task to regularly harvest vault's earnings.                                                       |
