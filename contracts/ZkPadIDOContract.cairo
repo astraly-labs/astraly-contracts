@@ -253,6 +253,10 @@ end
 func distribtion_round_time_set(dist_time_starts : felt):
 end
 
+@event
+func IDO_Created(new_ido_contract_address : felt):
+end
+
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _admin_address : felt
@@ -263,6 +267,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     ido_factory_contract_address.write(caller)
     admin_contract_address.write(_admin_address)
 
+    let (address_this : felt) = get_contract_address()
+    IDO_Created.emit(address_this)
     return ()
 end
 
