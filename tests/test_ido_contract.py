@@ -192,7 +192,7 @@ async def contacts_init(contract_defs, get_starknet):
     await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_task_address",
                                     [task.contract_address])
 
-    await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "create_ido", [zk_pad_ido.contract_address])
+    await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "create_ido", [])
 
     await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_lottery_ticket_contract_address",
                                     [erc1155.contract_address])

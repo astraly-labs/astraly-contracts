@@ -53,7 +53,7 @@ def run(nre: NileRuntimeEnvironment):
     finally:
         print(f"Deployed IDO Factory to {factory_contract}")
 
-    # signer.send(factory_contract, "create_ido", [int(ido_contract, 16)])
+    # signer.send(factory_contract, "create_ido", [])
 
     # Deploy Lottery token
     lottery_token = None

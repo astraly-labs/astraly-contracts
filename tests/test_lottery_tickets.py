@@ -203,7 +203,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
     )
 
     # Create mock IDO
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [ido.contract_address])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
 
     return _state, erc1155, owner, account, receiver, ido
 
@@ -273,8 +273,8 @@ async def full_init(contract_defs, erc1155_init):
     )
 
     # create 2 mock IDOs
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [ido.contract_address])
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [ido2.contract_address])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
     MERKLE_INFO = get_leaves(
         [owner.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
 

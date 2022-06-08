@@ -106,9 +106,7 @@ def run(nre: NileRuntimeEnvironment):
                 [int(task_contract, 16)]
                 )
 
-    signer.send(factory_contract, "create_ido",
-                [int(admin_contract, 16)]
-                )
+    signer.send(factory_contract, "create_ido", [])
 
     signer.send(factory_contract, "set_lottery_ticket_contract_address",
                 [int(lottery_token, 16)]

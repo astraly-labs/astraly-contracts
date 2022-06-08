@@ -103,9 +103,7 @@ def run(nre: NileRuntimeEnvironment):
     #                   )
     # print(tx3)
 
-    # tx4 = signer.send(factory_contract, "create_ido",
-    #                   [int(ido_contract_full, 16)]
-    #                   )
+    # tx4 = signer.send(factory_contract, "create_ido", [])
     # print(tx4)
 
     # tx5 = signer.send(factory_contract, "set_lottery_ticket_contract_address",
