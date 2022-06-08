@@ -23,7 +23,7 @@ MINT_AMOUNT = uint(1000)
 ONE_DAY = 24 * 60 * 60
 
 account_path = 'openzeppelin/account/Account.cairo'
-ido_factory_path = 'mocks/ZkPadIDOFactory_mock.cairo'
+ido_factory_path = 'ZkPadIDOFactory.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 erc20_eth_path = 'mocks/ZkPad_ETH_ERC20_mock.cairo'
