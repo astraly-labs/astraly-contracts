@@ -96,7 +96,6 @@ async def contacts_init(contract_defs, get_starknet):
             owner_account.contract_address,  # recipient
             owner_account.contract_address,  # owner
             *CAP,
-            123124
         ],
     )
 

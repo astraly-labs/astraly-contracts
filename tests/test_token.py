@@ -55,7 +55,6 @@ async def contracts_init(contract_defs):
             recipient_account.contract_address,        # recipient
             owner_account.contract_address,
             *CAP,
-            123124
         ]
     )
     return (

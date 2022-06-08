@@ -170,7 +170,6 @@ async def contacts_init(contract_defs, get_starknet):
             sale_owner_account.contract_address,        # recipient
             sale_owner_account.contract_address,
             *CAP,
-            123124
         ],
     )
 

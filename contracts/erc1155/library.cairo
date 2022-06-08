@@ -9,6 +9,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_check
 from openzeppelin.introspection.IERC165 import IERC165
 from openzeppelin.security.safemath import uint256_checked_sub_le, uint256_checked_add
 from InterfaceAll import IERC1155_Receiver
+from contracts.utils import concat_arr
 
 const IERC1155_interface_id = 0xd9b67a26
 const IERC1155_MetadataURI_interface_id = 0x0e89341c
@@ -63,6 +64,10 @@ end
 func ERC1155_uri_(index : felt) -> (uri : felt):
 end
 
+@storage_var
+func ERC1155_uri_len_() -> (uri_len : felt):
+end
+
 #
 # Constructor
 #
@@ -93,10 +98,33 @@ func ERC1155_supportsInterface(interface_id : felt) -> (res : felt):
 end
 
 func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    index : felt
-) -> (uri : felt):
-    let (uri) = ERC1155_uri_.read(index)
-    return (uri)
+    id : felt
+) -> (uri_len : felt, uri: felt*):
+    alloc_locals
+    let (uri) = ERC1155_uri_.read(id)
+
+    # ERC1155 returns the same URI for all token types.
+    # TokenId will be represented by the substring '{id}' and so stored in a felt
+    # Client calling the function must replace the '{id}' substring with the actual token type ID
+    let (local tokenURI) = alloc()
+    let (local tokenURI_len) = ERC1155_uri_len_.read()
+    _ERC1155_uri(tokenURI_len, tokenURI)
+
+    return (uri_len=tokenURI_len, uri=tokenURI)
+end
+
+func _ERC1155_uri{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(uri_len: felt, uri: felt*):
+    if uri_len == 0:
+        return ()
+    end
+    let (base) = ERC1155_uri_.read(uri_len)
+    assert [uri] = base
+    _ERC1155_uri(uri_len=uri_len - 1, uri=uri + 1)
+    return ()
 end
 
 func ERC1155_balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -404,6 +432,7 @@ func _setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     uri_len : felt, newuri : felt*
 ):
     alloc_locals
+    ERC1155_uri_len_.write(uri_len)
     local uri_index = 0
     _populate_uri_array(uri_len, newuri, uri_index)
     return ()
@@ -617,7 +646,7 @@ func _populate_uri_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         return ()
     end
 
-    with_attr error_message("ZkPadLotteryToken::uri can't be null"):
+    with_attr error_message("ERC1155: uri can't be null"):
         assert_not_zero(_uri[index])
     end
 

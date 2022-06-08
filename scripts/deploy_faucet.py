@@ -4,7 +4,7 @@ import sys
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import deploy_try_catch
+from utils import deploy_try_catch, run_tx
 
 # Dummy values, should be replaced by env variables
 # os.environ["SIGNER"] = "123456"
@@ -40,6 +40,4 @@ def run(nre: NileRuntimeEnvironment):
     faucet = deploy_try_catch(nre, "ZkPadFaucet", [
         signer.address, zkp_token, WITHDRAWAL_AMOUNT, "0", WAIT_TIME], "faucet")
 
-    tx = signer.send(zkp_token, "mint",
-                     [int(faucet, 16), *FAUCET_AMOUNT])
-    print(tx)
+    run_tx(signer, zkp_token, "mint", [int(faucet, 16), *FAUCET_AMOUNT])

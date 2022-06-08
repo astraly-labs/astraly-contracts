@@ -98,10 +98,11 @@ end
 
 # @dev Returns the URI for all token types
 @view
-func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index : felt) -> (
-    uri : felt
+func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(id : felt) -> (
+    uri_len : felt, uri: felt*
 ):
-    return ERC1155_uri(index)
+    let (uri_len: felt, uri: felt*) = ERC1155_uri(id)
+    return (uri_len=uri_len, uri=uri)
 end
 
 # @dev Returns the amount of tokens of token type token_id owned by owner
