@@ -1,3 +1,4 @@
+from utils import run_tx
 import os
 import sys
 import subprocess
@@ -8,8 +9,6 @@ import time
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import run_tx
-
 
 
 def to_uint(a):
@@ -29,14 +28,21 @@ def uarr2cd(arr):
     return acc
 
 
-# Dummy values, should be replaced by env variables
-# os.environ["SIGNER"] = "123456"
-# os.environ["USER_1"] = "12345654321"
+def str_to_felt(text):
+    b_text = bytes(text, "ascii")
+    return int.from_bytes(b_text, "big")
 
-# os.environ["ADMIN_1"] = "23456765432"
-# os.environ["ADMIN_2"] = "34567876543"
-# os.environ["NUMBER_OF_ADMINS"] = "2"
-# os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
+
+def parse_ether(value: int):
+    return int(value * 1e18)
+
+
+XZKP_NAME = str_to_felt("xZkPad")
+XZKP_SYMBOL = str_to_felt("xZKP")
+
+REWARDS_PER_BLOCK = to_uint(parse_ether(10))
+START_BLOCK = 0
+END_BLOCK = START_BLOCK + 10000
 
 IDO_TOKEN_PRICE = "10000000000000000"  # 0.01 ETH
 IDO_TOKENS_TO_SELL = "100000000000000000000000"  # 100,000 TOKENS
@@ -91,65 +97,29 @@ def run(nre: NileRuntimeEnvironment):
     ido_contract_full, ido_contract_full_abi = nre.get_deployment(
         "ido_contract_full")
 
+    # Initialize Lottery Token Params
+
     run_tx(signer, lottery_token,
            "set_xzkp_contract_address", [int(xzkp_token, 16)])
 
     run_tx(signer, lottery_token, "set_ido_factory_address",
            [int(factory_contract, 16)])
 
-    # set IDO Factory contract variables
-    # tx3 = signer.send(factory_contract, "set_task_address",
-    #                   [int(task_contract, 16)]
-    #                   )
-    # print(tx3)
+    # Initialize Proxy
 
-    # tx4 = signer.send(factory_contract, "create_ido", [])
-    # print(tx4)
+    run_tx(signer, xzkp_token, "initializer", [
+        str(XZKP_NAME),
+        str(XZKP_SYMBOL),
+        int(zkp_token, 16),
+        int(signer.address, 16),
+        *REWARDS_PER_BLOCK,
+        START_BLOCK,
+        END_BLOCK
+    ])
 
-    # tx5 = signer.send(factory_contract, "set_lottery_ticket_contract_address",
-    #                   [int(lottery_token, 16)]
-    #                   )
-    # print(tx5)
+    # Initialize Factory
 
-    # # set IDO contract sale parameters
-    # tx6 = admin_1.send(ido_contract_full, "set_sale_params",
-    #                    [
-    #                        # _token_address : felt
-    #                        int(zkp_token, 16),
-    #                        # _sale_owner_address : felt
-    #                        int(signer.address, 16),
-    #                        # _token_price : Uint256
-    #                        *to_uint(int(IDO_TOKEN_PRICE)),
-    #                        # _amount_of_tokens_to_sell : Uint256
-    #                        *to_uint(int(IDO_TOKENS_TO_SELL)),
-    #                        # _sale_end_time : felt
-    #                        int(IDO_SALE_END.timestamp()),
-    #                        # _tokens_unlock_time : felt
-    #                        int(IDO_TOKEN_UNLOCK.timestamp()),
-    #                        # _portion_vesting_precision : Uint256
-    #                        *to_uint(int(IDO_PORTION_VESTING_PRECISION)),
-    #                        # _lottery_tickets_burn_cap : Uint256
-    #                        *to_uint(int(IDO_LOTTERY_TOKENS_BURN_CAP))
-    #                    ]
-    #                    )
-    # print(tx6)
-    # print("IDO Sale Params Set...")
+    run_tx(signer, factory_contract,
+           "set_lottery_ticket_contract_address", [int(lottery_token, 16)])
 
-    # # set IDO vesting parameters
-    # tx7 = admin_1.send(ido_contract_full, "set_vesting_params",
-    #                    [
-    #                        4,
-    #                        *VESTING_TIMES_UNLOCKED,
-    #                        *uarr2cd(VESTING_PERCENTAGES),
-    #                        0
-    #                    ]
-    #                    )
-    # print(tx7)
-
-    # tx8 = admin_1.send(ido_contract_full, "set_registration_time", [
-    #                    int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
-    # print(tx8)
-
-    # print("IDO Vesting Params Set...")
-
-    print("Done...")
+    print("CONTRACTS SUCCESSFULLY INITIALIZED 🚀")

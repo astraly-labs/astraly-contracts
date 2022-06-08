@@ -156,4 +156,4 @@ def run(nre: NileRuntimeEnvironment):
         factory_contract
     ], "ido_contract_full")
 
-    print("Done...")
+    print("CONTRACTS DEPLOYMENT DONE 🚀")
