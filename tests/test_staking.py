@@ -70,7 +70,7 @@ async def get_starknet():
 @pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
-    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    proxy_def = get_contract_def('OZProxy.cairo')
     zk_pad_token_def = get_contract_def('tests/mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
@@ -102,7 +102,7 @@ async def contacts_init(contract_defs, get_starknet):
     zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
 
     zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
-                                               constructor_calldata=[zk_pad_stake_implementation.contract_address])
+                                               constructor_calldata=[zk_pad_stake_implementation.contract_address])  # TODO: class_hash here
 
     START_BLOCK = get_block_number(starknet.state)
     END_BLOCK = START_BLOCK + 10_000
