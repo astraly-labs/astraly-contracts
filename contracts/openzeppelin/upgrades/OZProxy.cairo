@@ -27,7 +27,7 @@ end
 #
 
 @view
-func get_implementation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+func get_implementation_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     address : felt
 ):
     let (address) = Proxy.get_implementation()
