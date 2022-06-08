@@ -2,7 +2,6 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.starknet.common.syscalls import call_contract, library_call, library_call_l1_handler
 from starkware.cairo.common.math import (
     assert_nn_le,
     assert_lt,

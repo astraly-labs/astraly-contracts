@@ -4,7 +4,9 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.math import assert_not_zero
 from starkware.starknet.common.syscalls import library_call, library_call_l1_handler
+
 from contracts.openzeppelin.upgrades.library import Proxy
 
 #
@@ -13,9 +15,10 @@ from contracts.openzeppelin.upgrades.library import Proxy
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    implementation_address : felt
+    implementation_class_hash : felt
 ):
-    Proxy._set_implementation(implementation_address)
+    assert_not_zero(implementation_class_hash)
+    Proxy._set_implementation(implementation_class_hash)
     return ()
 end
 
@@ -41,10 +44,10 @@ end
 func __default__{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     selector : felt, calldata_size : felt, calldata : felt*
 ) -> (retdata_size : felt, retdata : felt*):
-    let (address) = Proxy.get_implementation()
+    let (class_hash) = Proxy.get_implementation()
 
     let (retdata_size : felt, retdata : felt*) = library_call(
-        class_hash=address,
+        class_hash=class_hash,
         function_selector=selector,
         calldata_size=calldata_size,
         calldata=calldata,
@@ -58,10 +61,10 @@ end
 func __l1_default__{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     selector : felt, calldata_size : felt, calldata : felt*
 ):
-    let (address) = Proxy.get_implementation()
+    let (class_hash) = Proxy.get_implementation()
 
     library_call_l1_handler(
-        class_hash=address,
+        class_hash=class_hash,
         function_selector=selector,
         calldata_size=calldata_size,
         calldata=calldata,
