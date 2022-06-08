@@ -138,7 +138,7 @@ def run(nre: NileRuntimeEnvironment):
 
     # Deploy IDO Factory
     factory_contract = deploy_try_catch(
-        nre, "ZkPadIDOFactory_mock", [], "factory_contract")
+        nre, "ZkPadIDOFactory", [], "factory_contract")
 
     # Deploy Lottery token
     lottery_token = deploy_try_catch(nre, "ZkPadLotteryToken", [

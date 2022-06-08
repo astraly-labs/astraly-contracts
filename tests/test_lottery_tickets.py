@@ -11,7 +11,7 @@ signer = Signer(123456789987654321)
 account_path = 'openzeppelin/account/Account.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 ido_path = 'mocks/ZkPadIDOContract_mock.cairo'
-factory_path = 'mocks/ZkPadIDOFactory_mock.cairo'
+factory_path = 'ZkPadIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
 
 
