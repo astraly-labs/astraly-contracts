@@ -89,7 +89,7 @@ def run(nre: NileRuntimeEnvironment):
 
     # Create IDO
     run_tx(signer, factory_contract, "create_ido",
-           [int(admin_contract, 16)])
+           [])
 
     # set IDO contract sale parameters
     run_tx(admin_1, ido_contract_full, "set_sale_params", [
