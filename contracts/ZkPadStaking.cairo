@@ -21,7 +21,7 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
 )
 
-from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner
+from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner, Ownable_transfer_ownership
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
     uint256_checked_add,
@@ -1194,6 +1194,13 @@ func harvestRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 
     HarvestRewards.emit(caller, pending_rewards)
     ReentrancyGuard_end()
+    return ()
+end
+
+@external
+func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_owner : felt):
+    assert_not_zero(new_owner)
+    Ownable_transfer_ownership(new_owner)
     return ()
 end
 
