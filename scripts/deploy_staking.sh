@@ -2,8 +2,10 @@
 
 export STARKNET_NETWORK=alpha-goerli
 export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAccount
-export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 export OWNER_ACCOUNT_NAME=owner
+
+# TODO: Use this only on devnet, otherwise comment next line
+export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x1
 
 OWNER_ADDRESS=0x01466fa1e3ba3d1fd6edd9b41d76d4c454104a6a38981e3807ab09befdd3af19
