@@ -100,8 +100,8 @@ ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPa
 echo "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}"
 ZK_PAD_IDO_FACTORY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}")
 
-echo "Deploy ZkPadIDOContract"
-starknet deploy --contract ../artifacts/ZkPadIDOContract.json --inputs ${OWNER_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+# echo "Deploy ZkPadIDOContract"
+# starknet deploy --contract ../artifacts/ZkPadIDOContract.json --inputs ${OWNER_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
 
 echo "Deploy ZkPadLotteryToken"
 starknet deploy --contract ../artifacts/ZkPadLotteryToken.json --inputs ${LOTTERY_URI_LEN} "${LOTTERY_URI}" ${OWNER_ADDRESS} "${ZK_PAD_IDO_FACTORY_ADDRESS}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
