@@ -16,13 +16,13 @@ IDO_PORTION_VESTING_PRECISION=1000
 # users can't burn more than 10000 lottery tickets
 IDO_LOTTERY_TOKENS_BURN_CAP=10000
 # Timestamp values
-day = 12312312312 # TODAY TIMESTAMP
-timeDeltadays = 30 * 24 * 60 * 60
-timeDeltaWeeks = 7 * 24 * 60 * 60
-IDO_SALE_END = day + timeDeltadays
-REGISTRATION_END = day + (2 * 24 * 60 * 60)
-REGISTRATION_START = day + (1 * 24 * 60 * 60)
-IDO_TOKEN_UNLOCK = IDO_SALE_END + timeDeltaWeeks
+day=12312312312 # TODAY TIMESTAMP
+timeDeltaDays=$((30 * 24 * 60 * 60))
+timeDeltaWeeks=$((7 * 24 * 60 * 60))
+IDO_SALE_END=$((day + timeDeltaDays))
+REGISTRATION_END=$((day + (2 * 24 * 60 * 60)))
+REGISTRATION_START=$((day + (1 * 24 * 60 * 60)))
+IDO_TOKEN_UNLOCK=$(($IDO_SALE_END + $timeDeltaWeeks))
 # VESTING_PERCENTAGES & VESTING_TIMES_UNLOCKED arrays must match in length
 VESTING_PERCENTAGES = [100, 200, 300, 400]
 VESTING_TIMES_UNLOCKED = [
@@ -46,5 +46,5 @@ starknet invoke --address "${ZK_PAD_FACTORY_ADDRESS}" \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
 
-echo "IDO SUCESSFULLY CREATED 🚀"
+echo "IDO SUCCESSFULLY CREATED 🚀"
 exit
