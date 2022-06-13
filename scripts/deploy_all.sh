@@ -16,6 +16,17 @@ LOTTERY_URI_LEN=1
 LOTTERY_URI=10099055892876447305336945663441743899351379400578134629
 XOROSHIRO_RNG_SEED=984375843
 
+ZKP_NAME=0x5a6b506164 # hex(str_to_felt("ZkPad"))
+ZKP_SYMBOL=0x5a4b50 # hex(str_to_felt("ZKP"))
+DECIMALS=18
+INITIAL_SUPPLY=10000000000000000000000000
+RECIPIENT=${OWNER_ADDRESS}
+MAX_SUPPLY=100000000000000000000000000  # TODO: check value before deploy
+
+XZKP_NAME=0x785a6b506164 # hex(str_to_felt("xZkPad"))
+XZKP_SYMBOL=0x785a4b50 # hex(str_to_felt("xZKP"))
+REWARD_PER_BLOCK=10
+
 ################################################################################## COMPILE ##########################################################################################
 cd ../
 mkdir -p artifacts
@@ -99,12 +110,7 @@ echo "Deploy xoroshiro128_starstar"
 starknet deploy --contract ../artifacts/xoroshiro128_starstar.json --inputs "${XOROSHIRO_RNG_SEED}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
 
 echo "Deploy ZkPadToken"
-ZKP_NAME=0x5a6b506164 # hex(str_to_felt("ZkPad"))
-ZKP_SYMBOL=0x5a4b50 # hex(str_to_felt("ZKP"))
-DECIMALS=18
-INITIAL_SUPPLY=10000000000000000000000000
-RECIPIENT=${OWNER_ADDRESS}
-MAX_SUPPLY=100000000000000000000000000  # TODO: check value before deploy
+
 ZK_PAD_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadToken.json --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS \
     --inputs ${ZKP_NAME} ${ZKP_SYMBOL} ${DECIMALS} ${INITIAL_SUPPLY} 0 ${RECIPIENT} ${OWNER_ADDRESS} ${MAX_SUPPLY} 0)
 echo "${ZK_PAD_DEPLOYMENT_RECEIPT}"
@@ -113,9 +119,6 @@ printf "Deploy successfully\n"
 
 CURRENT_BLOCK_NUMBER=$(starknet get_block $STARKNET_DEVNET_ARGUMENTS | jq '.block_number')
 
-XZKP_NAME=0x785a6b506164 # hex(str_to_felt("xZkPad"))
-XZKP_SYMBOL=0x785a4b50 # hex(str_to_felt("xZKP"))
-REWARD_PER_BLOCK=10
 START_BLOCK=${CURRENT_BLOCK_NUMBER}
 END_BLOCK=$((END_BLOCK=START_BLOCK + 1000))
 
