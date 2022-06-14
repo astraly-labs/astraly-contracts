@@ -21,8 +21,8 @@ def deploy_try_catch(nre: NileRuntimeEnvironment, name: str, params, alias: str)
 
     return contract
 
-def run_tx(account: Account, contract, selector: str, calldata):
-    tx = account.send(contract, selector, calldata)
+def run_tx(account: Account, contract, selector: str, calldata, max_fee=1):
+    tx = account.send(contract, selector, calldata, max_fee=max_fee)
     tx_hash = re.split("Transaction hash: ", tx)[-1]
     print(f"Running {selector}. [hash]: {tx_hash} ♻️")
     subprocess.check_output(['nile', 'debug', tx_hash])

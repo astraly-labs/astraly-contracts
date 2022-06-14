@@ -1,4 +1,3 @@
-from utils import run_tx
 import os
 import sys
 import subprocess
@@ -9,6 +8,7 @@ import time
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
+from utils import run_tx
 
 
 def to_uint(a):
@@ -75,13 +75,13 @@ VESTING_TIMES_UNLOCKED = [
 
 def run(nre: NileRuntimeEnvironment):
     signer = nre.get_or_deploy_account("SIGNER")
-    user_1 = nre.get_or_deploy_account("USER_1")
-    admin_1 = nre.get_or_deploy_account("ADMIN_1")
-    admin_2 = nre.get_or_deploy_account("ADMIN_2")
+    # user_1 = nre.get_or_deploy_account("USER_1")
+    # admin_1 = nre.get_or_deploy_account("ADMIN_1")
+    # admin_2 = nre.get_or_deploy_account("ADMIN_2")
     print(f"Signer account: {signer.address}")
-    print(f"User1 account: {user_1.address}")
-    print(f"Admin1 account: {admin_1.address}")
-    print(f"Admin2 account: {admin_2.address}")
+    # print(f"User1 account: {user_1.address}")
+    # print(f"Admin1 account: {admin_1.address}")
+    # print(f"Admin2 account: {admin_2.address}")
 
     xzkp_token, _ = nre.get_deployment("xzkp_token_proxy")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
@@ -94,8 +94,8 @@ def run(nre: NileRuntimeEnvironment):
     lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
     task_contract, task_contract_abi = nre.get_deployment("task_contract")
-    ido_contract_full, ido_contract_full_abi = nre.get_deployment(
-        "ido_contract_full")
+    # ido_contract_full, ido_contract_full_abi = nre.get_deployment(
+    #     "ido_contract_full")
 
     # Initialize Lottery Token Params
 
@@ -105,7 +105,7 @@ def run(nre: NileRuntimeEnvironment):
     run_tx(signer, lottery_token, "set_ido_factory_address",
            [int(factory_contract, 16)])
 
-    # Initialize Proxy
+    # # Initialize Proxy
 
     run_tx(signer, xzkp_token, "initializer", [
         str(XZKP_NAME),
@@ -117,7 +117,7 @@ def run(nre: NileRuntimeEnvironment):
         END_BLOCK
     ])
 
-    # Initialize Factory
+    # # Initialize Factory
 
     run_tx(signer, factory_contract,
            "set_lottery_ticket_contract_address", [int(lottery_token, 16)])
