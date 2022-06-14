@@ -92,7 +92,7 @@ echo "Deploy ZkPadAdmin"
 starknet deploy --contract ../artifacts/ZkPadAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
 
 echo "Deploy ZkPadIDOFactory"
-ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH} ${OWNER_ADDRESS}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH}" ${OWNER_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}"
 ZK_PAD_IDO_FACTORY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}")
 
