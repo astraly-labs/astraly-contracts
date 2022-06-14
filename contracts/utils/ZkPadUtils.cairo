@@ -1,6 +1,6 @@
 %lang starknet
 
-from openzeppelin.utils.constants import FALSE, TRUE
+from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (ALL_ONES, Uint256, uint256_eq, uint256_add, uint256_mul, uint256_unsigned_div_rem)
 
 func assert_is_boolean(x : felt):

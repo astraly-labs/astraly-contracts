@@ -4,7 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_nn_le, assert_not_equal, assert_not_zero, assert_le, assert_lt, unsigned_div_rem
 from starkware.cairo.common.alloc import alloc
-from openzeppelin.utils.constants import FALSE, TRUE
+from starkware.cairo.common.bool import FALSE, TRUE
 
 # All admins array
 @storage_var
@@ -61,4 +61,3 @@ func get_admins_array_len{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (the_length) = admins_array_len.read()
     return(res = the_length)
 end
-

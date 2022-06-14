@@ -65,11 +65,8 @@ def run(nre: NileRuntimeEnvironment):
     print(f"Admin2 account: {admin_2.address}")
 
     admin_contract, admin_contract_abi = nre.get_deployment("admin_contract")
-    xoroshiro_contract, xoroshiro_contract_abi = nre.get_deployment(
-        "xoroshiro_contract")
     factory_contract, factory_contract_abi = nre.get_deployment(
         "factory_contract")
-    lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
 
     # deploy Task contract

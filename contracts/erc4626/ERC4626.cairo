@@ -18,7 +18,7 @@ from openzeppelin.token.erc20.library import (
     ERC20_burn,
 )
 
-from openzeppelin.utils.constants import TRUE
+from starkware.cairo.common.bool import TRUE
 
 from contracts.erc4626.library import (
     ERC4626_initializer,

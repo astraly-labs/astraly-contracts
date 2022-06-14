@@ -17,7 +17,7 @@ from InterfaceAll import IAdmin, IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR
 from contracts.utils.ZkPadConstants import DAYS_30
 from contracts.utils.ZkPadUtils import get_is_equal, uint256_max
 from starkware.starknet.common.syscalls import get_block_timestamp
-from openzeppelin.utils.constants import FALSE, TRUE
+from starkware.cairo.common.bool import FALSE, TRUE
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from starkware.cairo.common.uint256 import (
     Uint256,

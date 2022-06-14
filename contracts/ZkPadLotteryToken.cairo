@@ -20,7 +20,7 @@ from starkware.starknet.common.syscalls import (
 )
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
-from openzeppelin.utils.constants import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.erc1155.ERC1155_struct import TokenUri
 

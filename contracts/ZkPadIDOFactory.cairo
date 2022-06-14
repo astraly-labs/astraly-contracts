@@ -5,7 +5,7 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_not_zero
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, deploy
 
-from openzeppelin.utils.constants import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 from openzeppelin.access.ownable import (
     Ownable_initializer,
     Ownable_only_owner,

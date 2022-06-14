@@ -24,7 +24,7 @@ from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner,
 from starkware.starknet.common.syscalls import get_caller_address
 from contracts.utils import or, get_is_equal
 
-from openzeppelin.utils.constants import TRUE
+from starkware.cairo.common.bool import TRUE
 
 @storage_var
 func cap_() -> (res : Uint256):

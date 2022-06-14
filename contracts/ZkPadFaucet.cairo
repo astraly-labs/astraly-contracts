@@ -10,7 +10,7 @@ from starkware.starknet.common.syscalls import (
 )
 from starkware.cairo.common.math_cmp import is_le
 from InterfaceAll import IERC20
-from openzeppelin.utils.constants import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
 
 #
