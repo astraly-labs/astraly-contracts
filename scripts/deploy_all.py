@@ -113,11 +113,11 @@ def run(nre: NileRuntimeEnvironment):
         MAX_SUPPLY,
         "0"
     ], "zkp_token")
-    xzkp_token_implementation = deploy_try_catch(
-        nre, "ZkPadStaking", [], "xzkp_token_implementation")
-
+    # xzkp_token_implementation = deploy_try_catch(
+    #     nre, "ZkPadStaking", [], "xzkp_token_implementation")
+    xzkp_class_hash = nre.declare("ZkPadStaking")
     xzkp_token = deploy_try_catch(
-        nre, "OZProxy", [xzkp_token_implementation], "xzkp_token_proxy")
+        nre, "OZProxy", [xzkp_class_hash], "xzkp_token_proxy")
 
     # deploy harvest task
     harvest_task = deploy_try_catch(
@@ -138,7 +138,7 @@ def run(nre: NileRuntimeEnvironment):
     # Deploy IDO Factory
     ido_class_hash = nre.declare("ZkPadIDOContract", alias="ZkPadIDOContract")
     factory_contract = deploy_try_catch(
-        nre, "ZkPadIDOFactory", [ido_class_hash], "factory_contract")
+        nre, "ZkPadIDOFactory", [ido_class_hash, signer.address], "factory_contract")
 
     # Deploy Lottery token
     lottery_token = deploy_try_catch(nre, "ZkPadLotteryToken", [

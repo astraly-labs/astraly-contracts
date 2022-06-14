@@ -5,11 +5,11 @@ export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAcco
 export OWNER_ACCOUNT_NAME=owner
 
 # TODO: Use this only on devnet, otherwise comment next line
-export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
+# export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x1
-MAX_FEE=1
+MAX_FEE=54452800237082000
 
-OWNER_ADDRESS=0xc45388638835815ffbee415184905349efdc167540105c2ab022361d5bfca5
+OWNER_ADDRESS=0x02356b628d108863Baf8644C945d97bAD70190aF5957031F4852D00D0f690a77
 NUMBER_OF_ADMINS=2
 ADMINS_ADDRESSES="${OWNER_ADDRESS} ${OWNER_ADDRESS}"
 
@@ -71,6 +71,11 @@ echo "Declare xoroshiro128_starstar"
 starknet declare --contract ../artifacts/xoroshiro128_starstar.json $STARKNET_DEVNET_ARGUMENTS
 printf "Declare successfully\n"
 
+echo "Declare ZkPadIDO class"
+ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json $STARKNET_DEVNET_ARGUMENTS)
+echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
+ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
+
 ################################################################################## DEPLOY ##########################################################################################
 echo "Deploy ZkPadStaking"
 starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
@@ -87,7 +92,7 @@ echo "Deploy ZkPadAdmin"
 starknet deploy --contract ../artifacts/ZkPadAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
 
 echo "Deploy ZkPadIDOFactory"
-ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CONTRACT_CLASS_HASH}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH} ${OWNER_ADDRESS}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}"
 ZK_PAD_IDO_FACTORY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}")
 

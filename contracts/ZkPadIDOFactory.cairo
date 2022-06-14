@@ -108,9 +108,8 @@ func get_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
 end
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_ido_contract_class_hash : felt):
-    let (caller : felt) = get_caller_address()
-    Ownable_initializer(caller)
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_ido_contract_class_hash : felt, owner_: felt):
+    Ownable_initializer(owner_)
 
     set_ido_contract_class_hash(_ido_contract_class_hash)
     return ()
