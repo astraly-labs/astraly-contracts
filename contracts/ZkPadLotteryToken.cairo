@@ -39,6 +39,7 @@ from contracts.erc1155.library import (
     ERC1155_isApprovedForAll,
     ERC1155_supportsInterface,
     owner_or_approved,
+    ERC1155_setURI
 )
 
 from contracts.utils.Math64x61 import (
@@ -162,6 +163,18 @@ func setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     operator : felt, approved : felt
 ):
     ERC1155_setApprovalForAll(operator, approved)
+    return ()
+end
+
+# @dev Sets a new URI
+# @param uri_len : Length of the URI
+# @param uri : URI of the token
+@external
+func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    uri_len : felt, uri : felt*
+):
+    Ownable_only_owner()
+    ERC1155_setURI(uri_len, uri)
     return ()
 end
 

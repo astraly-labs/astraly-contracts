@@ -5,11 +5,14 @@ export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAcco
 export OWNER_ACCOUNT_NAME=owner
 
 export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
-OWNER_ADDRESS=0xc45388638835815ffbee415184905349efdc167540105c2ab022361d5bfca5
-ZK_PAD_TOKEN_ADDRESS=0x1
+OWNER_ADDRESS=0x02356b628d108863Baf8644C945d97bAD70190aF5957031F4852D00D0f690a77
+ZK_PAD_TOKEN_ADDRESS=0x042ad3518eceeecc43309cf7035ad83006d1b2abb9fb32ab0b79056b1d18c48b
 WAIT_TIME=86400 # 1 DAY
 WITHDRAWAL_AMOUNT=100000000000000000000 # 100 ZKP
 FAUCET_AMOUNT=20000000000000000000000000 # 20M ZKP
+
+SALT=0x1
+MAX_FEE=54452800237082000
 
 ################################################################################## COMPILE ##########################################################################################
 cd ../
@@ -27,7 +30,7 @@ ZK_PAD_FAUCET_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_FAUCET_DECLARATI
 
 ################################################################################## DEPLOY ##########################################################################################
 echo "Deploy ZkPadFaucet"
-ZK_PAD_FAUCET_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadFaucet.json --salt ${SALT} --inputs ${OWNER_ADDRESS} ${ZK_PAD_TOKEN_ADDRESS} ${WITHDRAWAL_AMOUNT} 0 ${WAIT_TIME} $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_FAUCET_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadFaucet.json --inputs ${OWNER_ADDRESS} ${ZK_PAD_TOKEN_ADDRESS} ${WITHDRAWAL_AMOUNT} 0 ${WAIT_TIME} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_FAUCET_DEPLOY_RECEIPT}"
 ZK_PAD_FAUCET_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_FAUCET_DEPLOY_RECEIPT}")
 

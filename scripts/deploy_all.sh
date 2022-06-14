@@ -126,6 +126,8 @@ starknet invoke --address "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
+
+sleep 400
 echo "Initialize successfully"
 
 
@@ -137,6 +139,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
+sleep 400
 echo "xZKP address set successfully"
 
 echo "Set IDO factory address"
@@ -147,6 +150,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
+sleep 400
 echo "IDO factory address set"
 
 echo "Set lottery ticket contract address"
@@ -157,6 +161,8 @@ starknet invoke --address "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
+
+sleep 400
 echo "Lottery ticket contract address set successfully"
 
 

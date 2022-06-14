@@ -97,27 +97,25 @@ func ERC1155_supportsInterface(interface_id : felt) -> (res : felt):
     return (0)
 end
 
-func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    id : felt
-) -> (uri_len : felt, uri: felt*):
+func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(id : felt) -> (
+    uri_len : felt, uri : felt*
+):
     alloc_locals
     let (uri) = ERC1155_uri_.read(id)
 
     # ERC1155 returns the same URI for all token types.
     # TokenId will be represented by the substring '{id}' and so stored in a felt
     # Client calling the function must replace the '{id}' substring with the actual token type ID
-    let (local tokenURI) = alloc()
-    let (local tokenURI_len) = ERC1155_uri_len_.read()
+    let (local tokenURI: felt*) = alloc()
+    let (local tokenURI_len: felt) = ERC1155_uri_len_.read()
     _ERC1155_uri(tokenURI_len, tokenURI)
 
     return (uri_len=tokenURI_len, uri=tokenURI)
 end
 
-func _ERC1155_uri{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr
-    }(uri_len: felt, uri: felt*):
+func _ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    uri_len : felt, uri : felt*
+):
     if uri_len == 0:
         return ()
     end
@@ -170,6 +168,13 @@ func ERC1155_setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     let (caller) = get_caller_address()
     # Non-zero caller asserted in called function
     _set_approval_for_all(owner=caller, operator=operator, approved=approved)
+    return ()
+end
+
+func ERC1155_setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_uri_len : felt, new_uri : felt*
+):
+    _setURI(new_uri_len, new_uri)
     return ()
 end
 

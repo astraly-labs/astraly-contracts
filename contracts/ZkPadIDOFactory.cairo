@@ -111,7 +111,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_ido_contract_class_hash : felt, owner_: felt):
     Ownable_initializer(owner_)
 
-    set_ido_contract_class_hash(_ido_contract_class_hash)
+    ido_contract_class_hash.write(_ido_contract_class_hash)
     return ()
 end
 
