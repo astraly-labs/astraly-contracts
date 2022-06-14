@@ -31,20 +31,15 @@ VESTING_PERCENTAGES="100 0 200 0 300 0 400 0"
 VESTING_TIMES_UNLOCKED_LEN=4
 VESTING_TIMES_UNLOCKED="86401 691201 1296001 1900801"
 
-ZK_PAD_FACTORY_ADDRESS=0x069bcaad4741a83821040ad395805c34d1d5e69f5eede024bbd6b6f5aac7bdbc
-
+ZK_PAD_FACTORY_ADDRESS= #TODO
+ZKP_IDO_CONTRACT_ADDRESS= #TODO
 ################################################################################## COMPILE ##########################################################################################
 cd ../
 mkdir -p artifacts
 echo "Compile contracts"
-starknet-compile ./contracts/ZkPadIDOContract.cairo --output ./artifacts/ZkPadIDOContract.json --abi ./artifacts/ZkPadIDOContract_abi.json
 starknet-compile ./contracts/ZkPadTask.cairo --output ./artifacts/ZkPadTask.json --abi ./artifacts/ZkPadTask_abi.json
 
 ################################################################################## DECLARE ##########################################################################################
-cd ./contracts
-echo "Declare ZkPadIDOContract"
-starknet declare --contract ../artifacts/ZkPadIDOContract.json $STARKNET_DEVNET_ARGUMENTS
-
 echo "Declare ZkPadTask"
 starknet declare --contract ../artifacts/ZkPadTask.json $STARKNET_DEVNET_ARGUMENTS
 
@@ -54,13 +49,6 @@ echo "Deploy ZkPadTask"
 ZK_PAD_TASK_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadTask.json --inputs ${ZK_PAD_FACTORY_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_TASK_DEPLOYMENT_RECEIPT}"
 ZKP_TASK_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_TASK_DEPLOYMENT_RECEIPT}")
-
-
-echo "Deploy ZkPadIDOContract"
-ZK_PAD_IDO_CONTRACT_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOContract.json --inputs ${OWNER_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
-echo "${ZK_PAD_IDO_CONTRACT_DEPLOYMENT_RECEIPT}"
-ZKP_IDO_CONTRACT_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_CONTRACT_DEPLOYMENT_RECEIPT}")
-
 
 echo "Set Task Address"
 starknet invoke --address "${ZK_PAD_FACTORY_ADDRESS}" \
