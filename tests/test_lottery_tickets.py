@@ -99,28 +99,35 @@ def contract_defs():
 async def erc1155_init(contract_defs):
     account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def = contract_defs
     starknet = await Starknet.empty()
+    await starknet.declare(contract_class=account_def)
     account1 = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[signer.public_key]
     )
     account2 = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[signer.public_key]
     )
-    ido = await starknet.deploy(contract_def=ido_def)
-    ido2 = await starknet.deploy(contract_def=ido_def)
-    factory = await starknet.deploy(contract_def=factory_def)
-    task = await starknet.deploy(contract_def=task_def, constructor_calldata=[factory.contract_address])
+    ido_class = await starknet.declare(contract_class=ido_def)
+    ido = await starknet.deploy(contract_class=ido_def)
+    ido2 = await starknet.deploy(contract_class=ido_def)
+    await starknet.declare(contract_class=factory_def)
+    factory = await starknet.deploy(contract_class=factory_def, constructor_calldata=[ido_class.class_hash, account1.contract_address])
+    await starknet.declare(contract_class=task_def)
+    task = await starknet.deploy(contract_class=task_def, constructor_calldata=[factory.contract_address])
+    await starknet.declare(contract_class=erc1155_def)
     erc1155 = await starknet.deploy(
-        contract_def=erc1155_def,
+        contract_class=erc1155_def,
         constructor_calldata=[
-            0, account1.contract_address, factory.contract_address]
+            2, 186294699441980128189380696103414374861828827125449954958229537633255900247, 43198068668795004939573357158436613902855023868408433, account1.contract_address, factory.contract_address]
     )
+    await starknet.declare(contract_class=receiver_def)
     receiver = await starknet.deploy(
-        contract_def=receiver_def
+        contract_class=receiver_def
     )
+    await starknet.declare(contract_class=zk_pad_token_def)
     zk_pad_token = await starknet.deploy(
-        contract_def=zk_pad_token_def,
+        contract_class=zk_pad_token_def,
         constructor_calldata=[
             str_to_felt("ZkPad"),
             str_to_felt("ZKP"),
@@ -132,13 +139,15 @@ async def erc1155_init(contract_defs):
         ],
     )
 
-    zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
+    await starknet.declare(contract_class=zk_pad_stake_def)
+    zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('OZProxy.cairo')
-    zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
+    proxy_def = get_contract_def('openzeppelin/upgrades/OZProxy.cairo')
+    await starknet.declare(contract_class=proxy_def)
+    zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_implementation.contract_address])
     await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
-        str_to_felt("xZkPad"), W
+        str_to_felt("xZkPad"),
         str_to_felt("xZKP"),
         zk_pad_token.contract_address,
         account1.contract_address,
@@ -311,6 +320,7 @@ async def test_constructor(erc1155_factory):
     erc1155, _, _, _, _ = erc1155_factory
 
     execution_info = await erc1155.uri(0).invoke()
+    print(execution_info.result)
     assert execution_info.result.uri == 0
 
 #

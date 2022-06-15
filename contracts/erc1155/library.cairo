@@ -101,7 +101,7 @@ func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     uri_len : felt, uri : felt*
 ):
     alloc_locals
-    let (uri) = ERC1155_uri_.read(id)
+    # let (uri) = ERC1155_uri_.read(id)
 
     # ERC1155 returns the same URI for all token types.
     # TokenId will be represented by the substring '{id}' and so stored in a felt
