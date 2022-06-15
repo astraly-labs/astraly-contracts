@@ -139,13 +139,13 @@ async def erc1155_init(contract_defs):
         ],
     )
 
-    await starknet.declare(contract_class=zk_pad_stake_def)
+    zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('openzeppelin/upgrades/OZProxy.cairo')
+    proxy_def = get_contract_def('/openzeppelin/upgrades/OZProxy.cairo')
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
-                                               constructor_calldata=[zk_pad_stake_implementation.contract_address])
+                                               constructor_calldata=[zk_pad_stake_class.class_hash])
     await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
         str_to_felt("xZkPad"),
         str_to_felt("xZKP"),

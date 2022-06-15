@@ -30,6 +30,8 @@ def contract_path(name):
         return site.getsitepackages()[0] + "/" + name
     elif name.startswith("tests/"):
         return str(_root / name)
+    elif name.startswith('/'):
+        return str(_root / "contracts" / name[1:])
     else:
         return str(_root / "contracts" / name)
 
