@@ -192,9 +192,9 @@ func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _merkle_root : felt, _id : felt
 ):
     Ownable_only_owner()
-    with_attr error_message("Invalid id"):
-        assert_not_zero(_id)
-    end
+    # with_attr error_message("Invalid id"):
+    #     assert_not_zero(_id)
+    # end
     with_attr error_message("Invalid merkle root"):
         assert_not_zero(_merkle_root)
     end
