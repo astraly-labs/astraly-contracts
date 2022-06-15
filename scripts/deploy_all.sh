@@ -8,6 +8,7 @@ export OWNER_ACCOUNT_NAME=owner
 # export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x1
 MAX_FEE=54452800237082000
+SLEEP=0
 
 OWNER_ADDRESS=0x02356b628d108863Baf8644C945d97bAD70190aF5957031F4852D00D0f690a77
 NUMBER_OF_ADMINS=2
@@ -127,7 +128,7 @@ starknet invoke --address "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
 
-sleep 400
+sleep ${SLEEP}
 echo "Initialize successfully"
 
 
@@ -139,7 +140,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
-sleep 400
+sleep ${SLEEP}
 echo "xZKP address set successfully"
 
 echo "Set IDO factory address"
@@ -150,7 +151,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
-sleep 400
+sleep ${SLEEP}
 echo "IDO factory address set"
 
 echo "Set lottery ticket contract address"
@@ -162,7 +163,7 @@ starknet invoke --address "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
     --account ${OWNER_ACCOUNT_NAME} \
     $STARKNET_DEVNET_ARGUMENTS
 
-sleep 400
+sleep ${SLEEP}
 echo "Lottery ticket contract address set successfully"
 
 
