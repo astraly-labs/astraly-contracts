@@ -21,7 +21,12 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
 )
 
-from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer, Ownable_get_owner, Ownable_transfer_ownership
+from openzeppelin.access.ownable import (
+    Ownable_only_owner,
+    Ownable_initializer,
+    Ownable_get_owner,
+    Ownable_transfer_ownership,
+)
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import (
     uint256_checked_add,
@@ -699,7 +704,7 @@ func depositLP{
         token_details.mint_calculator_address, assets
     )
     # Update user info
-    update_user_info_on_deposit(receiver, assets)
+    update_user_info_on_deposit(receiver, zkp_quote)
 
     let (shares : Uint256) = previewDepositLP(lp_token, assets, lock_time_days)
     ERC20_mint(receiver, shares)
@@ -716,6 +721,7 @@ func mint{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
+    Ownable_only_owner()
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
@@ -736,6 +742,7 @@ func mintForTime{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
+    Ownable_only_owner()
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
@@ -1198,7 +1205,9 @@ func harvestRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
 end
 
 @external
-func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_owner : felt):
+func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    new_owner : felt
+):
     assert_not_zero(new_owner)
     Ownable_transfer_ownership(new_owner)
     return ()
@@ -1465,13 +1474,15 @@ func update_user_info_on_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
 ):
     alloc_locals
     let (cur_user_info : UserInfo) = userInfo(user)
-    let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
-    let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
-    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
-    let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+    # let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    # let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
+    # let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
+    # let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
 
     let (new_amount : Uint256) = uint256_checked_add(cur_user_info.amount, assets)
-    let new_user_info : UserInfo = UserInfo(amount=new_amount, reward_debt=new_reward_debt)
+    let new_user_info : UserInfo = UserInfo(
+        amount=new_amount, reward_debt=cur_user_info.reward_debt
+    )
     user_info.write(user, new_user_info)
     return ()
 end

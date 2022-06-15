@@ -5,9 +5,9 @@ export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAcco
 export OWNER_ACCOUNT_NAME=owner
 
 # TODO: Use this only on devnet, otherwise comment next line
-export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
+# export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x1
-MAX_FEE=1
+MAX_FEE=54452800237082000
 
 ALPHA_ROAD_POOL=0x68f02f0573d85b5d54942eea4c1bf97c38ca0e3e34fe3c974d1a3feef6c33be
 JEDI_SWAP_POOL=0x68f02f0573d85b2d54942eea4c1bf97c38ca0e3e34fe3c974d1a3feef6c33be
