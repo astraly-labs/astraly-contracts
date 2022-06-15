@@ -74,6 +74,9 @@ REWARDS_PER_BLOCK = to_uint(10)
 START_BLOCK = 0
 END_BLOCK = START_BLOCK + 10000
 
+TOKEN_URI = [186294699441980128189380696103414374861828827125449954958229537633255900247,
+             43198068668795004939573357158436613902855023868408433]
+
 
 # Fixtures
 
@@ -119,7 +122,7 @@ async def erc1155_init(contract_defs):
     erc1155 = await starknet.deploy(
         contract_class=erc1155_def,
         constructor_calldata=[
-            2, 186294699441980128189380696103414374861828827125449954958229537633255900247, 43198068668795004939573357158436613902855023868408433, account1.contract_address, factory.contract_address]
+            len(TOKEN_URI), *TOKEN_URI, account1.contract_address, factory.contract_address]
     )
     await starknet.declare(contract_class=receiver_def)
     receiver = await starknet.deploy(
@@ -321,7 +324,7 @@ async def test_constructor(erc1155_factory):
 
     execution_info = await erc1155.uri(0).invoke()
     print(execution_info.result)
-    assert execution_info.result.uri == 0
+    assert execution_info.result.uri == TOKEN_URI
 
 #
 # ERC165

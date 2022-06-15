@@ -106,22 +106,23 @@ func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # ERC1155 returns the same URI for all token types.
     # TokenId will be represented by the substring '{id}' and so stored in a felt
     # Client calling the function must replace the '{id}' substring with the actual token type ID
-    let (local tokenURI: felt*) = alloc()
-    let (local tokenURI_len: felt) = ERC1155_uri_len_.read()
-    _ERC1155_uri(tokenURI_len, tokenURI)
+    let (tokenURI: felt*) = alloc()
+    let (tokenURI_len: felt) = ERC1155_uri_len_.read()
+    local index = 0
+    _ERC1155_uri(tokenURI_len, tokenURI, index)
 
     return (uri_len=tokenURI_len, uri=tokenURI)
 end
 
 func _ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    uri_len : felt, uri : felt*
+    uri_len : felt, uri : felt*, index: felt
 ):
-    if uri_len == 0:
+    if index == uri_len:
         return ()
     end
-    let (base) = ERC1155_uri_.read(uri_len)
+    let (base) = ERC1155_uri_.read(index)
     assert [uri] = base
-    _ERC1155_uri(uri_len=uri_len - 1, uri=uri + 1)
+    _ERC1155_uri(uri_len=uri_len, uri=uri + 1, index=index + 1)
     return ()
 end
 
@@ -647,7 +648,7 @@ end
 func _populate_uri_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     len : felt, _uri : felt*, index : felt
 ):
-    if len == 0:
+    if index == len:
         return ()
     end
 
@@ -656,6 +657,6 @@ func _populate_uri_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     end
 
     ERC1155_uri_.write(index, _uri[index])
-    _populate_uri_array(len=len - 1, _uri=_uri + 1, index=index + 1)
+    _populate_uri_array(len=len, _uri=_uri, index=index + 1)
     return ()
 end
