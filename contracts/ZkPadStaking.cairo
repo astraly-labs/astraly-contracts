@@ -636,10 +636,9 @@ func deposit{
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
     set_new_deposit_unlock_time(receiver, default_lock_time)
-    update_user_after_deposit(receiver, underlying_asset, assets)
-
     # Update user info
     update_user_info_on_deposit(receiver, assets)
+    update_user_after_deposit(receiver, underlying_asset, assets)
 
     ReentrancyGuard_end()
     return (shares)
@@ -656,12 +655,13 @@ func depositForTime{
     uint256_assert_not_zero(assets)
     # Update pool
     update_pool()
+    
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
     set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
+    update_user_info_on_deposit(receiver, assets)
     update_user_after_deposit(receiver, underlying_asset, assets)
 
-    update_user_info_on_deposit(receiver, assets)
     ReentrancyGuard_end()
     return (shares)
 end
@@ -730,8 +730,8 @@ func mint{
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
-    update_user_after_deposit(receiver, underlying_asset, assets)
     update_user_info_on_deposit(receiver, assets)
+    update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard_end()
     return (assets)
 end
@@ -1475,15 +1475,13 @@ func update_user_info_on_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
 ):
     alloc_locals
     let (cur_user_info : UserInfo) = userInfo(user)
-    # let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
-    # let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
-    # let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
-    # let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
+    let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
+    let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = uint256_checked_mul(cur_user_info.amount, cur_acc_token_per_share)
+    let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
 
     let (new_amount : Uint256) = uint256_checked_add(cur_user_info.amount, assets)
-    let new_user_info : UserInfo = UserInfo(
-        amount=new_amount, reward_debt=cur_user_info.reward_debt
-    )
+    let new_user_info : UserInfo = UserInfo(amount=new_amount, reward_debt=new_reward_debt)
     user_info.write(user, new_user_info)
     return ()
 end
