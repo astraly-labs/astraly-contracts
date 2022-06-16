@@ -6,7 +6,7 @@ export OWNER_ACCOUNT_NAME=owner
 
 # TODO: Use this only on devnet, otherwise comment next line
 # export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
-SALT=0x1
+SALT=0x2
 MAX_FEE=54452800237082000
 
 PROXY_ADDRESS=0x005f4736f8446220048498d4011792ce35b17eca8ff905653b84235ae3d5ef86

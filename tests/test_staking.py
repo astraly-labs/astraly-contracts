@@ -15,7 +15,7 @@ def parse_ether(value: int):
     return int(value * 1e18)
 
 
-INIT_SUPPLY = to_uint(parse_ether(1_000_000))
+INIT_SUPPLY = to_uint(parse_ether(1_000))
 CAP = to_uint(parse_ether(1_000_000_000_000))
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
@@ -1426,7 +1426,8 @@ async def test_reward_system(contracts_factory):
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
     await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "deposit",
                                  [*stake_amount, user1_account.contract_address])
-
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
+    print("LAST 1 : ", LAST_REWARD_BLOCK)
     user_balance_after_initial_deposit = (
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
 
@@ -1442,12 +1443,28 @@ async def test_reward_system(contracts_factory):
     )
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*INIT_SUPPLY, owner_account.contract_address])
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
 
     set_block_number(starknet_state, END_BLOCK - 1)
+
     pending_rewards = (
         await zk_pad_staking.calculatePendingRewards(user1_account.contract_address).call()).result.rewards
+    pending_rewards_owner = (
+        await zk_pad_staking.calculatePendingRewards(owner_account.contract_address).call()).result.rewards
 
     assert pending_rewards != UINT_ZERO
+
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
+    TOTAL_ASSETS = (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets
+    USER_INFO = (await zk_pad_staking.userInfo(owner_account.contract_address).call()).result.info
+    ACC_TOKEN_PER_SHARE = (await zk_pad_staking.accTokenPerShare().call()).result.res
+
+    print("USER", pending_rewards)
+    print("OWNER", pending_rewards_owner)
+    print("LAST 2 : ", LAST_REWARD_BLOCK)
+    print("TOTAL ASSETS", TOTAL_ASSETS)
+    print("USER_INFO", USER_INFO)
+    print("ACC_TOKEN_PER_SHARE", ACC_TOKEN_PER_SHARE)
     tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "harvestRewards", [])
     user_balance = (await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
     event_signature = get_selector_from_name("HarvestRewards")

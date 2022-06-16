@@ -6,7 +6,7 @@ export OWNER_ACCOUNT_NAME=owner
 
 # TODO: Use this only on devnet, otherwise comment next line
 # export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
-SALT=0x1
+SALT=0x2
 MAX_FEE=54452800237082000
 SLEEP=400
 
@@ -137,6 +137,17 @@ echo "Set xZKP contract address for lottery token"
 starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --abi ../artifacts/ZkPadLotteryToken_abi.json \
     --function set_xzkp_contract_address \
+    --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
+    --max_fee ${MAX_FEE} \
+    --account ${OWNER_ACCOUNT_NAME} \
+    $STARKNET_DEVNET_ARGUMENTS
+sleep ${SLEEP}
+echo "xZKP address set successfully"
+
+echo "Set xZKP contract address for token"
+starknet invoke --address "${ZKP_TOKEN_ADDRESS}" \
+    --abi ../artifacts/ZkPadToken_abi.json \
+    --function set_vault_address \
     --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
