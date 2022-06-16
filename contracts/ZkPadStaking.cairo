@@ -721,7 +721,7 @@ func mint{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    Ownable_only_owner()
+    # Ownable_only_owner()
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
@@ -742,7 +742,7 @@ func mintForTime{
     alloc_locals
     ReentrancyGuard_start()
     Pausable_when_not_paused()
-    Ownable_only_owner()
+    # Ownable_only_owner()
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
