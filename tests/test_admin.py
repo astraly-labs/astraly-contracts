@@ -33,20 +33,20 @@ async def contacts_init(contract_defs):
     account_def, zk_pad_admin_def = contract_defs
 
     deployer_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[deployer.public_key]
     )
     admin1_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[admin1.public_key]
     )
     admin2_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[admin2.public_key]
     )
 
     zk_pad_admin = await starknet.deploy(
-        contract_def=zk_pad_admin_def,
+        contract_class=zk_pad_admin_def,
         constructor_calldata=[
             2,
             *[admin1_account.contract_address, admin2_account.contract_address]

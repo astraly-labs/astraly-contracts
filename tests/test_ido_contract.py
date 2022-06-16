@@ -93,64 +93,71 @@ def contract_defs():
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, zk_pad_admin_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
-
+    await starknet.declare(contract_class=account_def)
     deployer_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[deployer.public_key]
     )
     admin1_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[admin1.public_key]
     )
+    
     staking_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[staking.public_key]
     )
     sale_owner_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[sale_owner.public_key]
     )
 
     sale_participant_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[sale_participant.public_key]
     )
 
     sale_participant_2_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[sale_participant_2.public_key]
     )
 
     zkp_recipient_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[zkp_recipient.public_key]
     )
 
     zkp_owner_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[zkp_owner.public_key]
     )
 
+    await starknet.declare(contract_class=zk_pad_admin_def)
     zk_pad_admin = await starknet.deploy(
-        contract_def=zk_pad_admin_def,
+        contract_class=zk_pad_admin_def,
         constructor_calldata=[
             1,
             *[admin1_account.contract_address]
         ],
     )
-
+    
+    await starknet.declare(contract_class=rnd_nbr_gen_def)
     rnd_nbr_gen = await starknet.deploy(
-        contract_def=rnd_nbr_gen_def,
+        contract_class=rnd_nbr_gen_def,
         constructor_calldata=[RND_NBR_GEN_SEED],
     )
 
+    ido_class = await starknet.declare(contract_class=zk_pad_ido_def)
+    await starknet.declare(contract_class=zk_pad_ido_factory_def)
     zk_pad_ido_factory = await starknet.deploy(
-        contract_def=zk_pad_ido_factory_def,
-        constructor_calldata=[],
+        contract_class=zk_pad_ido_factory_def,
+        constructor_calldata=[ido_class.class_hash,
+                              deployer_account.contract_address],
     )
 
+    await starknet.declare(contract_class=erc1155_def)
     erc1155 = await starknet.deploy(
-        contract_def=erc1155_def,
+        contract_class=erc1155_def,
         constructor_calldata=[
             0, deployer_account.contract_address, zk_pad_ido_factory.contract_address]
     )
@@ -160,8 +167,9 @@ async def contacts_init(contract_defs, get_starknet):
         [rnd_nbr_gen.contract_address]
     )
 
+    await starknet.declare(contract_class=zk_pad_token_def)
     zk_pad_token = await starknet.deploy(
-        contract_def=zk_pad_token_def,
+        contract_class=zk_pad_token_def,
         constructor_calldata=[
             NAME,
             SYMBOL,
@@ -173,16 +181,9 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
-    zk_pad_ido = await starknet.deploy(
-        contract_def=zk_pad_ido_def,
-        constructor_calldata=[
-            zk_pad_admin.contract_address,
-            zk_pad_ido_factory.contract_address
-        ],
-    )
 
     task = await starknet.deploy(
-        contract_def=task_def,
+        contract_class=task_def,
         constructor_calldata=[
             zk_pad_ido_factory.contract_address,
         ],
@@ -196,8 +197,10 @@ async def contacts_init(contract_defs, get_starknet):
     await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "set_lottery_ticket_contract_address",
                                     [erc1155.contract_address])
 
+    await starknet.declare(contract_class=erc20_eth_def)
+
     erc20_eth_token = await starknet.deploy(
-        contract_def=erc20_eth_def,
+        contract_class=erc20_eth_def,
         constructor_calldata=[
             deployer_account.contract_address,
             deployer_account.contract_address
@@ -234,7 +237,6 @@ async def contacts_init(contract_defs, get_starknet):
         zk_pad_ido_factory,
         erc1155,
         zk_pad_token,
-        zk_pad_ido,
         erc20_eth_token
     )
 
@@ -242,7 +244,7 @@ async def contacts_init(contract_defs, get_starknet):
 @pytest.fixture
 def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, zk_pad_admin_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_factory_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
-    deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, sale_participant_2_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, zk_pad_ido, erc20_eth_token = contacts_init
+    deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, sale_participant_2_account, _, _, zk_pad_admin, rnd_nbr_gen, zk_pad_ido_factory, erc1155, zk_pad_token, erc20_eth_token = contacts_init
     _state = get_starknet.state.copy()
     admin_cached = cached_contract(_state, zk_pad_admin_def, zk_pad_admin)
     deployer_cached = cached_contract(_state, account_def, deployer_account)
@@ -254,7 +256,6 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     participant_2_cached = cached_contract(
         _state, account_def, sale_participant_2_account)
     zkp_token_cached = cached_contract(_state, zk_pad_token_def, zk_pad_token)
-    ido_cached = cached_contract(_state, zk_pad_ido_def, zk_pad_ido)
     rnd_nbr_gen_cached = cached_contract(_state, rnd_nbr_gen_def, rnd_nbr_gen)
     ido_factory_cached = cached_contract(
         _state, zk_pad_ido_factory_def, zk_pad_ido_factory)
@@ -266,7 +267,7 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
 
 @pytest.mark.asyncio
 async def test_winning_tickets(contracts_factory):
-    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
     res = await ido.draw_winning_tickets(to_uint(10000), 2).invoke()
     print(res.result.res)
     assert res.result.res < to_uint(10000)
@@ -310,7 +311,7 @@ async def test_winning_tickets(contracts_factory):
 
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
-    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, ido, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, erc1155, erc20_eth_token, starknet_state = contracts_factory
     day = datetime.today()
     timeDelta90days = timedelta(days=90)
     timeDeltaOneWeek = timedelta(weeks=1)

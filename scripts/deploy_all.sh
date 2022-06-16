@@ -6,7 +6,7 @@ export OWNER_ACCOUNT_NAME=owner
 
 # TODO: Use this only on devnet, otherwise comment next line
 # export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
-SALT=0x2
+SALT=0x4
 MAX_FEE=54452800237082000
 SLEEP=400
 
@@ -19,15 +19,15 @@ LOTTERY_URI_0=186294699441980128189380696103414374861828827125449954958229537633
 LOTTERY_URI_1=43198068668795004939573357158436613902855023868408433
 XOROSHIRO_RNG_SEED=984375843
 
-ZKP_NAME=0x5a6b506164 # hex(str_to_felt("ZkPad"))
-ZKP_SYMBOL=0x5a4b50 # hex(str_to_felt("ZKP"))
+ZKP_NAME=0x41737472616c79 # hex(str_to_felt("Astraly"))
+ZKP_SYMBOL=0x41535452 # hex(str_to_felt("ASTR"))
 DECIMALS=18
 INITIAL_SUPPLY=10000000000000000000000000
 RECIPIENT=${OWNER_ADDRESS}
 MAX_SUPPLY=100000000000000000000000000  # TODO: check value before deploy
 
-XZKP_NAME=0x785a6b506164 # hex(str_to_felt("xZkPad"))
-XZKP_SYMBOL=0x785a4b50 # hex(str_to_felt("xZKP"))
+XZKP_NAME=0x7841737472616c79 # hex(str_to_felt("xZkPad"))
+XZKP_SYMBOL=0x7841535452 # hex(str_to_felt("xZKP"))
 REWARD_PER_BLOCK=10000000000000000000 # 10 ether
 
 ################################################################################## COMPILE ##########################################################################################
@@ -116,9 +116,9 @@ printf "Deploy successfully\n"
 echo "CONTRACTS DEPLOYMENT DONE 🚀"
 
 ################################################################################## INITIALIZE ##########################################################################################
-CURRENT_BLOCK_NUMBER=$(starknet get_block $STARKNET_DEVNET_ARGUMENTS | jq '.block_number')
-START_BLOCK=${CURRENT_BLOCK_NUMBER}
-END_BLOCK=$((END_BLOCK=START_BLOCK + 1000))
+# CURRENT_BLOCK_NUMBER=$(starknet get_block $STARKNET_DEVNET_ARGUMENTS | jq '.block_number')
+START_BLOCK=243000
+END_BLOCK=450000
 
 echo "Initialize the vault"
 starknet invoke --address "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
