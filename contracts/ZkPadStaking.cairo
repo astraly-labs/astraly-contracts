@@ -83,6 +83,7 @@ from contracts.erc4626.ERC4626 import (
 from contracts.erc4626.library import (
     getWithdrawalStack,
     totalFloat,
+    totalFloatLP,
     lockedProfit,
     feePercent,
     harvestDelay,

@@ -270,6 +270,17 @@ func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
 end
 
 @view
+func totalFloatLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> (
+    float : Uint256
+):
+    assert_not_zero(lp_token)
+    let (address_this : felt) = get_contract_address()
+    let (balance_of_this : Uint256) = IERC20.balanceOf(lp_token, address_this)
+
+    return (balance_of_this)
+end
+
+@view
 func totalStrategyHoldings{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     holdings : Uint256
 ):
