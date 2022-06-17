@@ -262,7 +262,7 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
     erc1155_cached = cached_contract(_state, erc1155_def, erc1155)
     erc20_eth_token_cached = cached_contract(
         _state, erc20_eth_def, erc20_eth_token)
-    return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, ido_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
+    return admin_cached, deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, zkp_token_cached, rnd_nbr_gen_cached, ido_factory_cached, erc1155_cached, erc20_eth_token_cached, _state
 
 
 @pytest.mark.asyncio
