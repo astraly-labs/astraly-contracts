@@ -252,6 +252,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     Ownable_initializer(_admin_address)
 
     let (caller : felt) = get_caller_address()
+    ido_factory_contract_address.write(caller)
 
     let (address_this : felt) = get_contract_address()
     IDO_Created.emit(address_this)
