@@ -39,7 +39,7 @@ from contracts.erc1155.library import (
     ERC1155_isApprovedForAll,
     ERC1155_supportsInterface,
     owner_or_approved,
-    ERC1155_setURI
+    ERC1155_setURI,
 )
 
 from contracts.utils.Math64x61 import (
@@ -100,9 +100,9 @@ end
 # @dev Returns the URI for all token types
 @view
 func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(id : felt) -> (
-    uri_len : felt, uri: felt*
+    uri_len : felt, uri : felt*
 ):
-    let (uri_len: felt, uri: felt*) = ERC1155_uri(id)
+    let (uri_len : felt, uri : felt*) = ERC1155_uri(id)
     return (uri_len=uri_len, uri=uri)
 end
 
@@ -114,6 +114,17 @@ func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     account : felt, id : Uint256
 ) -> (balance : Uint256):
     return ERC1155_balanceOf(account, id)
+end
+
+# @dev Returns wether a user has already claimed lottery tickets
+# @param owner : The address of the owner
+# @param token_id : The id of the token
+@view
+func hasClaimed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    account : felt, id : Uint256
+) -> (has_claimed : felt):
+    let (_has_claimed : felt) = has_claimed.read(id, account)
+    return _has_claimed
 end
 
 # @dev Batched version of balanceOf.

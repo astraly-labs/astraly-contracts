@@ -21,8 +21,8 @@ IDO_LOTTERY_TOKENS_BURN_CAP="100 0"
 day=1655481600 # LAUNCH TIMESTAMP
 timeDelta_Days=$((8 * 24 * 60 * 60)) # 8 days
 IDO_SALE_END=$((day + timeDelta_Days))
-REGISTRATION_START=$((day + (4 * 24 * 60 * 60))) # 1 day after
-REGISTRATION_END=$((day + (6 * 24 * 60 * 60))) # 2 days after
+REGISTRATION_START=$((day + (4 * 24 * 60 * 60))) # 4 day after
+REGISTRATION_END=$((day + (6 * 24 * 60 * 60))) # 6 days after
 IDO_TOKEN_UNLOCK=$(($IDO_SALE_END))
 # VESTING_PERCENTAGES & VESTING_TIMES_UNLOCKED arrays must match in length
 VESTING_PERCENTAGES_LEN=4
@@ -31,7 +31,7 @@ VESTING_TIMES_UNLOCKED_LEN=4
 VESTING_TIMES_UNLOCKED="1656345600 1656518400 1656691200 1656864000"
 
 ZK_PAD_FACTORY_ADDRESS=0x04db841c9371a7b84de3bcf69dcb5946eb81793b405228bf5862995f1d08023b
-ZKP_IDO_CONTRACT_ADDRESS=0x54c365244b4b7129b2fcf0b4909aca7ce437ae2ee5620f7c5bc0bbbb70238a1
+ZKP_IDO_CONTRACT_ADDRESS=0xfc2d1b34bca118df6cfbba3564cf688b49bd7bc5f1245271558ac4066f01c4
 ################################################################################## COMPILE ##########################################################################################
 cd ../
 mkdir -p artifacts
@@ -43,10 +43,10 @@ starknet-compile ./contracts/ZkPadIDOContract.cairo --output ./artifacts/ZkPadID
 cd ./contracts
 # echo "Declare ZkPadTask"
 # starknet declare --contract ../artifacts/ZkPadTask.json $STARKNET_DEVNET_ARGUMENTS
-# echo "Declare ZkPadIDO class"
-# ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json $STARKNET_DEVNET_ARGUMENTS)
-# echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
-# ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
+echo "Declare ZkPadIDO class"
+ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json $STARKNET_DEVNET_ARGUMENTS)
+echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
+ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
 # echo "Deploy ZkPadTask"
@@ -74,7 +74,7 @@ cd ./contracts
 #     --inputs "${ZK_PAD_IDO_CLASS_HASH}" \
 #     $STARKNET_DEVNET_ARGUMENTS
 
-# sleep 400
+# sleep 350
 
 
 # echo "Create IDO"
