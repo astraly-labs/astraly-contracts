@@ -3,9 +3,10 @@
 export STARKNET_NETWORK=alpha-goerli
 export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAccount
 export OWNER_ACCOUNT_NAME=owner
+# TODO: Use this only on devnet, otherwise comment next lines
+# export STARKNET_GATEWAY_URL=http://127.0.0.1:5000
+# export STARKNET_FEEDER_GATEWAY_URL=http://127.0.0.1:5000
 
-# TODO: Use this only on devnet, otherwise comment next line
-# export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x1
 MAX_FEE=54452800237082000
 
@@ -23,18 +24,18 @@ starknet-compile ./contracts/AMMs/jedi_swap/JediSwapWrapper.cairo --output ./art
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
 echo "Declare AlphaRoadWrapper"
-starknet declare --contract ../artifacts/AlphaRoadWrapper.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/AlphaRoadWrapper.json
 echo "Declare JediSwapWrapper"
-starknet declare --contract ../artifacts/JediSwapWrapper.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/JediSwapWrapper.json
 
 ################################################################################## DEPLOY ##########################################################################################
 echo "Deploy AlphaRoadWrapper"
-ALPHA_ROAD_WRAPPER_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/AlphaRoadWrapper.json --inputs ${ALPHA_ROAD_POOL} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+ALPHA_ROAD_WRAPPER_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/AlphaRoadWrapper.json --inputs ${ALPHA_ROAD_POOL} --salt ${SALT})
 echo "${ALPHA_ROAD_WRAPPER_DEPLOYMENT_RECEIPT}"
 ALPHA_ROAD_WRAPPER_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ALPHA_ROAD_WRAPPER_DEPLOYMENT_RECEIPT}")
 
 echo "Deploy JediSwapWrapper"
-JEDI_SWAP_WRAPPER_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/JediSwapWrapper.json --inputs ${JEDI_SWAP_POOL} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+JEDI_SWAP_WRAPPER_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/JediSwapWrapper.json --inputs ${JEDI_SWAP_POOL} --salt ${SALT})
 echo "${JEDI_SWAP_WRAPPER_DEPLOYMENT_RECEIPT}"
 JEDI_SWAP_WRAPPER_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${JEDI_SWAP_WRAPPER_DEPLOYMENT_RECEIPT}")
 
@@ -47,7 +48,7 @@ starknet invoke --address "${XZKP_ADDRESS}" \
     --inputs ${ALPHA_ROAD_POOL} "${ALPHA_ROAD_WRAPPER_ADDRESS}" 0 \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 
 echo "Add Jedi Swap LP token as whitelisted token"
 starknet invoke --address "${XZKP_ADDRESS}" \
@@ -56,5 +57,4 @@ starknet invoke --address "${XZKP_ADDRESS}" \
     --inputs ${JEDI_SWAP_POOL} "${JEDI_SWAP_WRAPPER_ADDRESS}" 0 \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
-
+   

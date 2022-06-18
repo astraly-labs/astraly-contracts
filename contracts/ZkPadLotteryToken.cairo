@@ -124,7 +124,7 @@ func hasClaimed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     account : felt, id : Uint256
 ) -> (has_claimed : felt):
     let (_has_claimed : felt) = has_claimed.read(id, account)
-    return _has_claimed
+    return (_has_claimed)
 end
 
 # @dev Batched version of balanceOf.

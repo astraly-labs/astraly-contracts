@@ -3,9 +3,10 @@
 export STARKNET_NETWORK=alpha-goerli
 export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAccount
 export OWNER_ACCOUNT_NAME=owner
+# TODO: Use this only on devnet, otherwise comment next lines
+# export STARKNET_GATEWAY_URL=http://127.0.0.1:5000
+# export STARKNET_FEEDER_GATEWAY_URL=http://127.0.0.1:5000
 
-# TODO: Use this only on devnet, otherwise comment next line
-# export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x4
 MAX_FEE=54452800237082000
 SLEEP=400
@@ -47,67 +48,67 @@ printf "Contract compile successfully\n"
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
 echo "Declare ZkPadStaking class"
-ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadStaking.json $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadStaking.json)
 echo "${ZK_PAD_STAKING_DECLARATION_OUTPUT}"
 ZK_PAD_STAKING_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_STAKING_DECLARATION_OUTPUT}")
 
 echo "Declare OZProxy class"
-starknet declare --contract ../artifacts/OZProxy.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/OZProxy.json 
 
 echo "Declare ZkPadVaultHarvestTask"
-starknet declare --contract ../artifacts/ZkPadVaultHarvestTask.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/ZkPadVaultHarvestTask.json
 
 echo "Declare ZkPadAdmin"
-starknet declare --contract ../artifacts/ZkPadAdmin.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/ZkPadAdmin.json
 
 echo "Declare ZkPadToken"
-starknet declare --contract ../artifacts/ZkPadToken.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/ZkPadToken.json
 
 echo "Declare ZkPadLotteryToken"
-starknet declare --contract ../artifacts/ZkPadLotteryToken.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/ZkPadLotteryToken.json
 
 echo "Declare ZkPadIDOFactory"
-starknet declare --contract ../artifacts/ZkPadIDOFactory.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/ZkPadIDOFactory.json
 
 echo "Declare xoroshiro128_starstar"
-starknet declare --contract ../artifacts/xoroshiro128_starstar.json $STARKNET_DEVNET_ARGUMENTS
+starknet declare --contract ../artifacts/xoroshiro128_starstar.json
 printf "Declare successfully\n"
 
 echo "Declare ZkPadIDO class"
-ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json)
 echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
 ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
 echo "Deploy ZkPadStaking"
-starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT} 
 
 echo "Deploy OZProxy"
-ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/OZProxy.json --salt ${SALT} --inputs "${ZK_PAD_STAKING_CLASS_HASH}" $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/OZProxy.json --salt ${SALT} --inputs "${ZK_PAD_STAKING_CLASS_HASH}")
 echo "${ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT}"
 ZK_PAD_STAKING_PROXY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT}")
 
 echo "Deploy ZkPadVaultHarvestTask"
-starknet deploy --contract ../artifacts/ZkPadVaultHarvestTask.json --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+starknet deploy --contract ../artifacts/ZkPadVaultHarvestTask.json --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" --salt ${SALT}
 
 echo "Deploy ZkPadAdmin"
-starknet deploy --contract ../artifacts/ZkPadAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+starknet deploy --contract ../artifacts/ZkPadAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT}
 
 echo "Deploy ZkPadIDOFactory"
-ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH}" ${OWNER_ADDRESS} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH}" ${OWNER_ADDRESS} --salt ${SALT})
 echo "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}"
 ZK_PAD_IDO_FACTORY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}")
 
 echo "Deploy ZkPadLotteryToken"
-ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadLotteryToken.json --inputs ${LOTTERY_URI_LEN} "${LOTTERY_URI_0}" "${LOTTERY_URI_1}" ${OWNER_ADDRESS} "${ZK_PAD_IDO_FACTORY_ADDRESS}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadLotteryToken.json --inputs ${LOTTERY_URI_LEN} "${LOTTERY_URI_0}" "${LOTTERY_URI_1}" ${OWNER_ADDRESS} "${ZK_PAD_IDO_FACTORY_ADDRESS}" --salt ${SALT})
 echo "${ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT}"
 ZK_PAD_LOTTERY_TOKEN_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT}")
 
 echo "Deploy xoroshiro128_starstar"
-starknet deploy --contract ../artifacts/xoroshiro128_starstar.json --inputs "${XOROSHIRO_RNG_SEED}" --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+starknet deploy --contract ../artifacts/xoroshiro128_starstar.json --inputs "${XOROSHIRO_RNG_SEED}" --salt ${SALT}
 
 echo "Deploy ZkPadToken"
-ZK_PAD_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadToken.json --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS \
+ZK_PAD_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadToken.json --salt ${SALT} \
     --inputs ${ZKP_NAME} ${ZKP_SYMBOL} ${DECIMALS} ${INITIAL_SUPPLY} 0 ${RECIPIENT} ${OWNER_ADDRESS} ${MAX_SUPPLY} 0)
 echo "${ZK_PAD_DEPLOYMENT_RECEIPT}"
 ZKP_TOKEN_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_DEPLOYMENT_RECEIPT}")
@@ -116,7 +117,7 @@ printf "Deploy successfully\n"
 echo "CONTRACTS DEPLOYMENT DONE 🚀"
 
 ################################################################################## INITIALIZE ##########################################################################################
-# CURRENT_BLOCK_NUMBER=$(starknet get_block $STARKNET_DEVNET_ARGUMENTS | jq '.block_number')
+# CURRENT_BLOCK_NUMBER=$(starknet get_block | jq '.block_number')
 START_BLOCK=243000
 END_BLOCK=450000
 
@@ -127,7 +128,7 @@ starknet invoke --address "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --inputs ${XZKP_NAME} ${XZKP_SYMBOL} "${ZKP_TOKEN_ADDRESS}" ${OWNER_ADDRESS} ${REWARD_PER_BLOCK} 0 "${START_BLOCK}" "${END_BLOCK}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 
 sleep ${SLEEP}
 echo "Initialize successfully"
@@ -140,7 +141,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 sleep ${SLEEP}
 echo "xZKP address set successfully"
 
@@ -151,7 +152,7 @@ starknet invoke --address "${ZKP_TOKEN_ADDRESS}" \
     --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 sleep ${SLEEP}
 echo "xZKP address set successfully"
 
@@ -162,7 +163,7 @@ starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --inputs "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 sleep ${SLEEP}
 echo "IDO factory address set"
 
@@ -173,7 +174,7 @@ starknet invoke --address "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
     --inputs "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
+   
 
 sleep ${SLEEP}
 echo "Lottery ticket contract address set successfully"

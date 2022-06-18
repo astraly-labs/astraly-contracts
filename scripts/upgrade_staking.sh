@@ -3,9 +3,10 @@
 export STARKNET_NETWORK=alpha-goerli
 export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAccount
 export OWNER_ACCOUNT_NAME=owner
+# TODO: Use this only on devnet, otherwise comment next lines
+# export STARKNET_GATEWAY_URL=http://127.0.0.1:5000
+# export STARKNET_FEEDER_GATEWAY_URL=http://127.0.0.1:5000
 
-# TODO: Use this only on devnet, otherwise comment next line
-# export STARKNET_DEVNET_ARGUMENTS="--gateway_url http://127.0.0.1:5000 --feeder_gateway_url http://127.0.0.1:5000"
 SALT=0x2
 MAX_FEE=54452800237082000
 
@@ -20,13 +21,13 @@ starknet-compile ./contracts/ZkPadStaking.cairo --output ./artifacts/ZkPadStakin
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
 echo "Declare ZkPadStaking class"
-ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadStaking.json $STARKNET_DEVNET_ARGUMENTS)
+ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadStaking.json)
 echo "${ZK_PAD_STAKING_DECLARATION_OUTPUT}"
 ZK_PAD_STAKING_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_STAKING_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
 echo "Deploy ZkPadStaking"
-starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS
+starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT}
 
 
 echo "Upgrade Implementation"
@@ -36,6 +37,4 @@ starknet invoke --address "${PROXY_ADDRESS}" \
     --inputs ${ZK_PAD_STAKING_CLASS_HASH} \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    $STARKNET_DEVNET_ARGUMENTS
-
-
+   
