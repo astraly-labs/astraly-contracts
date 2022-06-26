@@ -251,7 +251,7 @@ func getWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 ):
     alloc_locals
     let (length : felt) = withdrawal_stack_length.read()
-    let (mapping_ref : felt) = get_label_location(withdrawal_stack.read)
+    let (mapping_ref : felt*) = get_label_location(withdrawal_stack.read)
     let (array : felt*) = alloc()
 
     get_array(length, array, mapping_ref)
@@ -265,6 +265,17 @@ func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     let (underlying : felt) = ERC4626_asset()
     let (address_this : felt) = get_contract_address()
     let (balance_of_this : Uint256) = IERC20.balanceOf(underlying, address_this)
+
+    return (balance_of_this)
+end
+
+@view
+func totalFloatLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> (
+    float : Uint256
+):
+    assert_not_zero(lp_token)
+    let (address_this : felt) = get_contract_address()
+    let (balance_of_this : Uint256) = IERC20.balanceOf(lp_token, address_this)
 
     return (balance_of_this)
 end
@@ -1119,7 +1130,7 @@ end
 
 func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(stack_len : felt, stack : felt*):
     alloc_locals
-    let (withdrawal_stack_ptr : felt) = get_label_location(withdrawal_stack.write)
+    let (withdrawal_stack_ptr : felt*) = get_label_location(withdrawal_stack.write)
     write_to_array(stack_len, stack, withdrawal_stack_ptr)
     withdrawal_stack_length.write(stack_len)
 

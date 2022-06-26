@@ -65,26 +65,26 @@ def contract_defs():
 async def contracts_init(contract_defs):
     starknet = await Starknet.empty()
     account_def, zk_pad_token_def, vesting_def = contract_defs
-
+    await starknet.declare(contract_class=account_def)
     owner_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[owner.public_key]
     )
     user1_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[user1.public_key]
     )
     user2_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[user2.public_key]
     )
     user3_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[user3.public_key]
     )
-
+    await starknet.declare(contract_class=zk_pad_token_def)
     zk_pad_token = await starknet.deploy(
-        contract_def=zk_pad_token_def,
+        contract_class=zk_pad_token_def,
         constructor_calldata=[
             str_to_felt("ZkPad"),
             str_to_felt("ZKP"),
@@ -98,8 +98,9 @@ async def contracts_init(contract_defs):
 
     _start_timestamp = get_block_timestamp(starknet.state) + 3600
 
+    await starknet.declare(contract_class=vesting_def)
     zk_pad_vesting = await starknet.deploy(
-        contract_def=vesting_def,
+        contract_class=vesting_def,
         constructor_calldata=[
             vesting_len, user1_account.contract_address,
             user2_account.contract_address, *uarr2cd(shares),
@@ -141,7 +142,7 @@ async def test_reject_payee_zero_address(contract_defs, contracts_factory):
     _start_timestamp = get_block_timestamp(starknet.state) + 3600
 
     zk_pad_vesting = assert_revert(starknet.deploy(
-        contract_def=vesting_def,
+        contract_class=vesting_def,
         constructor_calldata=[
             vesting_len, [user1.contract_address,
                           "0x000000000000000000000000000000000000000000000000000000000"], vesting_len, shares,

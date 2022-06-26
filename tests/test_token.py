@@ -37,16 +37,18 @@ def contract_defs():
 async def contracts_init(contract_defs):
     account_def, zk_pad_token_def = contract_defs
     starknet = await Starknet.empty()
+    await starknet.declare(contract_class=account_def)
     recipient_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[recipient.public_key]
     )
     owner_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[owner.public_key]
     )
+    await starknet.declare(contract_class=zk_pad_token_def)
     erc20 = await starknet.deploy(
-        contract_def=zk_pad_token_def,
+        contract_class=zk_pad_token_def,
         constructor_calldata=[
             NAME,
             SYMBOL,

@@ -5,7 +5,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from openzeppelin.utils.constants import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 
 @storage_var
 func ido_launch_date() -> (res : felt):
@@ -24,7 +24,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
-@external
+@view
 func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     res : felt
 ):

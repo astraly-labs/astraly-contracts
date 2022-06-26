@@ -25,15 +25,6 @@ def uarr2cd(arr):
     return acc
 
 
-# Dummy values, should be replaced by env variables
-# os.environ["SIGNER"] = "123456"
-# os.environ["USER_1"] = "12345654321"
-
-# os.environ["ADMIN_1"] = "23456765432"
-# os.environ["ADMIN_2"] = "34567876543"
-# os.environ["NUMBER_OF_ADMINS"] = "2"
-# os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
-
 IDO_TOKEN_PRICE = "10000000000000000"  # 0.01 ETH
 IDO_TOKENS_TO_SELL = "100000000000000000000000"  # 100,000 TOKENS
 # vestion portion percentages must add up to 1000
@@ -74,11 +65,8 @@ def run(nre: NileRuntimeEnvironment):
     print(f"Admin2 account: {admin_2.address}")
 
     admin_contract, admin_contract_abi = nre.get_deployment("admin_contract")
-    xoroshiro_contract, xoroshiro_contract_abi = nre.get_deployment(
-        "xoroshiro_contract")
     factory_contract, factory_contract_abi = nre.get_deployment(
         "factory_contract")
-    lottery_token, lottery_token_abi = nre.get_deployment("lottery_token")
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
 
     # deploy Task contract
@@ -95,12 +83,10 @@ def run(nre: NileRuntimeEnvironment):
     # Set Task Address
     run_tx(signer, factory_contract,
            "set_task_address", [int(task_contract, 16)])
-    
+
     # Create IDO
-    # TODO: Switch to a non-mock system
     run_tx(signer, factory_contract, "create_ido",
-           [int(ido_contract_full, 16)])
-   
+           [])
 
     # set IDO contract sale parameters
     run_tx(admin_1, ido_contract_full, "set_sale_params", [
@@ -132,6 +118,6 @@ def run(nre: NileRuntimeEnvironment):
 
     # set IDO registration time
     run_tx(admin_1, ido_contract_full, "set_registration_time", [
-                         int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
-    
+        int(REGISTRATION_START.timestamp()), int(REGISTRATION_END.timestamp())])
+
     print("IDO SUCESSFULLY DEPLOYED 🚀")

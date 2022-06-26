@@ -15,7 +15,7 @@ def parse_ether(value: int):
     return int(value * 1e18)
 
 
-INIT_SUPPLY = to_uint(parse_ether(1_000_000))
+INIT_SUPPLY = to_uint(parse_ether(1_000))
 CAP = to_uint(parse_ether(1_000_000_000_000))
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
@@ -70,7 +70,7 @@ async def get_starknet():
 @pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
-    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    proxy_def = get_contract_def('/openzeppelin/upgrades/OZProxy.cairo')
     zk_pad_token_def = get_contract_def('tests/mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
@@ -80,14 +80,14 @@ def contract_defs():
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
-
+    await starknet.declare(contract_class=account_def)
     owner_account = await starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[owner.public_key]
     )
-
+    await starknet.declare(contract_class=zk_pad_token_def)
     zk_pad_token = await starknet.deploy(
-        contract_def=zk_pad_token_def,
+        contract_class=zk_pad_token_def,
         constructor_calldata=[
             str_to_felt("ZkPad"),
             str_to_felt("ZKP"),
@@ -99,10 +99,11 @@ async def contacts_init(contract_defs, get_starknet):
         ],
     )
 
-    zk_pad_stake_implementation = await starknet.deploy(contract_def=zk_pad_stake_def)
+    zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
+    zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    zk_pad_stake_proxy = await starknet.deploy(contract_def=proxy_def,
-                                               constructor_calldata=[zk_pad_stake_implementation.contract_address])
+    zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
+                                               constructor_calldata=[zk_pad_stake_class.class_hash]) 
 
     START_BLOCK = get_block_number(starknet.state)
     END_BLOCK = START_BLOCK + 10_000
@@ -146,7 +147,7 @@ async def contracts_factory(contract_defs, contacts_init, get_starknet):
         contract_def = get_contract_def(contract_name)
         starknet = Starknet(_state)
         deployed_contract = await starknet.deploy(
-            contract_def=contract_def,
+            contract_class=contract_def,
             constructor_calldata=constructor_calldata)
         contract = cached_contract(_state, contract_def, deployed_contract)
 
@@ -155,7 +156,7 @@ async def contracts_factory(contract_defs, contacts_init, get_starknet):
     async def deploy_account_func(public_key):
         starknet = Starknet(_state)
         deployed_account = await starknet.deploy(
-            contract_def=account_def,
+            contract_class=account_def,
             constructor_calldata=[public_key]
         )
         cached_account = cached_contract(_state, account_def, deployed_account)
@@ -187,16 +188,16 @@ async def test_proxy_upgrade(contract_defs):
     starknet = await Starknet.empty()
     user = Signer(123)
     owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[owner.public_key]
     ))
     user_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
-        contract_def=account_def,
+        contract_class=account_def,
         constructor_calldata=[user.public_key]
     ))
 
     erc20_contract = await cache_on_state(
-        starknet.state, erc20_def, starknet.deploy(contract_def=erc20_def, constructor_calldata=[
+        starknet.state, erc20_def, starknet.deploy(contract_class=erc20_def, constructor_calldata=[
             str_to_felt("ZkPad"),
             str_to_felt("ZKP"),
             DECIMALS,
@@ -205,9 +206,9 @@ async def test_proxy_upgrade(contract_defs):
         ]))
 
     zk_pad_stake_implementation = await cache_on_state(
-        starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=zk_pad_stake_def))
+        starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=zk_pad_stake_def))
 
-    zk_pad_stake_proxy = await cache_on_state(starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=proxy_def,
+    zk_pad_stake_proxy = await cache_on_state(starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=proxy_def,
                                                                                                 constructor_calldata=[
                                                                                                     zk_pad_stake_implementation.contract_address]))
 
@@ -230,7 +231,7 @@ async def test_proxy_upgrade(contract_defs):
     assert zk_pad_stake_implementation.contract_address == current_zk_pad_stake_implementation_address
 
     new_zk_pad_implementation = await cache_on_state(
-        starknet.state, zk_pad_stake_def, starknet.deploy(contract_def=zk_pad_stake_def))
+        starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=zk_pad_stake_def))
     await assert_revert(
         user.send_transaction(
             user_account, zk_pad_stake_proxy.contract_address, "upgrade",
@@ -1425,7 +1426,8 @@ async def test_reward_system(contracts_factory):
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
     await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "deposit",
                                  [*stake_amount, user1_account.contract_address])
-
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
+    print("LAST 1 : ", LAST_REWARD_BLOCK)
     user_balance_after_initial_deposit = (
         await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
 
@@ -1441,12 +1443,28 @@ async def test_reward_system(contracts_factory):
     )
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*INIT_SUPPLY, owner_account.contract_address])
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
 
     set_block_number(starknet_state, END_BLOCK - 1)
+
     pending_rewards = (
         await zk_pad_staking.calculatePendingRewards(user1_account.contract_address).call()).result.rewards
+    pending_rewards_owner = (
+        await zk_pad_staking.calculatePendingRewards(owner_account.contract_address).call()).result.rewards
 
     assert pending_rewards != UINT_ZERO
+
+    LAST_REWARD_BLOCK = (await zk_pad_staking.lastRewardBlock().call()).result.block
+    TOTAL_ASSETS = (await zk_pad_staking.totalAssets().call()).result.totalManagedAssets
+    USER_INFO = (await zk_pad_staking.userInfo(owner_account.contract_address).call()).result.info
+    ACC_TOKEN_PER_SHARE = (await zk_pad_staking.accTokenPerShare().call()).result.res
+
+    print("USER", pending_rewards)
+    print("OWNER", pending_rewards_owner)
+    print("LAST 2 : ", LAST_REWARD_BLOCK)
+    print("TOTAL ASSETS", TOTAL_ASSETS)
+    print("USER_INFO", USER_INFO)
+    print("ACC_TOKEN_PER_SHARE", ACC_TOKEN_PER_SHARE)
     tx = await user1.send_transaction(user1_account, zk_pad_staking.contract_address, "harvestRewards", [])
     user_balance = (await zk_pad_token.balanceOf(user1_account.contract_address).call()).result.balance
     event_signature = get_selector_from_name("HarvestRewards")

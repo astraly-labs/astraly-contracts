@@ -10,15 +10,17 @@ from starkware.cairo.common.uint256 import (
     uint256_unsigned_div_rem,
 )
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
+from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.hash import hash2
+from starkware.cairo.common.math_cmp import is_le_felt
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_block_number,
     get_block_timestamp,
 )
-from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
-from openzeppelin.utils.constants import TRUE, FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.erc1155.ERC1155_struct import TokenUri
 
@@ -37,6 +39,7 @@ from contracts.erc1155.library import (
     ERC1155_isApprovedForAll,
     ERC1155_supportsInterface,
     owner_or_approved,
+    ERC1155_setURI,
 )
 
 from contracts.utils.Math64x61 import (
@@ -52,10 +55,6 @@ from contracts.utils.Math64x61 import (
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
 from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory, IAccount
-
-from starkware.cairo.common.hash import hash2
-
-from starkware.cairo.common.math_cmp import is_le_felt
 
 @storage_var
 func ido_factory_address() -> (res : felt):
@@ -94,15 +93,16 @@ end
 
 @view
 func supportsInterface(interfaceId : felt) -> (is_supported : felt):
-    return ERC1155_supportsInterface(interfaceId)
+    let (supported : felt) = ERC1155_supportsInterface(interfaceId)
+    return (supported)
 end
 
 # @dev Returns the URI for all token types
 @view
 func uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(id : felt) -> (
-    uri_len : felt, uri: felt*
+    uri_len : felt, uri : felt*
 ):
-    let (uri_len: felt, uri: felt*) = ERC1155_uri(id)
+    let (uri_len : felt, uri : felt*) = ERC1155_uri(id)
     return (uri_len=uri_len, uri=uri)
 end
 
@@ -116,6 +116,17 @@ func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return ERC1155_balanceOf(account, id)
 end
 
+# @dev Returns wether a user has already claimed lottery tickets
+# @param owner : The address of the owner
+# @param token_id : The id of the token
+@view
+func hasClaimed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    account : felt, id : Uint256
+) -> (has_claimed : felt):
+    let (_has_claimed : felt) = has_claimed.read(id, account)
+    return (_has_claimed)
+end
+
 # @dev Batched version of balanceOf.
 # @param owners_len : The length of the owners array
 # @param owners : the array of owner addresses
@@ -125,7 +136,10 @@ end
 func balanceOfBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     accounts_len : felt, accounts : felt*, ids_len : felt, ids : Uint256*
 ) -> (balances_len : felt, balances : Uint256*):
-    return ERC1155_balanceOfBatch(accounts_len, accounts, ids_len, ids)
+    let (balance_len : felt, balances : Uint256*) = ERC1155_balanceOfBatch(
+        accounts_len, accounts, ids_len, ids
+    )
+    return (balance_len, balances)
 end
 
 # @dev Returns true if operator is approved to transfer account's tokens.
@@ -135,7 +149,8 @@ end
 func isApprovedForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     account : felt, operator : felt
 ) -> (is_approved : felt):
-    return ERC1155_isApprovedForAll(account, operator)
+    let (approved : felt) = ERC1155_isApprovedForAll(account, operator)
+    return (approved)
 end
 
 #
@@ -159,6 +174,18 @@ func setApprovalForAll{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     operator : felt, approved : felt
 ):
     ERC1155_setApprovalForAll(operator, approved)
+    return ()
+end
+
+# @dev Sets a new URI
+# @param uri_len : Length of the URI
+# @param uri : URI of the token
+@external
+func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    uri_len : felt, uri : felt*
+):
+    Ownable_only_owner()
+    ERC1155_setURI(uri_len, uri)
     return ()
 end
 
