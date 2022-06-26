@@ -1,12 +1,12 @@
-[![Tests](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml/badge.svg)](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml)
-[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/zkpad)
-[![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/ZkPadfi)
+[![Tests](https://github.com/ZkPad-Labs/zkpad-contracts/actions/workflows/tests.yml/badge.svg)](https://github.com/ZkPad-Labs/astraly-contracts/actions/workflows/tests.yml)
+[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/astralyxyz)
+[![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/AstralyXYZ)
 
 ![banner](./static/banner_3d.png)
 
-# ☄️ ZkPad Smart Contracts
+# ☄️ Astraly Smart Contracts
 
-_Smart Contracts for ZkPad, the 1st Launchpad powered by Starknet. Learn more about it [here](https://wp.zkpad.io)._
+_Smart Contracts for Astraly, Community Engagement and Fundraising platform on Starknet. Learn more about it [here](https://wp.astraly.xyz)._
 
 ## Documentation
 
@@ -47,7 +47,7 @@ _Note: Mac and Mac M1 have special instructions you can refer to this [article](
    `poetry run pytest tests/`
 
 5. Deploy contracts
-   `poetry run nile run scripts/deploy.py`
+   `poetry run nile run scripts/deploy_all.py`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
 
