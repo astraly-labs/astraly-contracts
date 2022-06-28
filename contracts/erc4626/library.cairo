@@ -9,13 +9,7 @@ from starkware.cairo.common.math import assert_le, assert_lt, assert_not_zero
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.uint256 import (
-    ALL_ONES,
-    Uint256,
-    uint256_eq,
-    uint256_le,
-    uint256_lt,
-)
+from starkware.cairo.common.uint256 import ALL_ONES, Uint256, uint256_eq, uint256_le, uint256_lt
 from starkware.cairo.common.registers import get_label_location
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.pow import pow
@@ -37,7 +31,13 @@ from openzeppelin.security.safemath import (
     uint256_checked_sub_lt,
 )
 
-from contracts.utils import get_array, write_to_array, uint256_is_zero, uint256_is_not_zero, mul_div_down
+from contracts.utils import (
+    get_array,
+    write_to_array,
+    uint256_is_zero,
+    uint256_is_not_zero,
+    mul_div_down,
+)
 from InterfaceAll import IERC20
 
 @event
@@ -132,24 +132,28 @@ end
 func FeesClaimed(user : felt, amount : Uint256):
 end
 
-@event 
+@event
 func WithdrawalStackPushed(user : felt, strategy_address : felt):
 end
 
-@event 
+@event
 func WithdrawalStackPopped(user : felt, strategy_address : felt):
 end
 
-@event 
+@event
 func WithdrawalStackSet(user : felt, stack_len : felt, stack : felt*):
 end
 
-@event 
-func WithdrawalStackIndexReplaced(user : felt, index : felt, old_strategy : felt, new_strategy : felt):
+@event
+func WithdrawalStackIndexReplaced(
+    user : felt, index : felt, old_strategy : felt, new_strategy : felt
+):
 end
 
-@event 
-func WithdrawalStackIndexesSwapped(user : felt, index1 : felt, index2 : felt, new_strategy1 : felt, new_strategy2 : felt):
+@event
+func WithdrawalStackIndexesSwapped(
+    user : felt, index1 : felt, index2 : felt, new_strategy1 : felt, new_strategy2 : felt
+):
 end
 
 #
@@ -237,7 +241,7 @@ func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     let (decimals) = IERC20.decimals(contract_address=asset_addr)
     let (asset_base_unit : felt) = pow(10, decimals)
     base_unit.write(asset_base_unit)
-    
+
     ERC20_initializer(name, symbol, decimals)
     ERC4626_asset_addr.write(asset_addr)
     return ()
@@ -270,9 +274,9 @@ func totalFloat{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
 end
 
 @view
-func totalFloatLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(lp_token : felt) -> (
-    float : Uint256
-):
+func totalFloatLP{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    lp_token : felt
+) -> (float : Uint256):
     assert_not_zero(lp_token)
     let (address_this : felt) = get_contract_address()
     let (balance_of_this : Uint256) = IERC20.balanceOf(lp_token, address_this)
@@ -449,7 +453,8 @@ func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     assets : Uint256, lock_time : felt
 ) -> (shares : Uint256):
     let (shares) = ERC4626_convertToShares(assets)
-    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    let (bonus : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    let (result : Uint256) = uint256_checked_add(shares, bonus)
     return (result)
 end
 
@@ -736,9 +741,10 @@ func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     if is_zero == TRUE:
         return (shares)
     end
-    let (value_multiplied : Uint256) = uint256_checked_mul(shares, Uint256(low=730, high=0))
+    let (bonus: Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    let (add_bonus: Uint256) = uint256_checked_add(bonus, Uint256(low=1, high=0))
     let (res : Uint256, _) = uint256_checked_div_rem(
-        value_multiplied, Uint256(low=lock_time, high=0)
+        shares, add_bonus
     )
     return (res)
 end
@@ -909,13 +915,17 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     return ()
 end
 
-func can_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (yes_no : felt):
+func can_harvest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    yes_no : felt
+):
     alloc_locals
     let (current_last_harvest_window_start_value : felt) = last_harvest_window_start.read()
     let (current_harvest_window : felt) = harvest_window.read()
     let (block_timestamp : felt) = get_block_timestamp()
     # We know this harvest is not the first in the window so we need to ensure it's within it.
-    let (yes_no : felt) = is_le(block_timestamp, current_last_harvest_window_start_value + current_harvest_window)
+    let (yes_no : felt) = is_le(
+        block_timestamp, current_last_harvest_window_start_value + current_harvest_window
+    )
     return (yes_no)
 end
 
@@ -1044,19 +1054,28 @@ func check_enough_underlying_balance{
         let (total_assets : Uint256) = ERC4626_totalAssets()
         let (current_target_float_percent : felt) = target_float_percent.read()
         let (sub : Uint256) = uint256_checked_sub_lt(total_assets, underlying_amount)
-        
-        let (float_missing_for_target : Uint256) = mul_div_down(sub, Uint256(current_target_float_percent, 0), Uint256(10 ** 18, 0))
-        let (float_missing_for_withdrawal : Uint256) = uint256_checked_sub_lt(underlying_amount, total_float)
 
-        let (withdraw_amount_required : Uint256) = uint256_checked_add(float_missing_for_target, float_missing_for_withdrawal)
+        let (float_missing_for_target : Uint256) = mul_div_down(
+            sub, Uint256(current_target_float_percent, 0), Uint256(10 ** 18, 0)
+        )
+        let (float_missing_for_withdrawal : Uint256) = uint256_checked_sub_lt(
+            underlying_amount, total_float
+        )
 
+        let (withdraw_amount_required : Uint256) = uint256_checked_add(
+            float_missing_for_target, float_missing_for_withdrawal
+        )
 
-        let (strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*) = getWithdrawalStack()
-        let (amount_to_mint : Uint256) = pull_from_withdrawal_stack(withdraw_amount_required, strategies_withdrawal_stack_len, strategies_withdrawal_stack)
+        let (
+            strategies_withdrawal_stack_len : felt, strategies_withdrawal_stack : felt*
+        ) = getWithdrawalStack()
+        let (amount_to_mint : Uint256) = pull_from_withdrawal_stack(
+            withdraw_amount_required, strategies_withdrawal_stack_len, strategies_withdrawal_stack
+        )
         let (need_to_mint : felt) = uint256_is_not_zero(amount_to_mint)
 
         if need_to_mint == TRUE:
-            IERC20.mint(underlying, address_this, amount_to_mint) 
+            IERC20.mint(underlying, address_this, amount_to_mint)
             return ()
         end
         return ()
@@ -1066,47 +1085,58 @@ func check_enough_underlying_balance{
 end
 
 func pull_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        amount_to_withdraw : Uint256, strategies_len : felt, strategies : felt*) -> (remaining : Uint256):
+    amount_to_withdraw : Uint256, strategies_len : felt, strategies : felt*
+) -> (remaining : Uint256):
     alloc_locals
     if strategies_len == 0:
         return (amount_to_withdraw)
     end
-    tempvar index = strategies_len -1
+    tempvar index = strategies_len - 1
 
     tempvar strategy_address : felt = strategies[index]
     assert_not_zero(strategy_address)
     let (strategy_details : StrategyData) = strategy_data.read(strategy_address)
 
     if strategy_details.trusted == FALSE:
-        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len-1, strategies)
+        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len - 1, strategies)
     end
 
     let (no_strategy_balance : felt) = uint256_is_zero(strategy_details.balance)
     if no_strategy_balance == TRUE:
         pop_from_withdrawal_stack()
-        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len-1, strategies)
+        return pull_from_withdrawal_stack(amount_to_withdraw, strategies_len - 1, strategies)
     end
 
-    let (enough_balance_in_strategy : felt) = uint256_le(amount_to_withdraw, strategy_details.balance)
+    let (enough_balance_in_strategy : felt) = uint256_le(
+        amount_to_withdraw, strategy_details.balance
+    )
 
     if enough_balance_in_strategy == TRUE:
         withdraw_from_strategy(strategies[index], amount_to_withdraw)
-        let (remaining_amount_in_strategy_balance : Uint256) = uint256_checked_sub_le(strategy_details.balance, amount_to_withdraw)
-        strategy_data.write(strategies[index], StrategyData(TRUE, remaining_amount_in_strategy_balance))
+        let (remaining_amount_in_strategy_balance : Uint256) = uint256_checked_sub_le(
+            strategy_details.balance, amount_to_withdraw
+        )
+        strategy_data.write(
+            strategies[index], StrategyData(TRUE, remaining_amount_in_strategy_balance)
+        )
         return (Uint256(0, 0))
     else:
-        let (remaining_amount : Uint256) = uint256_checked_sub_le(amount_to_withdraw, strategy_details.balance)
+        let (remaining_amount : Uint256) = uint256_checked_sub_le(
+            amount_to_withdraw, strategy_details.balance
+        )
         strategy_data.write(strategies[index], StrategyData(TRUE, Uint256(0, 0)))
         pop_from_withdrawal_stack()
-        return pull_from_withdrawal_stack(remaining_amount, strategies_len-1, strategies)
+        return pull_from_withdrawal_stack(remaining_amount, strategies_len - 1, strategies)
     end
 end
 
-func push_to_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(strategy_address : felt):
+func push_to_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    strategy_address : felt
+):
     alloc_locals
     assert_not_zero(strategy_address)
-    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read() 
-    withdrawal_stack_length.write(strategies_withdrawal_stack_len+1)
+    let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
+    withdrawal_stack_length.write(strategies_withdrawal_stack_len + 1)
     withdrawal_stack.write(strategies_withdrawal_stack_len, strategy_address)
 
     let (caller : felt) = get_caller_address()
@@ -1119,16 +1149,18 @@ func pop_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
     assert_not_zero(strategies_withdrawal_stack_len)
 
-    withdrawal_stack_length.write(strategies_withdrawal_stack_len-1)
-    let (removed_strategy : felt) = withdrawal_stack.read(strategies_withdrawal_stack_len-1)
-    withdrawal_stack.write(strategies_withdrawal_stack_len-1, 0)
-    
+    withdrawal_stack_length.write(strategies_withdrawal_stack_len - 1)
+    let (removed_strategy : felt) = withdrawal_stack.read(strategies_withdrawal_stack_len - 1)
+    withdrawal_stack.write(strategies_withdrawal_stack_len - 1, 0)
+
     let (caller : felt) = get_caller_address()
     WithdrawalStackPopped.emit(caller, removed_strategy)
     return ()
 end
 
-func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(stack_len : felt, stack : felt*):
+func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    stack_len : felt, stack : felt*
+):
     alloc_locals
     let (withdrawal_stack_ptr : felt*) = get_label_location(withdrawal_stack.write)
     write_to_array(stack_len, stack, withdrawal_stack_ptr)
@@ -1139,7 +1171,9 @@ func set_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     return ()
 end
 
-func replace_withdrawal_stack_index{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index : felt, address : felt):
+func replace_withdrawal_stack_index{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(index : felt, address : felt):
     alloc_locals
     assert_not_zero(address)
     let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
@@ -1152,7 +1186,9 @@ func replace_withdrawal_stack_index{syscall_ptr : felt*, pedersen_ptr : HashBuil
     return ()
 end
 
-func swap_withdrawal_stack_indexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(index1 : felt, index2 : felt):
+func swap_withdrawal_stack_indexes{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(index1 : felt, index2 : felt):
     alloc_locals
     let (strategies_withdrawal_stack_len : felt) = withdrawal_stack_length.read()
     assert_lt(index1, strategies_withdrawal_stack_len)
@@ -1160,7 +1196,7 @@ func swap_withdrawal_stack_indexes{syscall_ptr : felt*, pedersen_ptr : HashBuilt
 
     let (address1 : felt) = withdrawal_stack.read(index1)
     let (address2 : felt) = withdrawal_stack.read(index2)
-    
+
     withdrawal_stack.write(index1, address2)
     withdrawal_stack.write(index2, address1)
 
