@@ -636,7 +636,7 @@ func deposit{
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
     set_new_deposit_unlock_time(receiver, default_lock_time)
-    
+
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(receiver)
     let (current_acc_token_per_share : Uint256) = accTokenPerShare()
@@ -658,7 +658,7 @@ func deposit{
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     end
-    
+
     # Update user info
     update_user_info_on_deposit(receiver, assets)
     update_user_after_deposit(receiver, underlying_asset, assets)
@@ -678,7 +678,7 @@ func depositForTime{
     uint256_assert_not_zero(assets)
     # Update pool
     update_pool()
-    
+
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
     set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
@@ -818,10 +818,6 @@ func redeem{
     # Update pool
     update_pool()
 
-    let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
-    let (zkp_address : felt) = asset()
-    remove_from_deposit(owner, zkp_address, assets)
-
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(owner)
     let (current_acc_token_per_share : Uint256) = accTokenPerShare()
@@ -830,6 +826,10 @@ func redeem{
     let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
 
     let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
+    let (zkp_address : felt) = asset()
+    remove_from_deposit(owner, zkp_address, assets)
 
     # Update user info
     update_user_info_on_withdraw(receiver, assets)
@@ -863,10 +863,6 @@ func withdraw{
     # Update pool
     update_pool()
 
-    let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
-    let (zkp_address : felt) = asset()
-    remove_from_deposit(owner, zkp_address, assets)
-
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(owner)
     let (current_acc_token_per_share : Uint256) = accTokenPerShare()
@@ -875,6 +871,10 @@ func withdraw{
     let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
 
     let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
+    let (zkp_address : felt) = asset()
+    remove_from_deposit(owner, zkp_address, assets)
 
     # Update user info
     update_user_info_on_withdraw(owner, assets)
@@ -929,15 +929,6 @@ func withdrawLP{
     with_attr error_message("invalid xZKP balance"):
         assert output_le = TRUE
     end
-    let (user_current_deposit_amount : Uint256) = deposits.read(owner, lp_token)
-    let (user_deposit_after_withdraw : Uint256) = uint256_checked_sub_le(
-        user_current_deposit_amount, assets
-    )
-    deposits.write(owner, lp_token, user_deposit_after_withdraw)
-
-    ERC20_burn(owner, shares)
-    IERC20.transfer(lp_token, receiver, assets)
-    WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
 
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(owner)
@@ -947,6 +938,16 @@ func withdrawLP{
     let (div : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
 
     let (pending_rewards : Uint256) = uint256_checked_sub_le(div, cur_user_info.reward_debt)
+
+    let (user_current_deposit_amount : Uint256) = deposits.read(owner, lp_token)
+    let (user_deposit_after_withdraw : Uint256) = uint256_checked_sub_le(
+        user_current_deposit_amount, assets
+    )
+    deposits.write(owner, lp_token, user_deposit_after_withdraw)
+
+    ERC20_burn(owner, shares)
+    IERC20.transfer(lp_token, receiver, assets)
+    WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
 
     # convert to ZKP
     let (token_details : WhitelistedToken) = whitelisted_tokens.read(lp_token)
@@ -1439,7 +1440,7 @@ func remove_from_deposit{
 }(user : felt, token : felt, withdrawned_amount : Uint256):
     alloc_locals
     let (current_user_deposit_amount : Uint256) = deposits.read(user, token)
-    let (withdraw_all : felt) = uint256_le(current_user_deposit_amount, withdrawned_amount)  # can withdraw more than
+    let (withdraw_all : felt) = uint256_le(current_user_deposit_amount, withdrawned_amount)  # can withdraw more than deposit
     if withdraw_all == TRUE:
         deposits.write(user, token, Uint256(0, 0))
         let (user_current_tokens_mask : felt) = user_staked_tokens.read(user)
@@ -1526,7 +1527,7 @@ func update_user_info_on_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
     let (new_amount : Uint256) = uint256_checked_add(cur_user_info.amount, assets)
 
     let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
-    
+
     let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
     let (mul : Uint256) = uint256_checked_mul(new_amount, cur_acc_token_per_share)
     let (new_reward_debt : Uint256, _) = uint256_checked_div_rem(mul, PRECISION_FACTOR)
