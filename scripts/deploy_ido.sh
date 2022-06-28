@@ -22,8 +22,12 @@ IDO_LOTTERY_TOKENS_BURN_CAP="100 0"
 day=1655481600 # LAUNCH TIMESTAMP
 timeDelta_Days=$((8 * 24 * 60 * 60)) # 8 days
 IDO_SALE_END=$((day + timeDelta_Days))
-REGISTRATION_START=$((day + (4 * 24 * 60 * 60))) # 4 day after
-REGISTRATION_END=$((day + (6 * 24 * 60 * 60))) # 6 days after
+# REGISTRATION_START=$((day + (4 * 24 * 60 * 60))) # 4 day after
+REGISTRATION_START=1655913600 # 4 day after
+# REGISTRATION_END=$((day + (6 * 24 * 60 * 60))) # 6 days after
+REGISTRATION_END=1656086400
+PURCHASE_START=$(($REGISTRATION_END + 1))
+PURCHASE_END=1656259200
 IDO_TOKEN_UNLOCK=$(($IDO_SALE_END))
 # VESTING_PERCENTAGES & VESTING_TIMES_UNLOCKED arrays must match in length
 VESTING_PERCENTAGES_LEN=4
@@ -35,19 +39,19 @@ ZK_PAD_FACTORY_ADDRESS=0x04db841c9371a7b84de3bcf69dcb5946eb81793b405228bf5862995
 ZKP_IDO_CONTRACT_ADDRESS=0xfc2d1b34bca118df6cfbba3564cf688b49bd7bc5f1245271558ac4066f01c4
 ################################################################################## COMPILE ##########################################################################################
 cd ../
-mkdir -p artifacts
-echo "Compile contracts"
-starknet-compile ./contracts/ZkPadTask.cairo --output ./artifacts/ZkPadTask.json --abi ./artifacts/ZkPadTask_abi.json
-starknet-compile ./contracts/ZkPadIDOContract.cairo --output ./artifacts/ZkPadIDOContract.json --abi ./artifacts/ZkPadIDOContract_abi.json
+# mkdir -p artifacts
+# echo "Compile contracts"
+# starknet-compile ./contracts/ZkPadTask.cairo --output ./artifacts/ZkPadTask.json --abi ./artifacts/ZkPadTask_abi.json
+# starknet-compile ./contracts/ZkPadIDOContract.cairo --output ./artifacts/ZkPadIDOContract.json --abi ./artifacts/ZkPadIDOContract_abi.json
 
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
 # echo "Declare ZkPadTask"
 # starknet declare --contract ../artifacts/ZkPadTask.json
-echo "Declare ZkPadIDO class"
-ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json)
-echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
-ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
+# echo "Declare ZkPadIDO class"
+# ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json)
+# echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
+# ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
 # echo "Deploy ZkPadTask"
@@ -89,32 +93,39 @@ ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUT
 # sleep 400
 
 
-starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
-    --abi ../artifacts/ZkPadIDOContract_abi.json \
-    --function set_sale_params \
-    --max_fee ${MAX_FEE} \
-    --account ${OWNER_ACCOUNT_NAME} \
-    --inputs ${ZKP_TOKEN_ADDRESS} ${OWNER_ADDRESS} ${IDO_TOKEN_PRICE} ${IDO_TOKENS_TO_SELL} ${IDO_SALE_END} ${IDO_TOKEN_UNLOCK} ${IDO_PORTION_VESTING_PRECISION} ${IDO_LOTTERY_TOKENS_BURN_CAP}\
+# starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
+#     --abi ../artifacts/ZkPadIDOContract_abi.json \
+#     --function set_sale_params \
+#     --max_fee ${MAX_FEE} \
+#     --account ${OWNER_ACCOUNT_NAME} \
+#     --inputs ${ZKP_TOKEN_ADDRESS} ${OWNER_ADDRESS} ${IDO_TOKEN_PRICE} ${IDO_TOKENS_TO_SELL} ${IDO_SALE_END} ${IDO_TOKEN_UNLOCK} ${IDO_PORTION_VESTING_PRECISION} ${IDO_LOTTERY_TOKENS_BURN_CAP}\
    
 
-sleep 400
+# sleep 400
 
-starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
-    --abi ../artifacts/ZkPadIDOContract_abi.json \
-    --function set_vesting_params \
-    --max_fee ${MAX_FEE} \
-    --account ${OWNER_ACCOUNT_NAME} \
-    --inputs ${VESTING_TIMES_UNLOCKED_LEN} ${VESTING_TIMES_UNLOCKED} ${VESTING_PERCENTAGES_LEN} ${VESTING_PERCENTAGES} 0 \
+# starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
+#     --abi ../artifacts/ZkPadIDOContract_abi.json \
+#     --function set_vesting_params \
+#     --max_fee ${MAX_FEE} \
+#     --account ${OWNER_ACCOUNT_NAME} \
+#     --inputs ${VESTING_TIMES_UNLOCKED_LEN} ${VESTING_TIMES_UNLOCKED} ${VESTING_PERCENTAGES_LEN} ${VESTING_PERCENTAGES} 0 \
    
 
-sleep 400
-
+# sleep 400
+# echo "Set Registration Time"
+# starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
+#     --abi ../artifacts/ZkPadIDOContract_abi.json \
+#     --function set_registration_time \
+#     --max_fee ${MAX_FEE} \
+#     --account ${OWNER_ACCOUNT_NAME} \
+#     --inputs ${REGISTRATION_START} ${REGISTRATION_END} \
+echo "Set Purchase Time"
 starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
     --abi ../artifacts/ZkPadIDOContract_abi.json \
-    --function set_registration_time \
+    --function set_purchase_round_params \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
-    --inputs ${REGISTRATION_START} ${REGISTRATION_END} \
+    --inputs ${REGISTRATION_END} ${PURCHASE_END} \
    
 
 

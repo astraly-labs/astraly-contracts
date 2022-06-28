@@ -10,9 +10,10 @@ from starkware.cairo.common.small_merkle_tree import MerkleTree
 signer = Signer(123456789987654321)
 account_path = 'openzeppelin/account/Account.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
-ido_path = 'mocks/ZkPadIDOContract_mock.cairo'
+ido_path = 'ZkPadIDOContract.cairo'
 factory_path = 'ZkPadIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
+rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 
 
 def uint_array(l):
@@ -111,9 +112,11 @@ async def erc1155_init(contract_defs):
         contract_class=account_def,
         constructor_calldata=[signer.public_key]
     )
+    await starknet.declare(contract_class=get_contract_def(rnd_nbr_gen_path))
+    xoroshiro = await starknet.deploy(contract_class=get_contract_def(rnd_nbr_gen_path), constructor_calldata=[78623])
     ido_class = await starknet.declare(contract_class=ido_def)
-    ido = await starknet.deploy(contract_class=ido_def)
-    ido2 = await starknet.deploy(contract_class=ido_def)
+    ido = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
+    ido2 = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
     await starknet.declare(contract_class=factory_def)
     factory = await starknet.deploy(contract_class=factory_def, constructor_calldata=[ido_class.class_hash, account1.contract_address])
     await starknet.declare(contract_class=task_def)
@@ -164,6 +167,9 @@ async def erc1155_init(contract_defs):
     await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
     root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
     await signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
+
+    await signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
+    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [xoroshiro.contract_address])
 
     return (
         starknet.state,
@@ -633,6 +639,7 @@ async def test_burn_with_quest(full_factory):
     proof = generate_merkle_proof(leaves, 0)
     verif = verify_merkle_proof(pedersen_hash(subject, NB_QUEST), proof)
     # print("PROOF", proof)
+    print("valid", verif)
 
     await signer.send_transaction(
         owner, erc1155.contract_address, 'burn_with_quest',
