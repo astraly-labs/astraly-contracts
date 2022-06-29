@@ -302,7 +302,9 @@ def generate_proof_helper(level, index, proof, cached_level):
     if not var:
         cached_level["1"].append(level)
         cached_level["2"].append(get_next_level(level))
-    
+
+    level_cached_index = cached_level["1"].index(level)
+
     index_parent = 0
 
     for i in range(0, len(level)):
@@ -312,8 +314,7 @@ def generate_proof_helper(level, index, proof, cached_level):
                 proof.append(level[index + 1])
             else:
                 proof.append(level[index - 1])
-    length_cached = len(cached_level["2"])
-    return generate_proof_helper(cached_level["2"][length_cached-1], index_parent, proof, cached_level)
+    return generate_proof_helper(cached_level["2"][level_cached_index], index_parent, proof, cached_level)
 
 
 def generate_merkle_proof(values, index, cached_level):
@@ -367,4 +368,3 @@ def get_leaves(recipients, amounts):
         values.append(last_value)
 
     return values
-    
