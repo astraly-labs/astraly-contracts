@@ -1413,6 +1413,9 @@ func set_new_deposit_unlock_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
     with_attr error_message("new deadline should be higher or equal to the old deposit"):
         assert_le(unlock_time, current_block_timestamp + seconds)
     end
+    with_attr error_message("lock time cannot exceed 2 years"):
+        assert_le(lock_time_days, 730)
+    end
     deposit_unlock_time.write(user, current_block_timestamp + seconds)
     return ()
 end
