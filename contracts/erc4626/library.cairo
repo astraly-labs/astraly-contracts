@@ -452,6 +452,7 @@ end
 func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     assets : Uint256, lock_time : felt
 ) -> (shares : Uint256):
+    alloc_locals
     let (shares) = ERC4626_convertToShares(assets)
     let (bonus : Uint256) = calculate_lock_time_bonus(shares, lock_time)
     let (result : Uint256) = uint256_checked_add(shares, bonus)
