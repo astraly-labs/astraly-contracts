@@ -99,7 +99,7 @@ end
 struct Purchase_Round:
     member time_starts : felt
     member time_ends : felt
-    member number_of_purchases : Uint256
+    member number_of_purchases : felt
 end
 
 struct Distribution_Round:
@@ -901,15 +901,17 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         assert winning_tkts_check = TRUE
     end
     let (max_tokens_to_purchase : Uint256) = uint256_checked_mul(winning_tickets, the_alloc)
-    let (number_of_tokens_byuing, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
+    let (number_of_tokens_buying, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
+    let (number_of_tokens_buying_mod : Uint256) = uint256_checked_mul(number_of_tokens_buying,Uint256(10**18,0))
     with_attr error_message("ZkPadIDOContract::participate Can't buy more than maximum allocation"):
-        let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_byuing, max_tokens_to_purchase)
+        let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_buying_mod, max_tokens_to_purchase)
         assert is_tokens_buying_le_max = TRUE
     end
 
     # Updates
+
     let (local total_tokens_sum : Uint256) = uint256_checked_add(
-        the_sale.total_tokens_sold, number_of_tokens_byuing
+        the_sale.total_tokens_sold, number_of_tokens_buying_mod
     )
 
     let (local total_raised_sum : Uint256) = uint256_checked_add(the_sale.total_raised, amount_paid)
@@ -937,7 +939,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     sale.write(upd_sale)
 
     let new_purchase = Participation(
-        amount_bought=number_of_tokens_byuing,
+        amount_bought=number_of_tokens_buying_mod,
         amount_paid=amount_paid,
         time_participated=block_timestamp,
         last_portion_withdrawn=0,
@@ -959,8 +961,14 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     with_attr error_message("ZkPadIDOContract::participate Participation payment failed"):
         assert pmt_success = TRUE
     end
-
-    tokens_sold.emit(user_address=account, amount=number_of_tokens_byuing)
+    let new_number_of_purchases : felt = the_round.number_of_purchases+1
+    let upd_purchase = Purchase_Round(
+        time_starts=the_round.time_starts,
+        time_ends=the_round.time_ends,
+        number_of_purchases=new_number_of_purchases,
+    )
+    purchase_round.write(upd_purchase)
+    tokens_sold.emit(user_address=account, amount=number_of_tokens_buying_mod)
     return (res=TRUE)
 end
 
