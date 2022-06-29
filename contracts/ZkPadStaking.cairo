@@ -269,8 +269,7 @@ end
 func previewDepositForTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     assets : Uint256, lock_time : felt
 ) -> (shares : Uint256):
-    let (shares : Uint256) = ERC4626_convertToShares(assets)
-    let (result : Uint256) = calculate_lock_time_bonus(shares, lock_time)
+    let (result) = ERC4626_previewDeposit(assets, lock_time)
     return (result)
 end
 
