@@ -863,3 +863,23 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         return ()
     end
 end
+
+@external
+func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    Ownable_only_owner()
+    let (address_caller: felt) = get_caller_address()
+    let (address_this : felt) = get_contract_address()
+    let (factory_address) = ido_factory_contract_address.read()
+    let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
+        contract_address=factory_address
+    )
+    let (contract_balance: Uint256) = IERC20.balanceOf(pmt_token_addr, address_this)
+    let (token_transfer_success : felt) = IERC20.transfer(
+        pmt_token_addr, address_caller, contract_balance
+    )
+    with_attr error_message(
+        "ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
+        assert token_transfer_success = TRUE
+    end
+    return ()
+end
