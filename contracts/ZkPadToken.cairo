@@ -120,7 +120,7 @@ end
 func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     sender : felt, recipient : felt, amount : Uint256
 ) -> (success : felt):
-    ERC20.transferFrom(sender, recipient, amount)
+    ERC20.transfer_from(sender, recipient, amount)
     return (TRUE)
 end
 
@@ -136,7 +136,7 @@ end
 func increaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     spender : felt, added_value : Uint256
 ) -> (success : felt):
-    ERC20.increaseAllowance(spender, added_value)
+    ERC20.increase_allowance(spender, added_value)
     return (TRUE)
 end
 
@@ -144,7 +144,7 @@ end
 func decreaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     spender : felt, subtracted_value : Uint256
 ) -> (success : felt):
-    ERC20.decreaseAllowance(spender, subtracted_value)
+    ERC20.decrease_allowance(spender, subtracted_value)
     return (TRUE)
 end
 
