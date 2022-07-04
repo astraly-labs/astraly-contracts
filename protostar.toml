@@ -1,0 +1,37 @@
+["protostar.config"]
+protostar_version = "0.2.5"
+
+["protostar.project"]
+libs_path = "lib"
+
+["protostar.contracts"]
+ZkPadAdmin = [
+    "contracts/ZkPadAdmin.cairo",
+]
+ZkPadFaucet = [
+    "contracts/ZkPadFaucet.cairo",
+]
+ZkPadIDOContract = [
+    "contracts/ZkPadIDOContract.cairo",
+]
+ZkPadIDOFactory = [
+    "contracts/ZkPadIDOFactory.cairo",
+]
+ZkPadLotteryToken = [
+    "contracts/ZkPadLotteryToken.cairo",
+]
+ZkPadStaking = [
+    "contracts/ZkPadStaking.cairo",
+]
+ZkPadTask = [
+    "contracts/ZkPadTask.cairo",
+]
+ZkPadToken = [
+    "contracts/ZkPadTask.cairo",
+]
+ZkPadVaultHarvestTask = [
+    "contracts/ZkPadVaultHarvestTask.cairo",
+]
+ZkPadVesting = [
+    "contracts/ZkPadVesting.cairo",
+]
