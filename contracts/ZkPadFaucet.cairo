@@ -11,7 +11,7 @@ from starkware.starknet.common.syscalls import (
 from starkware.cairo.common.math_cmp import is_le
 from InterfaceAll import IERC20
 from starkware.cairo.common.bool import TRUE, FALSE
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
+from openzeppelin.access.ownable import Ownable
 
 #
 # Sorage
@@ -66,7 +66,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt, _token_address : felt, _withdrawal_amount : Uint256, _wait_time : felt
 ):
-    Ownable_initializer(owner)
+    Ownable.initializer(owner)
     token_address.write(_token_address)
     withdrawal_amount.write(_withdrawal_amount)
     wait_time.write(_wait_time)
@@ -78,14 +78,14 @@ end
 func set_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     amount : Uint256
 ) -> ():
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     withdrawal_amount.write(amount)
     return ()
 end
 
 @external
 func set_wait{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(wait : felt) -> ():
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     wait_time.write(wait)
     return ()
 end

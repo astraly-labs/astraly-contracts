@@ -14,7 +14,7 @@ func burn{
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
     }(account: felt, amount: Uint256):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ERC20_burn(account, amount)
     return ()
 end

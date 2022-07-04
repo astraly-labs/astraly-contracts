@@ -14,14 +14,8 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner
-from openzeppelin.security.safemath import (
-    uint256_checked_add,
-    uint256_checked_sub_lt,
-    uint256_checked_sub_le,
-    uint256_checked_mul,
-    uint256_checked_div_rem,
-)
+from openzeppelin.access.ownable import Ownable
+from openzeppelin.security.safemath import SafeUint256
 
 from InterfaceAll import IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR
 from contracts.utils.ZkPadConstants import DAYS_30
@@ -249,7 +243,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     _admin_address : felt
 ):
     assert_not_zero(_admin_address)
-    Ownable_initializer(_admin_address)
+    Ownable.initializer(_admin_address)
 
     let (caller : felt) = get_caller_address()
     ido_factory_contract_address.write(caller)
@@ -363,7 +357,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     _max_vesting_time_shift : felt,
 ):
     alloc_locals
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
 
     with_attr error_message("ZkPadIDOContract::set_vesting_params unlocking times array length 0"):
         assert_not_zero(_unlocking_times_len)
@@ -451,7 +445,7 @@ func array_sum{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     # recurisvely calls array_sum with arr+1 which is next element in arr
     # recursion stops when size == 0
     # return (sum=[arr] + sum_of_rest)
-    let (the_sum) = uint256_checked_add([arr], sum_of_rest)
+    let (the_sum) = SafeUint256.add([arr], sum_of_rest)
     return (sum=the_sum)
 end
 
@@ -467,7 +461,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _lottery_tickets_burn_cap : Uint256,
 ):
     alloc_locals
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (the_sale) = sale.read()
     let (block_timestamp) = get_block_timestamp()
     with_attr error_message("ZkPadIDOContract::set_sale_params Sale is already created"):
@@ -534,7 +528,7 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _sale_token_address : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (the_sale) = sale.read()
     let upd_sale = Sale(
         token=_sale_token_address,
@@ -561,7 +555,7 @@ end
 func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _registration_time_starts : felt, _registration_time_ends : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (the_sale) = sale.read()
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
@@ -598,7 +592,7 @@ end
 func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _purchase_time_starts : felt, _purchase_time_ends : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (the_reg) = registration.read()
     let (the_purchase) = purchase_round.read()
     with_attr error_message("ZkPadIDOContract::set_purchase_round_params Bad input"):
@@ -634,7 +628,7 @@ end
 func set_dist_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _dist_time_starts : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (the_purchase) = purchase_round.read()
     let (the_dist) = disctribution_round.read()
     with_attr error_message("ZkPadIDOContract::set_dist_round_params Bad input"):
@@ -693,7 +687,7 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (is_user_reg) = is_registered.read(account)
     if is_user_reg == 0:
         is_registered.write(account, TRUE)
-        let (local registrants_sum : Uint256) = uint256_checked_add(
+        let (local registrants_sum : Uint256) = SafeUint256.add(
             the_reg.number_of_registrants, Uint256(low=1, high=0)
         )
 
@@ -719,11 +713,11 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (new_winning : Uint256) = draw_winning_tickets(
         tickets_burnt=adjusted_amount, nb_quest=nb_quest
     )
-    let (local winning_tickets_sum : Uint256) = uint256_checked_add(current_winning, new_winning)
+    let (local winning_tickets_sum : Uint256) = SafeUint256.add(current_winning, new_winning)
 
     user_to_winning_lottery_tickets.write(account, winning_tickets_sum)
 
-    let (local total_winning_tickets_sum : Uint256) = uint256_checked_add(
+    let (local total_winning_tickets_sum : Uint256) = SafeUint256.add(
         the_sale.total_winning_tickets, new_winning
     )
 
@@ -768,7 +762,7 @@ end
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (current_allocation : Uint256) = ido_allocation.read()
     with_attr error_message("ZkPadIDOContract::calculate_allocation allocation already calculated"):
         let (allocation_check : felt) = uint256_eq(current_allocation, Uint256(0, 0))
@@ -779,7 +773,7 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     local total_winning_tickets : Uint256 = the_sale.total_winning_tickets
 
     # Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
-    let (the_allocation : Uint256, _) = uint256_checked_div_rem(to_sell, total_winning_tickets)
+    let (the_allocation : Uint256, _) = SafeUint256.div_rem(to_sell, total_winning_tickets)
     # with_attr error_message("ZkPadIDOContract::calculate_allocation calculation error"):
     #     assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
     # end
@@ -900,20 +894,20 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         let (winning_tkts_check : felt) = uint256_lt(Uint256(0, 0), winning_tickets)
         assert winning_tkts_check = TRUE
     end
-    let (max_tokens_to_purchase : Uint256) = uint256_checked_mul(winning_tickets, the_alloc)
-    let (number_of_tokens_byuing, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
+    let (max_tokens_to_purchase : Uint256) = SafeUint256.mul(winning_tickets, the_alloc)
+    let (number_of_tokens_byuing, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price)
     with_attr error_message("ZkPadIDOContract::participate Can't buy more than maximum allocation"):
         let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_byuing, max_tokens_to_purchase)
         assert is_tokens_buying_le_max = TRUE
     end
 
     # Updates
-    let (local total_tokens_sum : Uint256) = uint256_checked_add(
+    let (local total_tokens_sum : Uint256) = SafeUint256.add(
         the_sale.total_tokens_sold, number_of_tokens_byuing
     )
 
-    let (local total_raised_sum : Uint256) = uint256_checked_add(the_sale.total_raised, amount_paid)
-    let (local number_of_participants_sum : Uint256) = uint256_checked_add(
+    let (local total_raised_sum : Uint256) = SafeUint256.add(the_sale.total_raised, amount_paid)
+    let (local number_of_participants_sum : Uint256) = SafeUint256.add(
         the_sale.number_of_participants, Uint256(1, 0)
     )
 
@@ -1053,11 +1047,11 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     )
     user_to_participation.write(address_caller, participation_upd)
 
-    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(
+    let (amt_withdrawing_num : Uint256) = SafeUint256.mul(
         participation.amount_bought, vesting_portion_percent
     )
     let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
-    let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
+    let (amt_withdrawing, _) = SafeUint256.div_rem(amt_withdrawing_num, portion_vesting_prsn)
 
     let (amt_withdrawing_check : felt) = uint256_lt(Uint256(0, 0), amt_withdrawing)
     if amt_withdrawing_check == TRUE:
@@ -1156,12 +1150,12 @@ func withdraw_multiple_portions_rec{
         uint256_lt(Uint256(0, 0), vesting_portion_percent)
     end
 
-    let (amt_withdrawing_num : Uint256) = uint256_checked_mul(
+    let (amt_withdrawing_num : Uint256) = SafeUint256.mul(
         participation.amount_bought, vesting_portion_percent
     )
     let (portion_vesting_prsn : Uint256) = portion_vesting_precision.read()
-    let (amt_withdrawing, _) = uint256_checked_div_rem(amt_withdrawing_num, portion_vesting_prsn)
+    let (amt_withdrawing, _) = SafeUint256.div_rem(amt_withdrawing_num, portion_vesting_prsn)
 
-    let (the_sum) = uint256_checked_add(amt_withdrawing, sum_of_portions)
+    let (the_sum) = SafeUint256.add(amt_withdrawing, sum_of_portions)
     return (amt_sum=the_sum)
 end

@@ -6,25 +6,11 @@ from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_le
 from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 
-from openzeppelin.token.erc20.library import (
-    ERC20_name,
-    ERC20_symbol,
-    ERC20_totalSupply,
-    ERC20_decimals,
-    ERC20_balanceOf,
-    ERC20_allowance,
-    ERC20_initializer,
-    ERC20_approve,
-    ERC20_increaseAllowance,
-    ERC20_decreaseAllowance,
-    ERC20_transfer,
-    ERC20_transferFrom,
-    ERC20_mint,
-)
+from openzeppelin.token.erc20.library import ERC20
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 
 from contracts.utils import uint256_is_zero, or, mul_div_down
-from openzeppelin.security.safemath import uint256_checked_mul
+from openzeppelin.security.safemath import SafeUint256
 
 @storage_var
 func underlying_address() -> (address : felt):
@@ -60,12 +46,12 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amo
 ):
     alloc_locals
     let (_base_unit : Uint256) = base_unit.read()
-    let (mul : Uint256) = uint256_checked_mul(amount, _base_unit)
+    let (mul : Uint256) = SafeUint256.mul(amount, _base_unit)
     let (exchange_rate : Uint256) = exchangeRate()
     let (amount_to_mint : Uint256) = mul_div_down(amount, _base_unit, exchange_rate)
 
     let (caller : felt) = get_caller_address()
-    ERC20_mint(caller, amount_to_mint)
+    ERC20._mint(caller, amount_to_mint)
     let (address_this : felt) = get_contract_address()
     let (_underlying : felt) = underlying()
     IERC20.transferFrom(_underlying, caller, address_this, amount)
@@ -112,7 +98,7 @@ func exchangeRate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     res : Uint256
 ):
     alloc_locals
-    let (total_supply : Uint256) = ERC20_totalSupply()
+    let (total_supply : Uint256) = ERC20.total_supply()
     let (supply_is_zero : felt) = uint256_is_zero(total_supply)
     let (_base_unit : Uint256) = base_unit.read()
     if supply_is_zero == TRUE:

@@ -8,10 +8,7 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
 from InterfaceAll import IZkPadIDOContract, Registration
-from openzeppelin.access.ownable import (
-    Ownable_initializer,
-    Ownable_only_owner,
-)
+from openzeppelin.access.ownable import Ownable
 
 # # @title Yagi Task
 # # @description Triggers `calculate_allocation` at the end of the registration phase
@@ -37,7 +34,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _ido_factory_address : felt
 ):
-    Ownable_initializer(_ido_factory_address)
+    Ownable.initializer(_ido_factory_address)
     return ()
 end
 
@@ -97,7 +94,7 @@ func setIDOContractAddress{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     address : felt
 ) -> ():
     assert_not_zero(address)
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     __idoContractAddress.write(address)
     return ()
 end

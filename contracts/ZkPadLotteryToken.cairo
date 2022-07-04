@@ -19,7 +19,7 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 
-from openzeppelin.access.ownable import Ownable_initializer, Ownable_only_owner, Ownable_get_owner
+from openzeppelin.access.ownable import Ownable
 from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.erc1155.ERC1155_struct import TokenUri
@@ -78,7 +78,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ):
     # Initialize Admin
     assert_not_zero(owner)
-    Ownable_initializer(owner)
+    Ownable.initializer(owner)
     # Initialize ERC1155
     ERC1155_initializer(uri_len, uri)
     # Setup IDO Factory Params
@@ -184,7 +184,7 @@ end
 func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     uri_len : felt, uri : felt*
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ERC1155_setURI(uri_len, uri)
     return ()
 end
@@ -233,7 +233,7 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ERC1155_mint(to, id, amount, data_len, data)
     return ()
 end
@@ -254,7 +254,7 @@ func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     data_len : felt,
     data : felt*,
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ERC1155_mint_batch(to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
@@ -451,7 +451,7 @@ end
 func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     address : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     xzkp_contract_address.write(address)
     return ()
 end
@@ -461,7 +461,7 @@ end
 func set_ido_factory_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     address : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     ido_factory_address.write(address)
     return ()
 end
@@ -522,7 +522,7 @@ func checkKYCSignature{
 }(sig_len : felt, sig : felt*):
     alloc_locals
     let (caller) = get_caller_address()
-    let (admin_address) = Ownable_get_owner()
+    let (admin_address) = Ownable.owner()
 
     let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0)
 
