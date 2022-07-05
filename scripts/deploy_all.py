@@ -117,7 +117,7 @@ def run(nre: NileRuntimeEnvironment):
     #     nre, "ZkPadStaking", [], "xzkp_token_implementation")
     xzkp_class_hash = nre.declare("ZkPadStaking")
     xzkp_token = deploy_try_catch(
-        nre, "OZProxy", [xzkp_class_hash], "xzkp_token_proxy")
+        nre, "Proxy", [xzkp_class_hash], "xzkp_token_proxy")
 
     # deploy harvest task
     harvest_task = deploy_try_catch(

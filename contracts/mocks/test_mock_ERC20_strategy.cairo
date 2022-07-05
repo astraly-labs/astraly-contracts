@@ -8,9 +8,9 @@ from starkware.starknet.common.syscalls import get_caller_address, get_contract_
 
 from openzeppelin.token.erc20.library import ERC20
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+from openzeppelin.security.safemath import SafeUint256
 
 from contracts.utils import uint256_is_zero, or, mul_div_down
-from openzeppelin.security.safemath import SafeUint256
 
 @storage_var
 func underlying_address() -> (address : felt):

@@ -149,7 +149,7 @@ async def erc1155_init(contract_defs):
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
     proxy_def = get_contract_def(
-        'tests/mocks/openzeppelin/upgrades/OZProxy.cairo')
+        'openzeppelin/upgrades/Proxy.cairo')
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])

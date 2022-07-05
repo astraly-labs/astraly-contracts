@@ -21,13 +21,12 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
 )
 
-from openzeppelin.access.ownable import Ownable
-from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.security.safemath import SafeUint256
-
 from openzeppelin.security.pausable import Pausable
-from openzeppelin.token.erc20.library import ERC20
 from openzeppelin.security.reentrancyguard import ReentrancyGuard
+from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
+from openzeppelin.token.erc20.library import ERC20
+from openzeppelin.access.ownable import Ownable
 from openzeppelin.upgrades.library import Proxy
 
 from contracts.erc4626.ERC4626 import (
@@ -338,7 +337,7 @@ func getEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 @view
-func getImplementation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+func getImplementationHash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     address : felt
 ):
     let (address) = Proxy.get_implementation_hash()

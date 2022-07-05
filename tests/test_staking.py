@@ -70,9 +70,8 @@ async def get_starknet():
 @pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def('openzeppelin/account/Account.cairo')
-    proxy_def = get_contract_def(
-        'tests/mocks/openzeppelin/upgrades/OZProxy.cairo')
-    zk_pad_token_def = get_contract_def('tests/mocks/test_ZkPadToken.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    zk_pad_token_def = get_contract_def('mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
 
@@ -101,8 +100,6 @@ async def contacts_init(contract_defs, get_starknet):
     )
 
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
-    zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
-
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])
 
@@ -206,12 +203,11 @@ async def test_proxy_upgrade(contract_defs):
             owner_account.contract_address
         ]))
 
-    zk_pad_stake_implementation = await cache_on_state(
-        starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=zk_pad_stake_def))
-
-    zk_pad_stake_proxy = await cache_on_state(starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=proxy_def,
-                                                                                                constructor_calldata=[
-                                                                                                    zk_pad_stake_implementation.contract_address]))
+    zk_pad_stake_declared_class = await starknet.declare(contract_class=zk_pad_stake_def)
+    zk_pad_stake_proxy = await cache_on_state(starknet.state, zk_pad_stake_def,
+                                              starknet.deploy(contract_class=proxy_def,
+                                                              constructor_calldata=[
+                                                                  zk_pad_stake_declared_class.class_hash]))
 
     START_BLOCK = 0
     END_BLOCK = START_BLOCK + 10_000
@@ -226,26 +222,24 @@ async def test_proxy_upgrade(contract_defs):
         END_BLOCK
     ])
 
-    current_zk_pad_stake_implementation_address = (
-        await user.send_transaction(user_account, zk_pad_stake_proxy.contract_address, "getImplementation",
-                                    [])).result.response[0]
-    assert zk_pad_stake_implementation.contract_address == current_zk_pad_stake_implementation_address
+    current_zk_pad_stake_implementation_hash = (await zk_pad_stake_proxy.getImplementationHash().call()).result.address
+    assert zk_pad_stake_declared_class.class_hash == current_zk_pad_stake_implementation_hash
 
-    new_zk_pad_implementation = await cache_on_state(
-        starknet.state, zk_pad_stake_def, starknet.deploy(contract_class=zk_pad_stake_def))
+    mock_zk_pad_contract_def = get_contract_def('mocks/mock_ZkPadStaking.cairo')
+    mock_zk_pad_declaration_class = await starknet.declare(contract_class=mock_zk_pad_contract_def)
+    new_zk_pad_implementation_declared_class = mock_zk_pad_declaration_class.class_hash
     await assert_revert(
         user.send_transaction(
             user_account, zk_pad_stake_proxy.contract_address, "upgrade",
-            [new_zk_pad_implementation.contract_address]),
+            [new_zk_pad_implementation_declared_class]),
         "Proxy: caller is not admin",
         StarknetErrorCode.TRANSACTION_FAILED
     )
     await owner.send_transaction(owner_account, zk_pad_stake_proxy.contract_address, "upgrade",
-                                 [new_zk_pad_implementation.contract_address])
-    current_zk_pad_stake_implementation_address = (
-        await user.send_transaction(user_account, zk_pad_stake_proxy.contract_address, "getImplementation",
-                                    [])).result.response[0]
-    assert new_zk_pad_implementation.contract_address == current_zk_pad_stake_implementation_address
+                                 [new_zk_pad_implementation_declared_class])
+
+    current_zk_pad_stake_implementation_hash = (await zk_pad_stake_proxy.getImplementationHash().call()).result.address
+    assert new_zk_pad_implementation_declared_class == current_zk_pad_stake_implementation_hash
 
 
 @pytest.mark.asyncio
@@ -658,8 +652,8 @@ async def test_deposit_lp(contracts_factory):
     boost_value = int(2.5 * 10)
     initial_lock_time = 365  # days
 
-    mint_calculator = await deploy_contract_func("tests/mocks/test_mint_calculator.cairo")
-    mock_lp_token = await deploy_contract_func("tests/mocks/test_erc20.cairo", [
+    mint_calculator = await deploy_contract_func("mocks/test_mint_calculator.cairo")
+    mock_lp_token = await deploy_contract_func("mocks/test_erc20.cairo", [
         str_to_felt("ZKP ETH LP"),
         str_to_felt("ZKP/ETH"),
         DECIMALS,
@@ -946,7 +940,7 @@ async def test_atomic_enter_exit_single_pool(contracts_factory, amount):
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*amount, owner_account.contract_address])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
@@ -1016,7 +1010,7 @@ async def test_atomic_enter_exit_multi_pool(contracts_factory, amount):
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*amount, owner_account.contract_address])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
@@ -1035,7 +1029,7 @@ async def test_atomic_enter_exit_multi_pool(contracts_factory, amount):
     total_float = (await zk_pad_staking.totalFloat().call()).result.float
     assert_approx_eq(from_uint(total_float), int(from_uint(amount) / 2), 2)
 
-    strategy2 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy2 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
@@ -1103,7 +1097,7 @@ async def test_fail_deposit_into_strategy_with_not_enough_balance(contracts_fact
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*half_amount, owner_account.contract_address])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1130,7 +1124,7 @@ async def test_fail_withdraw_from_strategy_with_not_enough_balance(contracts_fac
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*half_amount, owner_account.contract_address])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1159,7 +1153,7 @@ async def test_fail_withdraw_from_strategy_without_trust(contracts_factory, amou
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "deposit",
                                  [*amount, owner_account.contract_address])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1183,7 +1177,7 @@ async def test_fail_deposit_into_strategy_with_no_balance(contracts_factory, amo
     await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
                                  [owner_account.contract_address, *owner_balance])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1203,7 +1197,7 @@ async def test_fail_withdraw_from_strategy_with_no_balance(contracts_factory, am
     await owner.send_transaction(owner_account, zk_pad_token.contract_address, "burn",
                                  [owner_account.contract_address, *owner_balance])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1237,7 +1231,7 @@ async def test_profitable_harvest(contracts_factory, amount):
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "depositForTime",
                                  [*amount, owner_account.contract_address, 365 * 2])
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])
@@ -1372,7 +1366,7 @@ async def test_updating_harvest_delay(contracts_factory):
     assert (await zk_pad_staking.harvestDelay().call()).result.delay == 6 * 60 * 60
     assert (await zk_pad_staking.nextHarvestDelay().call()).result.delay == 12 * 60 * 60
 
-    strategy1 = await deploy_contract_func("tests/mocks/test_mock_ERC20_strategy.cairo",
+    strategy1 = await deploy_contract_func("mocks/test_mock_ERC20_strategy.cairo",
                                            [zk_pad_token.contract_address])
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "trustStrategy",
                                  [strategy1.contract_address])

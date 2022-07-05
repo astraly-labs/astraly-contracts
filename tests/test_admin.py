@@ -77,8 +77,8 @@ def contracts_factory(contract_defs, contacts_init):
 @pytest.mark.asyncio
 @pytest.mark.order(1)
 async def test_init(contracts_factory):
-    zk_pad_admin, deployer, admin1, admin2 = contracts_factory
+    zk_pad_admin, deployer_account, admin1_account, admin2_account = contracts_factory
     assert (await zk_pad_admin.get_admins_array_len().invoke()).result.res == 2
-    assert (await zk_pad_admin.is_admin(admin1.contract_address).invoke()).result.res == TRUE
-    assert (await zk_pad_admin.is_admin(admin2.contract_address).invoke()).result.res == TRUE
-    assert (await zk_pad_admin.is_admin(deployer.contract_address).invoke()).result.res == FALSE
+    assert (await zk_pad_admin.is_admin(admin1_account.contract_address).invoke()).result.res == TRUE
+    assert (await zk_pad_admin.is_admin(admin2_account.contract_address).invoke()).result.res == TRUE
+    assert (await zk_pad_admin.is_admin(deployer_account.contract_address).invoke()).result.res == FALSE

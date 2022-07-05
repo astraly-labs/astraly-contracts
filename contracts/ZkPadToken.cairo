@@ -3,14 +3,13 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_add, uint256_le, uint256_check
 from starkware.cairo.common.math import assert_nn_le, assert_not_zero
+from starkware.cairo.common.bool import TRUE
+from starkware.starknet.common.syscalls import get_caller_address
 
 from openzeppelin.token.erc20.library import ERC20
-
 from openzeppelin.access.ownable import Ownable
-from starkware.starknet.common.syscalls import get_caller_address
-from contracts.utils import or, get_is_equal
 
-from starkware.cairo.common.bool import TRUE
+from contracts.utils import or, get_is_equal
 
 @storage_var
 func cap_() -> (res : Uint256):

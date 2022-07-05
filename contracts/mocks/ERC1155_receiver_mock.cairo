@@ -1,4 +1,5 @@
 %lang starknet
+
 from starkware.cairo.common.uint256 import Uint256
 
 const IERC1155_RECEIVER_ID = 0x4e2312e0

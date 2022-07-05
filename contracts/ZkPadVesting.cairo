@@ -2,8 +2,6 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
-from starkware.starknet.common.syscalls import get_block_number, get_block_timestamp
 from starkware.cairo.common.math import assert_lt, assert_not_zero, assert_le
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
@@ -17,6 +15,12 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_nn,
 )
 from starkware.cairo.common.bool import TRUE
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_contract_address,
+    get_block_number,
+    get_block_timestamp,
+)
 
 from openzeppelin.access.ownable import Ownable
 from openzeppelin.security.safemath import SafeUint256

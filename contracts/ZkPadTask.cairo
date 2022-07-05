@@ -3,12 +3,14 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
-from InterfaceAll import IZkPadIDOContract, Registration
+from starkware.starknet.common.syscalls import get_block_timestamp
+
 from openzeppelin.access.ownable import Ownable
+
+from InterfaceAll import IZkPadIDOContract, Registration
 
 # # @title Yagi Task
 # # @description Triggers `calculate_allocation` at the end of the registration phase
