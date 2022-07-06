@@ -717,23 +717,36 @@ end
 func calculate_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     shares : Uint256, lock_time : felt
 ) -> (res : Uint256):
-    let (value_multiplied : Uint256) = SafeUint256.mul(shares, Uint256(low=lock_time, high=0))
-    let (res : Uint256, _) = SafeUint256.div_rem(value_multiplied, Uint256(low=730, high=0))
+    alloc_locals
+    tempvar multiplicator = 100
+
+    let (temp_lock_time : Uint256) = SafeUint256.mul(
+        Uint256(lock_time, 0), Uint256(multiplicator, 0)
+    )
+    let (div : Uint256, _) = SafeUint256.div_rem(temp_lock_time, Uint256(730, 0))
+    let (add : Uint256) = SafeUint256.add(Uint256(1 * multiplicator, 0), div)  # add 1
+    let (mul : Uint256) = SafeUint256.mul(shares, add)
+    let (res : Uint256, _) = SafeUint256.div_rem(mul, Uint256(multiplicator, 0))
     return (res)
 end
 
 func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     shares : Uint256, lock_time : felt
 ) -> (res : Uint256):
+    alloc_locals
     let (is_zero : felt) = uint256_is_zero(shares)
     if is_zero == TRUE:
         return (shares)
     end
-    let (bonus: Uint256) = calculate_lock_time_bonus(shares, lock_time)
-    let (add_bonus: Uint256) = SafeUint256.add(bonus, Uint256(low=1, high=0))
-    let (res : Uint256, _) = SafeUint256.div_rem(
-        shares, add_bonus
+    tempvar multiplicator = 100
+    
+    let (temp_lock_time : Uint256) = SafeUint256.mul(
+        Uint256(lock_time, 0), Uint256(multiplicator, 0)
     )
+    let (shares_mul : Uint256) = SafeUint256.mul(shares, Uint256(multiplicator, 0))
+    let (div : Uint256, _) = SafeUint256.div_rem(temp_lock_time, Uint256(730, 0))
+    let (add : Uint256) = SafeUint256.add(Uint256(1 * multiplicator, 0), div)  # add 1
+    let (res : Uint256, _) = SafeUint256.div_rem(shares_mul, add)
     return (res)
 end
 
@@ -1041,7 +1054,7 @@ func check_enough_underlying_balance{
     if not_enough_balance_in_contract == TRUE:
         let (total_assets : Uint256) = ERC4626_totalAssets()
         let (current_target_float_percent : felt) = target_float_percent.read()
-        let (sub : Uint256) = SafeUint256.sub_lt(total_assets, underlying_amount)
+        let (sub : Uint256) = SafeUint256.sub_lt(underlying_amount, total_assets)
 
         let (float_missing_for_target : Uint256) = mul_div_down(
             sub, Uint256(current_target_float_percent, 0), Uint256(10 ** 18, 0)

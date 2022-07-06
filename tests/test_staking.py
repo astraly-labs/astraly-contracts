@@ -28,19 +28,22 @@ owner = Signer(1234)
 
 
 def calculate_lock_time_bonus(shares: int, lock_time=365):
-    return int((shares * lock_time) / 730)
+    multiplier = 100
+    return int((shares * (1 * multiplier + lock_time * multiplier / 730)) / 100)
 
 
 def remove_lock_time_bonus(shares: int, lock_time=None):
     if lock_time is None:
-        return int((shares * 730) / 365)
-    return int((shares * 730) / lock_time)
+        return shares
+    multiplier = 100
+    return int(int(shares * multiplier) / int(1 * multiplier + lock_time * multiplier / 730))
 
 
 def remove_lock_time_bonus_uint(shares, lock_time=None):
     if lock_time is None:
-        return to_uint(int((from_uint(shares) * 730) / 365))
-    return to_uint(int((from_uint(shares) * 730) / lock_time))
+        return to_uint(shares)
+    multiplier = 100
+    return to_uint(int(int(shares * multiplier) / int(1 * multiplier + lock_time * multiplier / 730)))
 
 
 def advance_clock(starknet_state, num_seconds):
@@ -275,11 +278,11 @@ async def test_deposit_redeem_flow(contracts_factory):
     )
     assert (
         await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-    ).result.balance == to_uint(100_000)
+           ).result.balance == to_uint(100_000)
 
     assert (
         await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
-    ).result.maxAssets == MAX_UINT256
+           ).result.maxAssets == MAX_UINT256
 
     # max approve
     await user1.send_transaction(
@@ -300,8 +303,8 @@ async def test_deposit_redeem_flow(contracts_factory):
         [*amount, user1_account.contract_address],
     )
     assert (
-        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-    ).result.balance == to_uint(expected_user_asset_balance)
+               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+           ).result.balance == to_uint(expected_user_asset_balance)
     assert_event_emitted(tx, zk_pad_staking.contract_address, "Deposit", data=[
         user1_account.contract_address,
         user1_account.contract_address,
@@ -310,7 +313,7 @@ async def test_deposit_redeem_flow(contracts_factory):
     ])
     assert (
         await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-    ).result.balance == to_uint(90_000)
+           ).result.balance == to_uint(90_000)
 
     advance_clock(starknet_state, days_to_seconds(365) + 1)
     # redeem vault shares, get back assets

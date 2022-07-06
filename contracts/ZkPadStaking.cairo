@@ -610,7 +610,7 @@ func deposit{
     set_new_deposit_unlock_time(receiver, default_lock_time)
 
     # Harvest pending rewards
-    let (pending_rewards : Uint256) = harvest_pending_rewards(receiver)
+    let (pending_rewards : Uint256) = get_pending_rewards(receiver)
 
     # Send rewards
     send_pending_rewards(pending_rewards, receiver)
@@ -640,7 +640,7 @@ func depositForTime{
     let (underlying_asset : felt) = asset()
 
     # Harvest pending rewards
-    let (pending_rewards : Uint256) = harvest_pending_rewards(receiver)
+    let (pending_rewards : Uint256) = get_pending_rewards(receiver)
 
     # Send rewards
     send_pending_rewards(pending_rewards, receiver)
@@ -755,7 +755,7 @@ func redeem{
     check_enough_underlying_balance(withdraw_amount)
     # Update pool
     update_pool()
-    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
+    let (pending_rewards : Uint256) = get_pending_rewards(owner)
 
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
@@ -781,7 +781,7 @@ func withdraw{
     check_enough_underlying_balance(assets)
     # Update pool
     update_pool()
-    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
+    let (pending_rewards : Uint256) = get_pending_rewards(owner)
 
     let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
     let (zkp_address : felt) = asset()
@@ -830,7 +830,7 @@ func withdrawLP{
         assert output_le = TRUE
     end
 
-    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
+    let (pending_rewards : Uint256) = get_pending_rewards(owner)
 
     let (user_current_deposit_amount : Uint256) = deposits.read(owner, lp_token)
     let (user_deposit_after_withdraw : Uint256) = SafeUint256.sub_le(
@@ -1435,7 +1435,7 @@ func update_user_info_on_withdraw{
     return ()
 end
 
-func harvest_pending_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func get_pending_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt
 ) -> (pending_rewards : Uint256):
     alloc_locals
