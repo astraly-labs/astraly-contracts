@@ -4,7 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_not_zero
 
-from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
+from openzeppelin.security.safemath import SafeUint256
 
 from contracts.AMMs.alpha_road.interfaces import IARFPool
 
@@ -35,8 +35,8 @@ func getAmountToMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (pool_address : felt) = getPoolAddress()
     let (_, _, _, total_supply : Uint256, _, _, reserve_token_0 : Uint256,
         reserve_token_1 : Uint256) = IARFPool.getBatchInfos(pool_address)
-    let (mul : Uint256) = uint256_checked_mul(lp_amount, reserve_token_1)  # TODO: Check the order of the pairs
-    let (res : Uint256, _) = uint256_checked_div_rem(mul, total_supply)
+    let (mul : Uint256) = SafeUint256.mul(lp_amount, reserve_token_1)  # TODO: Check the order of the pairs
+    let (res : Uint256, _) = SafeUint256.div_rem(mul, total_supply)
 
     return (res)
 end

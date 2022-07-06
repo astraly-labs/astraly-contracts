@@ -1,3 +1,4 @@
+from utils import deploy_try_catch
 import os
 import sys
 from nile.nre import NileRuntimeEnvironment
@@ -7,7 +8,6 @@ from datetime import datetime, timedelta
 import time
 
 sys.path.append(os.path.dirname(__file__))
-from utils import deploy_try_catch
 
 
 def to_uint(a):
@@ -47,7 +47,8 @@ def str_to_felt(text):
 # os.environ["XOROSHIRO_RNG_SEED"] = "984375843"
 
 # ZKP TOKEN PARAMS
-INITIAL_SUPPLY = str(parse_ether(10_000_000))  # TODO: check value before deploy
+# TODO: check value before deploy
+INITIAL_SUPPLY = str(parse_ether(10_000_000))
 MAX_SUPPLY = str(parse_ether(100_000_000))  # TODO: check value before deploy
 DECIMALS = "18"
 NAME = str_to_felt("ZkPad")
@@ -117,7 +118,7 @@ def run(nre: NileRuntimeEnvironment):
     #     nre, "ZkPadStaking", [], "xzkp_token_implementation")
     xzkp_class_hash = nre.declare("ZkPadStaking")
     xzkp_token = deploy_try_catch(
-        nre, "OZProxy", [xzkp_class_hash], "xzkp_token_proxy")
+        nre, "Proxy", [xzkp_class_hash], "xzkp_token_proxy")
 
     # deploy harvest task
     harvest_task = deploy_try_catch(

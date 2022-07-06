@@ -92,7 +92,7 @@ async def test_constructor(contracts_factory):
     assert execution_info.result.balance == INIT_SUPPLY
 
     # totalSupply
-    execution_info = await erc20.totalSupply().invoke()
+    execution_info = await ERC20.total_supply().invoke()
     assert execution_info.result.totalSupply == INIT_SUPPLY
 
 
@@ -265,7 +265,7 @@ async def test_transfer(contracts_factory):
     assert execution_info.result.balance == AMOUNT
 
     # check totalSupply
-    execution_info = await erc20.totalSupply().invoke()
+    execution_info = await ERC20.total_supply().invoke()
     assert execution_info.result.totalSupply == INIT_SUPPLY
 
 

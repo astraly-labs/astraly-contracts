@@ -13,6 +13,7 @@ erc1155_path = 'ZkPadLotteryToken.cairo'
 ido_path = 'mocks/ZkPadIDOContract_mock.cairo'
 factory_path = 'ZkPadIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
+rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 
 
 def uint_array(l):
@@ -145,7 +146,7 @@ async def erc1155_init(contract_defs):
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('/openzeppelin/upgrades/OZProxy.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])
@@ -164,6 +165,9 @@ async def erc1155_init(contract_defs):
     await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
     root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
     await signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
+
+    await signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
+    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [xoroshiro.contract_address])
 
     return (
         starknet.state,
@@ -633,6 +637,7 @@ async def test_burn_with_quest(full_factory):
     proof = generate_merkle_proof(leaves, 0)
     verif = verify_merkle_proof(pedersen_hash(subject, NB_QUEST), proof)
     # print("PROOF", proof)
+    print("valid", verif)
 
     await signer.send_transaction(
         owner, erc1155.contract_address, 'burn_with_quest',

@@ -2,8 +2,6 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
-from starkware.starknet.common.syscalls import get_block_number, get_block_timestamp
 from starkware.cairo.common.math import assert_lt, assert_not_zero, assert_le
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.uint256 import (
@@ -17,17 +15,18 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_nn,
 )
 from starkware.cairo.common.bool import TRUE
-
-from InterfaceAll import IERC20
-from openzeppelin.access.ownable import Ownable_only_owner, Ownable_initializer
-from openzeppelin.security.safemath import (
-    uint256_checked_add,
-    uint256_checked_sub_lt,
-    uint256_checked_mul,
-    uint256_checked_div_rem,
-    uint256_checked_sub_le,
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_contract_address,
+    get_block_number,
+    get_block_timestamp,
 )
+
+from openzeppelin.access.ownable import Ownable
+from openzeppelin.security.safemath import SafeUint256
+
 from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
+from InterfaceAll import IERC20
 
 @event
 func Released(payee : felt, amount : Uint256):
@@ -73,7 +72,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ):
     alloc_locals
     let (caller) = get_caller_address()
-    Ownable_initializer(caller)
+    Ownable.initializer(caller)
 
     local array_index = 0
     _populate_arrays(payees_len, payees, shares, array_index)
@@ -105,7 +104,7 @@ func release{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (timestamp_uint : Uint256) = _felt_to_uint(_timestamp)
     let (releasable : Uint256) = vested_amount(caller, timestamp_uint)
 
-    let (updated_releasable : Uint256) = uint256_checked_sub_le(releasable, user_released)
+    let (updated_releasable : Uint256) = SafeUint256.sub_le(releasable, user_released)
 
     # Update released balance
     released.write(caller, updated_releasable)
@@ -135,7 +134,7 @@ func vested_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (_released : Uint256) = released.read(user)
     let (balance : Uint256) = IERC20.balanceOf(contract_address=token_address, account=this_address)
 
-    let (sum) = uint256_checked_add(_released, balance)
+    let (sum) = SafeUint256.add(_released, balance)
     let (_amount) = _vesting_schedule(sum, timestamp)
 
     return (_amount)
@@ -156,14 +155,14 @@ func _vesting_schedule{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     else:
         let (duration) = duration_in_seconds.read()
         let (duration_uint) = _felt_to_uint(duration)
-        let (end_time) = uint256_checked_add(start_uint, duration_uint)
+        let (end_time) = SafeUint256.add(start_uint, duration_uint)
         let (lower_end) = uint256_lt(end_time, timestamp)
         if lower_end == 1:
             return (total_allocation)
         else:
-            let (elapsed : Uint256) = uint256_checked_sub_lt(timestamp, start_uint)
-            let (num : Uint256) = uint256_checked_mul(elapsed, total_allocation)
-            let (result : Uint256, _) = uint256_checked_div_rem(num, duration_uint)
+            let (elapsed : Uint256) = SafeUint256.sub_lt(timestamp, start_uint)
+            let (num : Uint256) = SafeUint256.mul(elapsed, total_allocation)
+            let (result : Uint256, _) = SafeUint256.div_rem(num, duration_uint)
             return (result)
         end
     end
