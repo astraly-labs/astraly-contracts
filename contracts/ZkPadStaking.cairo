@@ -453,9 +453,7 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 
         let (mul : Uint256) = SafeUint256.mul(token_reward, PRECISION_FACTOR)
         let (div : Uint256, _) = SafeUint256.div_rem(mul, staked_token_supply)
-        let (adjusted_token_per_share : Uint256) = SafeUint256.add(
-            current_acc_token_per_share, div
-        )
+        let (adjusted_token_per_share : Uint256) = SafeUint256.add(current_acc_token_per_share, div)
 
         let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, adjusted_token_per_share)
         let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
@@ -611,7 +609,7 @@ func deposit{
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, default_lock_time)
     let (underlying_asset : felt) = asset()
     set_new_deposit_unlock_time(receiver, default_lock_time)
-    
+
     # Harvest pending rewards
     let (cur_user_info : UserInfo) = userInfo(receiver)
     let (current_acc_token_per_share : Uint256) = accTokenPerShare()
@@ -633,7 +631,7 @@ func deposit{
         tempvar range_check_ptr = range_check_ptr
         tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
     end
-    
+
     # Update user info
     update_user_info_on_deposit(receiver, assets)
     update_user_after_deposit(receiver, underlying_asset, assets)
@@ -653,7 +651,7 @@ func depositForTime{
     uint256_assert_not_zero(assets)
     # Update pool
     update_pool()
-    
+
     let (shares : Uint256) = ERC4626_deposit(assets, receiver, lock_time_days)
     set_new_deposit_unlock_time(receiver, lock_time_days)
     let (underlying_asset : felt) = asset()
@@ -792,36 +790,17 @@ func redeem{
     check_enough_underlying_balance(withdraw_amount)
     # Update pool
     update_pool()
-
-    # Harvest pending rewards
-    let (cur_user_info : UserInfo) = userInfo(owner)
-    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
-    let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
-    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
-    let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
-
-    let (pending_rewards : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
+    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
 
     let (assets : Uint256) = ERC4626_redeem(shares, receiver, owner)
     let (zkp_address : felt) = asset()
     remove_from_deposit(owner, zkp_address, assets)
 
     # Update user info
-    update_user_info_on_withdraw(receiver, assets)
+    update_user_info_on_withdraw(owner, assets)
 
     # Send rewards
-    let (is_positive : felt) = uint256_is_not_zero(pending_rewards)
-    if is_positive == TRUE:
-        IERC20.mint(zkp_address, receiver, pending_rewards)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    end
-
+    send_pending_rewards(pending_rewards, receiver)
     ReentrancyGuard._end()
     return (assets)
 end
@@ -837,15 +816,7 @@ func withdraw{
     check_enough_underlying_balance(assets)
     # Update pool
     update_pool()
-
-    # Harvest pending rewards
-    let (cur_user_info : UserInfo) = userInfo(owner)
-    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
-    let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
-    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
-    let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
-
-    let (pending_rewards : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
+    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
 
     let (shares : Uint256) = ERC4626_withdraw(assets, receiver, owner)
     let (zkp_address : felt) = asset()
@@ -855,18 +826,7 @@ func withdraw{
     update_user_info_on_withdraw(owner, assets)
 
     # Send rewards
-    let (is_positive : felt) = uint256_lt(Uint256(0, 0), pending_rewards)
-    if is_positive == TRUE:
-        IERC20.mint(zkp_address, receiver, pending_rewards)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    end
-
+    send_pending_rewards(pending_rewards, receiver)
     ReentrancyGuard._end()
     return (shares)
 end
@@ -905,14 +865,7 @@ func withdrawLP{
         assert output_le = TRUE
     end
 
-    # Harvest pending rewards
-    let (cur_user_info : UserInfo) = userInfo(owner)
-    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
-    let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
-    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
-    let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
-
-    let (pending_rewards : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
+    let (pending_rewards : Uint256) = harvest_pending_rewards(owner)
 
     let (user_current_deposit_amount : Uint256) = deposits.read(owner, lp_token)
     let (user_deposit_after_withdraw : Uint256) = SafeUint256.sub_le(
@@ -924,7 +877,6 @@ func withdrawLP{
     IERC20.transfer(lp_token, receiver, assets)
     WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
 
-
     # convert to ZKP
     let (token_details : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     let (zkp_quote : Uint256) = IMintCalculator.getAmountToMint(
@@ -934,18 +886,7 @@ func withdrawLP{
     update_user_info_on_withdraw(owner, zkp_quote)
 
     # Send rewards
-    let (zkp_address : felt) = asset()
-    let (is_positive : felt) = uint256_lt(Uint256(0, 0), pending_rewards)
-    if is_positive == TRUE:
-        IERC20.mint(zkp_address, receiver, pending_rewards)
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    else:
-        tempvar syscall_ptr : felt* = syscall_ptr
-        tempvar range_check_ptr = range_check_ptr
-        tempvar pedersen_ptr : HashBuiltin* = pedersen_ptr
-    end
+    send_pending_rewards(pending_rewards, receiver)
 
     WithdrawLP.emit(caller, receiver, owner, lp_token, assets, shares)
     return (shares)
@@ -1470,9 +1411,7 @@ func update_pool{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
         let (precise_token_reward : Uint256) = SafeUint256.mul(token_reward, PRECISION_FACTOR)
         let (divider : Uint256, _) = SafeUint256.div_rem(precise_token_reward, staked_supply)
-        let (new_acc_token_per_share : Uint256) = SafeUint256.add(
-            cur_acc_token_per_share, divider
-        )
+        let (new_acc_token_per_share : Uint256) = SafeUint256.add(cur_acc_token_per_share, divider)
         acc_token_per_share.write(new_acc_token_per_share)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -1503,7 +1442,7 @@ func update_user_info_on_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
     let (new_amount : Uint256) = SafeUint256.add(cur_user_info.amount, assets)
 
     let PRECISION_FACTOR : Uint256 = Uint256(10 ** 12, 0)
-    
+
     let (cur_acc_token_per_share : Uint256) = accTokenPerShare()
     let (mul : Uint256) = SafeUint256.mul(new_amount, cur_acc_token_per_share)
     let (new_reward_debt : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
@@ -1526,5 +1465,32 @@ func update_user_info_on_withdraw{
     let (new_amount : Uint256) = SafeUint256.sub_le(cur_user_info.amount, assets)
     let new_user_info : UserInfo = UserInfo(amount=new_amount, reward_debt=new_reward_debt)
     user_info.write(user, new_user_info)
+    return ()
+end
+
+func harvest_pending_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    owner : felt
+) -> (pending_rewards : Uint256):
+    alloc_locals
+    let (cur_user_info : UserInfo) = userInfo(owner)
+    let (current_acc_token_per_share : Uint256) = accTokenPerShare()
+    let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
+    let PRECISION_FACTOR = Uint256(10 ** 12, 0)
+    let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
+    let (pending_rewards : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
+
+    return (pending_rewards)
+end
+
+func send_pending_rewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    pending_rewards : Uint256, receiver : felt
+):
+    alloc_locals
+    let (zkp_address : felt) = asset()
+    let (is_positive : felt) = uint256_lt(Uint256(0, 0), pending_rewards)
+    if is_positive == TRUE:
+        IERC20.mint(zkp_address, receiver, pending_rewards)
+        return ()
+    end
     return ()
 end
