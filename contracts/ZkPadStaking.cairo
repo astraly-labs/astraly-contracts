@@ -1139,18 +1139,7 @@ end
 func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_owner : felt
 ):
-    assert_not_zero(new_owner)
     Ownable.transfer_ownership(new_owner)
-    Proxy._set_admin(new_owner)
-    return ()
-end
-
-@external
-func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    new_owner : felt
-):
-    assert_not_zero(new_owner)
-    Ownable_transfer_ownership(new_owner)
     Proxy._set_admin(new_owner)
     return ()
 end

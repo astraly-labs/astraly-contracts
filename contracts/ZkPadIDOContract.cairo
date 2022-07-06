@@ -1080,7 +1080,7 @@ end
 
 @external
 func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (address_caller: felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
