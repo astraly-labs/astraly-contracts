@@ -78,7 +78,6 @@ from contracts.erc4626.library import (
     trust_strategy,
     distrust_strategy,
     claim_fees,
-    calculate_lock_time_bonus,
     check_enough_underlying_balance,
     can_harvest,
     push_to_withdrawal_stack,
@@ -716,6 +715,13 @@ func mint{
     let (underlying_asset : felt) = asset()
     let (default_lock_period : felt) = getDefaultLockTime()
     set_new_deposit_unlock_time(receiver, default_lock_period)
+
+    # Harvest pending rewards
+    let (pending_rewards : Uint256) = get_pending_rewards(receiver)
+
+    # Send rewards
+    send_pending_rewards(pending_rewards, receiver)
+
     update_user_info_on_deposit(receiver, assets)
     update_user_after_deposit(receiver, underlying_asset, assets)
     ReentrancyGuard._end()
@@ -732,6 +738,12 @@ func mintForTime{
     uint256_assert_not_zero(shares)
     update_pool()
     let (assets : Uint256) = ERC4626_mint(shares, receiver)
+
+    # Harvest pending rewards
+    let (pending_rewards : Uint256) = get_pending_rewards(receiver)
+
+    # Send rewards
+    send_pending_rewards(pending_rewards, receiver)
 
     # Update user info
     update_user_info_on_deposit(receiver, assets)
