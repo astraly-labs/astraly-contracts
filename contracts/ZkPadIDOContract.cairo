@@ -120,10 +120,6 @@ end
 func purchase_round() -> (res : Purchase_Round):
 end
 
-@storage_var
-func disctribution_round() -> (res : Distribution_Round):
-end
-
 # Mapping user to his participation
 @storage_var
 func user_to_participation(user_address : felt) -> (res : Participation):
@@ -317,13 +313,6 @@ func get_registration{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 ):
     let (_registration) = registration.read()
     return (res=_registration)
-end
-
-@view
-func get_distribution_round{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    ) -> (res : Distribution_Round):
-    let (round) = disctribution_round.read()
-    return (res=round)
 end
 
 @view
@@ -631,30 +620,6 @@ func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 end
 
 @external
-func set_dist_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _dist_time_starts : felt
-):
-    Ownable_only_owner()
-    let (the_purchase) = purchase_round.read()
-    let (the_dist) = disctribution_round.read()
-    with_attr error_message("ZkPadIDOContract::set_dist_round_params Bad input"):
-        assert_not_zero(_dist_time_starts)
-    end
-    with_attr error_message("ZkPadIDOContract::set_dist_round_params Purchase round not set yet"):
-        assert_not_zero(the_purchase.time_starts)
-        assert_not_zero(the_purchase.time_ends)
-    end
-    with_attr error_message(
-            "ZkPadIDOContract::set_dist_round_params Disctribtion must start after purchase round ends"):
-        assert_lt(the_purchase.time_ends, _dist_time_starts)
-    end
-    let upd_dist = Distribution_Round(time_starts=_dist_time_starts)
-    disctribution_round.write(upd_dist)
-    distribtion_round_time_set.emit(dist_time_starts=_dist_time_starts)
-    return ()
-end
-
-@external
 func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     amount : Uint256, account : felt, nb_quest : felt
 ) -> (res : felt):
@@ -902,9 +867,13 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     end
     let (max_tokens_to_purchase : Uint256) = uint256_checked_mul(winning_tickets, the_alloc)
     let (number_of_tokens_buying, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
-    let (number_of_tokens_buying_mod : Uint256) = uint256_checked_mul(number_of_tokens_buying,Uint256(10**18,0))
+    let (number_of_tokens_buying_mod : Uint256) = uint256_checked_mul(
+        number_of_tokens_buying, Uint256(10 ** 18, 0)
+    )
     with_attr error_message("ZkPadIDOContract::participate Can't buy more than maximum allocation"):
-        let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_buying_mod, max_tokens_to_purchase)
+        let (is_tokens_buying_le_max) = uint256_le(
+            number_of_tokens_buying_mod, max_tokens_to_purchase
+        )
         assert is_tokens_buying_le_max = TRUE
     end
 
@@ -961,7 +930,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     with_attr error_message("ZkPadIDOContract::participate Participation payment failed"):
         assert pmt_success = TRUE
     end
-    let new_number_of_purchases : felt = the_round.number_of_purchases+1
+    let new_number_of_purchases : felt = the_round.number_of_purchases + 1
     let upd_purchase = Purchase_Round(
         time_starts=the_round.time_starts,
         time_ends=the_round.time_ends,
@@ -1088,20 +1057,75 @@ end
 @external
 func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     Ownable_only_owner()
-    let (address_caller: felt) = get_caller_address()
+    let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
     let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
         contract_address=factory_address
     )
-    let (contract_balance: Uint256) = IERC20.balanceOf(pmt_token_addr, address_this)
+    let (contract_balance : Uint256) = IERC20.balanceOf(pmt_token_addr, address_this)
     let (token_transfer_success : felt) = IERC20.transfer(
         pmt_token_addr, address_caller, contract_balance
     )
-    with_attr error_message(
-        "ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
+    with_attr error_message("ZkPadIDOContract::withdraw_from_contract token transfer failed"):
         assert token_transfer_success = TRUE
     end
+
+    let (the_sale) = sale.read()
+    let upd_sale = Sale(
+        token=the_sale.token,
+        is_created=the_sale.is_created,
+        raised_funds_withdrawn=TRUE,
+        leftover_withdrawn=the_sale.leftover_withdrawn,
+        tokens_deposited=the_sale.tokens_deposited,
+        sale_owner=the_sale.sale_owner,
+        token_price=the_sale.token_price,
+        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold=the_sale.total_tokens_sold,
+        total_winning_tickets=the_sale.total_winning_tickets,
+        total_raised=the_sale.total_raised,
+        sale_end=the_sale.sale_end,
+        tokens_unlock_time=the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants,
+    )
+    sale.write(upd_sale)
+    return ()
+end
+
+@external
+func withdraw_leftovers{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    Ownable_only_owner()
+    let (address_caller : felt) = get_caller_address()
+    let (address_this : felt) = get_contract_address()
+    let (factory_address) = ido_factory_contract_address.read()
+    let (the_sale) = sale.read()
+    let (contract_balance : Uint256) = IERC20.balanceOf(the_sale.token, address_this)
+    let (token_transfer_success : felt) = IERC20.transfer(
+        the_sale.token, address_caller, contract_balance
+    )
+    with_attr error_message("ZkPadIDOContract::withdraw_leftovers token transfer failed"):
+        assert token_transfer_success = TRUE
+    end
+
+    let upd_sale = Sale(
+        token=the_sale.token,
+        is_created=the_sale.is_created,
+        raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
+        leftover_withdrawn=TRUE,
+        tokens_deposited=the_sale.tokens_deposited,
+        sale_owner=the_sale.sale_owner,
+        token_price=the_sale.token_price,
+        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold=the_sale.total_tokens_sold,
+        total_winning_tickets=the_sale.total_winning_tickets,
+        total_raised=the_sale.total_raised,
+        sale_end=the_sale.sale_end,
+        tokens_unlock_time=the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants,
+    )
+    sale.write(upd_sale)
     return ()
 end
 
@@ -1193,5 +1217,3 @@ func withdraw_multiple_portions_rec{
     let (the_sum) = uint256_checked_add(amt_withdrawing, sum_of_portions)
     return (amt_sum=the_sum)
 end
-
-
