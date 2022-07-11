@@ -544,7 +544,7 @@ async def test_mint_overflow(erc1155_factory):
                 0  # data
             ]
         ),
-        "Safemath: addition overflow"
+        "SafeUint256: addition overflow"
     )
 
     # upon rejection, there should be MAX balance
@@ -706,7 +706,7 @@ async def test_mint_batch_overflow(erc1155_factory):
         signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
-        "Safemath: addition overflow"
+        "SafeUint256: addition overflow"
     )
 
 
