@@ -317,6 +317,7 @@ async def test_winning_tickets(contracts_factory):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip
 async def test_setup_sale_success_with_events(contracts_factory):
     zkpad_admin_account, deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, ido, erc1155, erc20_eth_token, starknet_state = contracts_factory
     day = datetime.today()

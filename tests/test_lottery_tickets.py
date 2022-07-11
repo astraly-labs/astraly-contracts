@@ -142,6 +142,12 @@ async def erc1155_init(contract_defs):
             *CAP,
         ],
     )
+    rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
+    await starknet.declare(contract_class=rnd_nbr_gen_def)
+    rnd_nbr_gen = await starknet.deploy(
+        contract_class=rnd_nbr_gen_def,
+        constructor_calldata=[1], #seed
+    )
 
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
@@ -167,7 +173,7 @@ async def erc1155_init(contract_defs):
     await signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
 
     await signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
-    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [xoroshiro.contract_address])
+    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [rnd_nbr_gen.contract_address])
 
     return (
         starknet.state,
@@ -218,7 +224,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
     )
 
     # Create mock IDO
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
 
     return _state, erc1155, owner, account, receiver, ido
 
@@ -288,8 +294,8 @@ async def full_init(contract_defs, erc1155_init):
     )
 
     # create 2 mock IDOs
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
     MERKLE_INFO = get_leaves(
         [owner.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
 

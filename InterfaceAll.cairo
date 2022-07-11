@@ -82,7 +82,7 @@ namespace IZKPadIDOFactory:
     func get_merkle_root(id : felt) -> (merkle_root : felt):
     end
 
-    func create_ido() -> (new_ido_contract_address : felt):
+    func create_ido(ido_admin : felt) -> (new_ido_contract_address : felt):
     end
 
     func get_ido_contract_class_hash() -> (class_hash : felt):
