@@ -198,10 +198,6 @@ func purchase_round_time_set(purchase_time_starts : felt, purchase_time_ends : f
 end
 
 @event
-func distribtion_round_time_set(dist_time_starts : felt):
-end
-
-@event
 func IDO_Created(new_ido_contract_address : felt):
 end
 

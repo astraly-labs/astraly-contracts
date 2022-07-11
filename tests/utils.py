@@ -54,6 +54,16 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
     ) in tx_exec_info.raw_events
 
 
+def get_contract_class(path):
+    """Return the contract class from the contract path"""
+    path = contract_path(path)
+    contract_class = compile_starknet_files(
+        files=[path],
+        debug_info=True
+    )
+    return contract_class
+
+
 def uint(a):
     return (a, 0)
 

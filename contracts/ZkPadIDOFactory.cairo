@@ -112,7 +112,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(ido_admin : felt) -> (new_ido_contract_address : felt):
     alloc_locals
     Ownable.assert_only_owner()
     let (_id) = current_id.read()
@@ -120,19 +120,18 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     with_attr error_message("IDO contract class hash is not set"):
         assert_not_zero(ido_contract_class)
     end
-    let (admin_address : felt) = Ownable.owner()
     let (new_ido_contract_address : felt) = deploy(
         class_hash=ido_contract_class,
         contract_address_salt=_id,
         constructor_calldata_size=1,
-        constructor_calldata=cast(new (admin_address), felt*),
+        constructor_calldata=cast(new (ido_admin), felt*),
     )
     ido_contract_addresses.write(_id, new_ido_contract_address)
     let (task_addr : felt) = task_address.read()
     ITask.setIDOContractAddress(task_addr, new_ido_contract_address)
     current_id.write(_id + 1)
     IDO_Created.emit(_id, new_ido_contract_address)
-    return ()
+    return (new_ido_contract_address)
 end
 
 @external

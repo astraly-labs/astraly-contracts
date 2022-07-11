@@ -19,7 +19,11 @@ from starkware.cairo.common.uint256 import (
     uint256_lt,
     uint256_check,
 )
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, get_block_timestamp
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_contract_address,
+    get_block_timestamp,
+)
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
 from openzeppelin.access.ownable import Ownable
@@ -223,10 +227,6 @@ end
 
 @event
 func purchase_round_time_set(purchase_time_starts : felt, purchase_time_ends : felt):
-end
-
-@event
-func distribtion_round_time_set(dist_time_starts : felt):
 end
 
 @event
@@ -612,6 +612,7 @@ func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
     return ()
 end
 
+@external
 func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     amount : Uint256, account : felt, nb_quest : felt
 ) -> (res : felt):
@@ -721,7 +722,7 @@ func get_adjusted_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
-# does this method need anu inputs? or will it only use the number of users and winning tickets?
+# does this method need any inputs? or will it only use the number of users and winning tickets?
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
@@ -1051,7 +1052,7 @@ end
 @external
 func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     Ownable.assert_only_owner()
-    let (address_caller: felt) = get_caller_address()
+    let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
     let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
