@@ -858,9 +858,9 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         assert winning_tkts_check = TRUE
     end
 
-    let (max_tokens_to_purchase : Uint256) = uint256_checked_mul(winning_tickets, the_alloc)
-    let (number_of_tokens_buying, _) = uint256_checked_div_rem(amount_paid, the_sale.token_price)
-    let (number_of_tokens_buying_mod : Uint256) = uint256_checked_mul(
+    let (max_tokens_to_purchase : Uint256) = SafeUint256.mul(winning_tickets, the_alloc)
+    let (number_of_tokens_buying, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price)
+    let (number_of_tokens_buying_mod : Uint256) = SafeUint256.mul(
         number_of_tokens_buying, Uint256(10 ** 18, 0)
     )
 
