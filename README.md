@@ -2,7 +2,7 @@
 [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/astralyxyz)
 [![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/AstralyXYZ)
 
-![banner](./static/banner_3d.png)
+![banner](https://testnet.astraly.xyz/images/home/banner_3d_full.png)
 
 # ☄️ Astraly Smart Contracts
 
