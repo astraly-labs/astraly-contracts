@@ -524,7 +524,7 @@ func checkKYCSignature{
     let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0)
 
     # Verify the user's signature.
-    IAccount.is_valid_signature(admin_address, user_hash, sig_len, sig)
-
+    let (is_valid) = IAccount.is_valid_signature(admin_address, user_hash, sig_len, sig)
+    assert is_valid = TRUE
     return ()
 end

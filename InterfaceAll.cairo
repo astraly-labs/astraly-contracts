@@ -52,7 +52,9 @@ end
 
 @contract_interface
 namespace IAccount:
-    func is_valid_signature(hash : felt, sig_len : felt, sig : felt*) -> ():
+    func is_valid_signature(hash : felt, signature_len : felt, signature : felt*) -> (
+        is_valid : felt
+    ):
     end
 end
 
@@ -349,36 +351,32 @@ end
 
 @contract_interface
 namespace IERC721:
-    func balanceOf(owner: felt) -> (balance: Uint256):
+    func balanceOf(owner : felt) -> (balance : Uint256):
     end
 
-    func ownerOf(tokenId: Uint256) -> (owner: felt):
+    func ownerOf(tokenId : Uint256) -> (owner : felt):
     end
 
     func safeTransferFrom(
-            from_: felt, 
-            to: felt, 
-            tokenId: Uint256, 
-            data_len: felt,
-            data: felt*
-        ):
+        from_ : felt, to : felt, tokenId : Uint256, data_len : felt, data : felt*
+    ):
     end
 
-    func transferFrom(from_: felt, to: felt, tokenId: Uint256):
+    func transferFrom(from_ : felt, to : felt, tokenId : Uint256):
     end
 
-    func approve(approved: felt, tokenId: Uint256):
+    func approve(approved : felt, tokenId : Uint256):
     end
 
-    func setApprovalForAll(operator: felt, approved: felt):
+    func setApprovalForAll(operator : felt, approved : felt):
     end
 
-    func getApproved(tokenId: Uint256) -> (approved: felt):
+    func getApproved(tokenId : Uint256) -> (approved : felt):
     end
 
-    func isApprovedForAll(owner: felt, operator: felt) -> (isApproved: felt):
+    func isApprovedForAll(owner : felt, operator : felt) -> (isApproved : felt):
     end
 
-    func mint(to: felt, tokenId: Uint256):
+    func mint(to : felt, tokenId : Uint256):
     end
 end
