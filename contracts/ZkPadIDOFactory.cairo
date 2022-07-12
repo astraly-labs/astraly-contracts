@@ -3,14 +3,10 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_not_zero
+from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, deploy
 
-from starkware.cairo.common.bool import TRUE, FALSE
-from openzeppelin.access.ownable import (
-    Ownable_initializer,
-    Ownable_only_owner,
-    Ownable_get_owner
-)
+from openzeppelin.access.ownable import Ownable
 
 from InterfaceAll import IZkPadIDOContract, ITask
 
@@ -109,41 +105,40 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_ido_contract_class_hash : felt, owner_: felt):
-    Ownable_initializer(owner_)
+    Ownable.initializer(owner_)
 
     ido_contract_class_hash.write(_ido_contract_class_hash)
     return ()
 end
 
 @external
-func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(ido_admin : felt) -> (new_ido_contract_address : felt):
     alloc_locals
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     let (_id) = current_id.read()
     let (ido_contract_class : felt) = get_ido_contract_class_hash()
     with_attr error_message("IDO contract class hash is not set"):
         assert_not_zero(ido_contract_class)
     end
-    let (admin_address : felt) = Ownable_get_owner()
     let (new_ido_contract_address : felt) = deploy(
         class_hash=ido_contract_class,
         contract_address_salt=_id,
         constructor_calldata_size=1,
-        constructor_calldata=cast(new (admin_address), felt*),
+        constructor_calldata=cast(new (ido_admin), felt*),
     )
     ido_contract_addresses.write(_id, new_ido_contract_address)
     let (task_addr : felt) = task_address.read()
     ITask.setIDOContractAddress(task_addr, new_ido_contract_address)
     current_id.write(_id + 1)
     IDO_Created.emit(_id, new_ido_contract_address)
-    return ()
+    return (new_ido_contract_address)
 end
 
 @external
 func set_random_number_generator_address{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(rnd_nbr_gen_adr : felt):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(rnd_nbr_gen_adr)
     end
@@ -155,7 +150,7 @@ end
 func set_task_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     task_addr : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(task_addr)
     end
@@ -167,7 +162,7 @@ end
 func set_lottery_ticket_contract_address{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(_lottery_ticket_contract_address : felt):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(_lottery_ticket_contract_address)
     end
@@ -179,7 +174,7 @@ end
 func set_payment_token_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _pmt_tkn_addr : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(_pmt_tkn_addr)
     end
@@ -191,7 +186,7 @@ end
 func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _merkle_root : felt, _id : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     # with_attr error_message("Invalid id"):
     #     assert_not_zero(_id)
     # end
@@ -206,7 +201,7 @@ end
 func set_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_class_hash : felt
 ):
-    Ownable_only_owner()
+    Ownable.assert_only_owner()
     with_attr error_message("Invalid contract class hash"):
         assert_not_zero(new_class_hash)
     end

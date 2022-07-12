@@ -10,9 +10,10 @@ from starkware.cairo.common.small_merkle_tree import MerkleTree
 signer = Signer(123456789987654321)
 account_path = 'openzeppelin/account/Account.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
-ido_path = 'mocks/ZkPadIDOContract_mock.cairo'
+ido_path = 'ZkPadIDOContract.cairo'
 factory_path = 'ZkPadIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
+rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 
 
 def uint_array(l):
@@ -112,8 +113,8 @@ async def erc1155_init(contract_defs):
         constructor_calldata=[signer.public_key]
     )
     ido_class = await starknet.declare(contract_class=ido_def)
-    ido = await starknet.deploy(contract_class=ido_def)
-    ido2 = await starknet.deploy(contract_class=ido_def)
+    ido = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
+    ido2 = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
     await starknet.declare(contract_class=factory_def)
     factory = await starknet.deploy(contract_class=factory_def, constructor_calldata=[ido_class.class_hash, account1.contract_address])
     await starknet.declare(contract_class=task_def)
@@ -141,11 +142,17 @@ async def erc1155_init(contract_defs):
             *CAP,
         ],
     )
+    rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
+    await starknet.declare(contract_class=rnd_nbr_gen_def)
+    rnd_nbr_gen = await starknet.deploy(
+        contract_class=rnd_nbr_gen_def,
+        constructor_calldata=[1],  # seed
+    )
 
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('/openzeppelin/upgrades/OZProxy.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])
@@ -164,6 +171,9 @@ async def erc1155_init(contract_defs):
     await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
     root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
     await signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
+
+    await signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
+    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [rnd_nbr_gen.contract_address])
 
     return (
         starknet.state,
@@ -214,7 +224,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
     )
 
     # Create mock IDO
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
 
     return _state, erc1155, owner, account, receiver, ido
 
@@ -284,8 +294,8 @@ async def full_init(contract_defs, erc1155_init):
     )
 
     # create 2 mock IDOs
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
+    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
     MERKLE_INFO = get_leaves(
         [owner.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
 
@@ -534,7 +544,7 @@ async def test_mint_overflow(erc1155_factory):
                 0  # data
             ]
         ),
-        "Safemath: addition overflow"
+        "SafeUint256: addition overflow"
     )
 
     # upon rejection, there should be MAX balance
@@ -633,6 +643,7 @@ async def test_burn_with_quest(full_factory):
     proof = generate_merkle_proof(leaves, 0)
     verif = verify_merkle_proof(pedersen_hash(subject, NB_QUEST), proof)
     # print("PROOF", proof)
+    print("valid", verif)
 
     await signer.send_transaction(
         owner, erc1155.contract_address, 'burn_with_quest',
@@ -695,7 +706,7 @@ async def test_mint_batch_overflow(erc1155_factory):
         signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
-        "Safemath: addition overflow"
+        "SafeUint256: addition overflow"
     )
 
 
@@ -1449,20 +1460,6 @@ async def test_claim_no_tickets(full_factory):
     # Try to claim with a user with no xZKP tokens
     await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
-
-
-@pytest.mark.asyncio
-async def test_claim_expired(full_factory):
-    """Should revert when allocation round has started"""
-    erc1155, owner, user, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
-
-    IDO_ID = to_uint(0)
-
-    # Update ido_launch_date to be in the past
-    await signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
-
-    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
 
 
 @pytest.mark.asyncio

@@ -1,32 +1,8 @@
 import pytest
-from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starkware_utils.error_handling import StarkException
+
 from starkware.starknet.testing.starknet import Starknet
 from utils import *
 import asyncio
-
-
-def uint_array(l):
-    return list(map(uint, l))
-
-
-def uarr2cd(arr):
-    acc = [len(arr)]
-    for lo, hi in arr:
-        acc.append(lo)
-        acc.append(hi)
-    return acc
-
-
-def get_block_timestamp(starknet_state):
-    return starknet_state.state.block_info.block_timestamp
-
-
-def set_block_timestamp(starknet_state, timestamp):
-    starknet_state.state.block_info = BlockInfo(
-        starknet_state.state.block_info.block_number, timestamp
-    )
-
 
 INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
@@ -38,8 +14,7 @@ DECIMALS = 18
 
 # Vesting Params
 vesting_len = 2
-shares = uint_array([500, 500])
-amount_vested = to_uint(100_000_000_000_000_000_000)
+shares = [*to_uint(500), *to_uint(500)]
 duration_seconds = 4 * 365 * 86400
 
 owner = Signer(1234)
@@ -103,7 +78,7 @@ async def contracts_init(contract_defs):
         contract_class=vesting_def,
         constructor_calldata=[
             vesting_len, user1_account.contract_address,
-            user2_account.contract_address, *uarr2cd(shares),
+            user2_account.contract_address, vesting_len, *shares,
             _start_timestamp, duration_seconds, zk_pad_token.contract_address
         ],
     )
@@ -136,16 +111,14 @@ def contracts_factory(contract_defs, contracts_init):
 @pytest.mark.asyncio
 async def test_reject_payee_zero_address(contract_defs, contracts_factory):
     account_def, zk_pad_token_def, vesting_def = contract_defs
-    _state, token, vesting, owner, user1, user2, user3 = contracts_factory
-    starknet = Starknet(_state)
+    starknet, token, vesting, _, user1_account, _, _ = contracts_factory
 
-    _start_timestamp = get_block_timestamp(starknet.state) + 3600
-
-    zk_pad_vesting = assert_revert(starknet.deploy(
+    _start_timestamp = get_block_timestamp(starknet) + 3600
+    await starknet.declare(contract_class=zk_pad_token_def)
+    await assert_revert(starknet.deploy(
         contract_class=vesting_def,
         constructor_calldata=[
-            vesting_len, [user1.contract_address,
-                          "0x000000000000000000000000000000000000000000000000000000000"], vesting_len, shares,
+            vesting_len, user1_account.contract_address, 0, vesting_len, *shares,
             _start_timestamp, duration_seconds, token.contract_address
         ],
     ), "ZkPadVesting::payee can't be null")

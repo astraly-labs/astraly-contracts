@@ -3,7 +3,6 @@ from collections import namedtuple
 from pathlib import Path
 import math
 import asyncio
-import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
 from starkware.starknet.business_logic.state.state import BlockInfo
@@ -27,7 +26,7 @@ _root = Path(__file__).parent.parent
 
 def contract_path(name):
     if name.startswith("openzeppelin"):
-        return site.getsitepackages()[0] + "/" + name
+        return str(_root / "lib/cairo_contracts/src" / name)
     elif name.startswith("tests/"):
         return str(_root / name)
     elif name.startswith('/'):
@@ -52,6 +51,16 @@ def assert_event_emitted(tx_exec_info, from_address, name, data):
         keys=[get_selector_from_name(name)],
         data=data,
     ) in tx_exec_info.raw_events
+
+
+def get_contract_class(path):
+    """Return the contract class from the contract path"""
+    path = contract_path(path)
+    contract_class = compile_starknet_files(
+        files=[path],
+        debug_info=True
+    )
+    return contract_class
 
 
 def uint(a):
@@ -124,7 +133,8 @@ def get_contract_def(path):
     path = contract_path(path)
     contract_def = compile_starknet_files(
         files=[path],
-        debug_info=True
+        debug_info=True,
+        cairo_path=[str(_root / "lib/cairo_contracts/src")]
     )
     return contract_def
 
@@ -242,6 +252,17 @@ def assert_approx_eq(a: int, b: int, max_delta: int):
         print(f"delta: {delta}")
         assert False
     assert True
+
+def uint_array(l):
+    return list(map(to_uint, l))
+
+
+def uarr2cd(arr):
+    acc = [len(arr)]
+    for lo, hi in arr:
+        acc.append(lo)
+        acc.append(hi)
+    return acc
 
 
 def get_next_level(level):

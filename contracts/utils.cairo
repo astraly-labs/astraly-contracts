@@ -8,7 +8,7 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from openzeppelin.security.safemath import uint256_checked_mul, uint256_checked_div_rem
+from openzeppelin.security.safemath import SafeUint256
 
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
@@ -131,18 +131,18 @@ func mul_div_down{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     x : Uint256, y : Uint256, denominator : Uint256
 ) -> (res : Uint256):
     alloc_locals
-    let (z : Uint256) = uint256_checked_mul(x, y)
+    let (z : Uint256) = SafeUint256.mul(x, y)
 
     let (dominator_is_zero : felt) = uint256_is_zero(denominator)
     assert dominator_is_zero = FALSE
 
     let (x_is_zero : felt) = uint256_is_zero(x)
-    let (div : Uint256, _) = uint256_checked_div_rem(z, x)
+    let (div : Uint256, _) = SafeUint256.div_rem(z, x)
     let (is_eq : felt) = uint256_eq(div, y)
     let (_or : felt) = or(x_is_zero, is_eq)
     assert _or = TRUE
 
-    let (res : Uint256, _) = uint256_checked_div_rem(z, denominator)
+    let (res : Uint256, _) = SafeUint256.div_rem(z, denominator)
     return (res)
 end
 

@@ -103,9 +103,10 @@ async def test_constructor_exceed_max_decimals(contracts_factory):
     bad_decimals = 2**8 + 1
 
     starknet = await Starknet.empty()
+    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     await assert_revert(
         starknet.deploy(
-            contract_path("ZkPadToken.cairo"),
+            contract_class=zk_pad_token_def,
             constructor_calldata=[
                 NAME,
                 SYMBOL,
@@ -114,9 +115,7 @@ async def test_constructor_exceed_max_decimals(contracts_factory):
                 recipient_account.contract_address,
                 owner_account.contract_address,
                 *CAP,
-                123124  # _distribution_address TODO: Change
-            ],
-            cairo_path=["../contracts"]),
+            ]),
         reverted_with="ERC20: decimals exceed 2^8"
     )
 
@@ -199,7 +198,7 @@ async def test_approve_from_zero_address(contracts_factory):
     # (get_caller_address) is zero
     await assert_revert(
         erc20.approve(spender.contract_address, AMOUNT).invoke(),
-        reverted_with="ERC20: zero address cannot approve"
+        reverted_with="ERC20: cannot approve from the zero address"
     )
 
 
@@ -434,7 +433,7 @@ async def test_transferFrom_greater_than_allowance(contracts_factory):
             owner_account.contract_address,
             *fail_amount
         ]),
-        reverted_with="ERC20: transfer amount exceeds allowance"
+        reverted_with="ERC20: insufficient allowance"
     )
 
 
@@ -448,7 +447,7 @@ async def test_transferFrom_from_zero_address(contracts_factory):
             owner_account.contract_address,
             *AMOUNT
         ]),
-        reverted_with="ERC20: transfer amount exceeds allowance"
+        reverted_with="ERC20: insufficient allowance"
     )
 
 

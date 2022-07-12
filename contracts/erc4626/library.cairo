@@ -14,22 +14,9 @@ from starkware.cairo.common.registers import get_label_location
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.pow import pow
 
-from openzeppelin.token.erc20.library import (
-    ERC20_initializer,
-    ERC20_totalSupply,
-    ERC20_mint,
-    ERC20_burn,
-    ERC20_balanceOf,
-    ERC20_allowances,
-)
+from openzeppelin.token.erc20.library import ERC20
 
-from openzeppelin.security.safemath import (
-    uint256_checked_mul,
-    uint256_checked_div_rem,
-    uint256_checked_sub_le,
-    uint256_checked_add,
-    uint256_checked_sub_lt,
-)
+from openzeppelin.security.safemath import SafeUint256
 
 from contracts.utils import (
     get_array,
@@ -242,7 +229,7 @@ func ERC4626_initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     let (asset_base_unit : felt) = pow(10, decimals)
     base_unit.write(asset_base_unit)
 
-    ERC20_initializer(name, symbol, decimals)
+    ERC20.initializer(name, symbol, decimals)
     ERC4626_asset_addr.write(asset_addr)
     return ()
 end
@@ -348,9 +335,9 @@ func lockedProfit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     # It's impossible for the previous harvest to be in the future, so this will never underflow.
     # maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
     let sub : felt = block_timestamp - previous_harvest
-    let (mul : Uint256) = uint256_checked_mul(maximum_locked_profit, Uint256(sub, 0))
-    let (div : Uint256, _) = uint256_checked_div_rem(mul, Uint256(harvest_interval, 0))
-    let (res : Uint256) = uint256_checked_sub_le(maximum_locked_profit, div)
+    let (mul : Uint256) = SafeUint256.mul(maximum_locked_profit, Uint256(sub, 0))
+    let (div : Uint256, _) = SafeUint256.div_rem(mul, Uint256(harvest_interval, 0))
+    let (res : Uint256) = SafeUint256.sub_le(maximum_locked_profit, div)
     return (res)
 end
 
@@ -394,11 +381,11 @@ func ERC4626_totalAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     alloc_locals
     let (locked_profit : Uint256) = lockedProfit()
     let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
-    let (total_underlying_held : Uint256) = uint256_checked_sub_le(
+    let (total_underlying_held : Uint256) = SafeUint256.sub_le(
         current_total_strategy_holdings, locked_profit
     )
     let (total_float : Uint256) = totalFloat()
-    let (add_float : Uint256) = uint256_checked_add(total_underlying_held, total_float)
+    let (add_float : Uint256) = SafeUint256.add(total_underlying_held, total_float)
     return (add_float)
 end
 
@@ -407,15 +394,15 @@ func ERC4626_convertToShares{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 ) -> (shares : Uint256):
     alloc_locals
 
-    let (total_supply : Uint256) = ERC20_totalSupply()
+    let (total_supply : Uint256) = ERC20.total_supply()
     let (is_total_supply_zero : felt) = uint256_is_zero(total_supply)
 
     if is_total_supply_zero == TRUE:
         return (assets)
     else:
-        let (product : Uint256) = uint256_checked_mul(assets, total_supply)
+        let (product : Uint256) = SafeUint256.mul(assets, total_supply)
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (shares, _) = uint256_checked_div_rem(product, total_assets)
+        let (shares, _) = SafeUint256.div_rem(product, total_assets)
         return (shares)
     end
 end
@@ -425,15 +412,15 @@ func ERC4626_convertToAssets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 ) -> (assets : Uint256):
     alloc_locals
 
-    let (total_supply : Uint256) = ERC20_totalSupply()
+    let (total_supply : Uint256) = ERC20.total_supply()
     let (is_total_supply_zero : felt) = uint256_is_zero(total_supply)
 
     if is_total_supply_zero == TRUE:
         return (shares)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_checked_mul(shares, total_assets)
-        let (assets, _) = uint256_checked_div_rem(product, total_supply)
+        let (product : Uint256) = SafeUint256.mul(shares, total_assets)
+        let (assets, _) = SafeUint256.div_rem(product, total_supply)
         return (assets)
     end
 end
@@ -454,8 +441,7 @@ func ERC4626_previewDeposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
 ) -> (shares : Uint256):
     alloc_locals
     let (shares) = ERC4626_convertToShares(assets)
-    let (bonus : Uint256) = calculate_lock_time_bonus(shares, lock_time)
-    let (result : Uint256) = uint256_checked_add(shares, bonus)
+    let (result : Uint256) = add_lock_time_bonus(shares, lock_time)
     return (result)
 end
 
@@ -481,7 +467,7 @@ func ERC4626_deposit{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assert success = TRUE
     end
 
-    ERC20_mint(receiver, shares)
+    ERC20._mint(receiver, shares)
 
     Deposit.emit(caller=caller, owner=receiver, assets=assets, shares=shares)
 
@@ -504,7 +490,7 @@ func ERC4626_previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
 ) -> (assets : Uint256):
     alloc_locals
 
-    let (total_supply : Uint256) = ERC20_totalSupply()
+    let (total_supply : Uint256) = ERC20.total_supply()
     let (is_total_supply_zero : felt) = uint256_is_zero(total_supply)
     let (bonus_removed : Uint256) = remove_lock_time_bonus(shares, lock_time)
 
@@ -512,8 +498,8 @@ func ERC4626_previewMint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
         return (bonus_removed)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_checked_mul(bonus_removed, total_assets)
-        let (assets, _) = uint256_checked_div_rem(product, total_supply)
+        let (product : Uint256) = SafeUint256.mul(bonus_removed, total_assets)
+        let (assets, _) = SafeUint256.div_rem(product, total_supply)
         return (assets)
     end
 end
@@ -537,7 +523,7 @@ func ERC4626_mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
         assert success = TRUE
     end
 
-    ERC20_mint(receiver, shares)
+    ERC20._mint(receiver, shares)
 
     Deposit.emit(caller=caller, owner=receiver, assets=assets, shares=shares)
 
@@ -551,7 +537,7 @@ end
 func ERC4626_maxWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt
 ) -> (maxAssets : Uint256):
-    let (owner_balance : Uint256) = ERC20_balanceOf(owner)
+    let (owner_balance : Uint256) = ERC20.balance_of(owner)
     let (maxAssets : Uint256) = ERC4626_convertToAssets(owner_balance)
     return (maxAssets)
 end
@@ -561,15 +547,15 @@ func ERC4626_previewWithdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
 ) -> (shares : Uint256):
     alloc_locals
 
-    let (total_supply : Uint256) = ERC20_totalSupply()
+    let (total_supply : Uint256) = ERC20.total_supply()
     let (is_total_supply_zero : felt) = uint256_is_zero(total_supply)
 
     if is_total_supply_zero == TRUE:
         return (assets)
     else:
         let (total_assets : Uint256) = ERC4626_totalAssets()
-        let (product : Uint256) = uint256_checked_mul(assets, total_supply)
-        let (shares : Uint256, _) = uint256_checked_div_rem(product, total_assets)
+        let (product : Uint256) = SafeUint256.mul(assets, total_supply)
+        let (shares : Uint256, _) = SafeUint256.div_rem(product, total_assets)
         return (shares)
     end
 end
@@ -594,7 +580,7 @@ func ERC4626_withdraw{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
         tempvar range_check_ptr = range_check_ptr
     end
 
-    ERC20_burn(owner, shares)
+    ERC20._burn(owner, shares)
 
     let (asset : felt) = ERC4626_asset()
     let (success : felt) = IERC20.transfer(
@@ -616,7 +602,7 @@ end
 func ERC4626_maxRedeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt
 ) -> (maxShares : Uint256):
-    let (maxShares : Uint256) = ERC20_balanceOf(owner)
+    let (maxShares : Uint256) = ERC20.balance_of(owner)
     return (maxShares)
 end
 
@@ -651,7 +637,7 @@ func ERC4626_redeem{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
         assert is_zero_assets = FALSE
     end
 
-    ERC20_burn(owner, shares)
+    ERC20._burn(owner, shares)
 
     let (asset : felt) = ERC4626_asset()
     let (success : felt) = IERC20.transfer(
@@ -675,7 +661,7 @@ func decrease_allowance_by_amount{
 }(owner : felt, spender : felt, amount : Uint256):
     alloc_locals
 
-    let (spender_allowance : Uint256) = ERC20_allowances.read(owner, spender)
+    let (spender_allowance : Uint256) = ERC20.allowance(owner, spender)
 
     let (max_allowance : Uint256) = uint256_max()
     let (is_max_allowance) = uint256_eq(spender_allowance, max_allowance)
@@ -689,8 +675,7 @@ func decrease_allowance_by_amount{
         assert is_spender_allowance_sufficient = TRUE
     end
 
-    let (new_allowance : Uint256) = uint256_checked_sub_le(spender_allowance, amount)
-    ERC20_allowances.write(owner, spender, new_allowance)
+    ERC20._spend_allowance(owner, spender, amount)
 
     return ()
 end
@@ -727,26 +712,39 @@ func safe_multiply{syscall_ptr : felt*, range_check_ptr}(a : felt, b : felt) -> 
     return (res)
 end
 
-func calculate_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func add_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     shares : Uint256, lock_time : felt
 ) -> (res : Uint256):
-    let (value_multiplied : Uint256) = uint256_checked_mul(shares, Uint256(low=lock_time, high=0))
-    let (res : Uint256, _) = uint256_checked_div_rem(value_multiplied, Uint256(low=730, high=0))
+    alloc_locals
+    tempvar multiplicator = 100
+
+    let (temp_lock_time : Uint256) = SafeUint256.mul(
+        Uint256(lock_time, 0), Uint256(multiplicator, 0)
+    )
+    let (div : Uint256, _) = SafeUint256.div_rem(temp_lock_time, Uint256(730, 0))
+    let (add : Uint256) = SafeUint256.add(Uint256(1 * multiplicator, 0), div)  # add 1
+    let (mul : Uint256) = SafeUint256.mul(shares, add)
+    let (res : Uint256, _) = SafeUint256.div_rem(mul, Uint256(multiplicator, 0))
     return (res)
 end
 
 func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     shares : Uint256, lock_time : felt
 ) -> (res : Uint256):
+    alloc_locals
     let (is_zero : felt) = uint256_is_zero(shares)
     if is_zero == TRUE:
         return (shares)
     end
-    let (bonus: Uint256) = calculate_lock_time_bonus(shares, lock_time)
-    let (add_bonus: Uint256) = uint256_checked_add(bonus, Uint256(low=1, high=0))
-    let (res : Uint256, _) = uint256_checked_div_rem(
-        shares, add_bonus
+    tempvar multiplicator = 100
+    
+    let (temp_lock_time : Uint256) = SafeUint256.mul(
+        Uint256(lock_time, 0), Uint256(multiplicator, 0)
     )
+    let (shares_mul : Uint256) = SafeUint256.mul(shares, Uint256(multiplicator, 0))
+    let (div : Uint256, _) = SafeUint256.div_rem(temp_lock_time, Uint256(730, 0))
+    let (add : Uint256) = SafeUint256.add(Uint256(1 * multiplicator, 0), div)  # add 1
+    let (res : Uint256, _) = SafeUint256.div_rem(shares_mul, add)
     return (res)
 end
 
@@ -868,7 +866,7 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     let (no_fees_earned : felt) = uint256_is_zero(total_profit_accrued)
 
     if no_fees_earned == TRUE:
-        let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
+        let (sum : Uint256) = SafeUint256.add(current_locked_profit, total_profit_accrued)
         max_locked_profit.write(sum)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -883,10 +881,10 @@ func harvest_investment{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
         let (value_to_mint : Uint256) = mul_div_down(
             fees_accrued, Uint256(base_unit_value, 0), base_unit_to_asset
         )
-        ERC20_mint(address_this, value_to_mint)
+        ERC20._mint(address_this, value_to_mint)
 
-        let (sum : Uint256) = uint256_checked_add(current_locked_profit, total_profit_accrued)
-        let (new_max_locked_profit : Uint256) = uint256_checked_sub_le(sum, fees_accrued)
+        let (sum : Uint256) = SafeUint256.add(current_locked_profit, total_profit_accrued)
+        let (new_max_locked_profit : Uint256) = SafeUint256.sub_le(sum, fees_accrued)
         max_locked_profit.write(new_max_locked_profit)
         tempvar syscall_ptr : felt* = syscall_ptr
         tempvar range_check_ptr = range_check_ptr
@@ -952,13 +950,13 @@ func _check_strategies{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 
     strategy_data.write(strategies[index], StrategyData(TRUE, balance_this_harvest))
 
-    let (sum : Uint256) = uint256_checked_add(total_strategy_holdings, balance_this_harvest)
-    let (new_total_strategy_holdings : Uint256) = uint256_checked_sub_le(sum, balance_last_harvest)
+    let (sum : Uint256) = SafeUint256.add(total_strategy_holdings, balance_this_harvest)
+    let (new_total_strategy_holdings : Uint256) = SafeUint256.sub_le(sum, balance_last_harvest)
 
     let (is_last_harvest_balance_lt : felt) = uint256_lt(balance_last_harvest, balance_this_harvest)
     if is_last_harvest_balance_lt == TRUE:
-        let (profit : Uint256) = uint256_checked_sub_lt(balance_this_harvest, balance_last_harvest)
-        let (new_total_profit_accrued : Uint256) = uint256_checked_add(total_profit_accrued, profit)
+        let (profit : Uint256) = SafeUint256.sub_lt(balance_this_harvest, balance_last_harvest)
+        let (new_total_profit_accrued : Uint256) = SafeUint256.add(total_profit_accrued, profit)
         return _check_strategies(
             strategies_len,
             strategies,
@@ -989,7 +987,7 @@ func deposit_into_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     Only_trusted_strategy(strategy_address)
 
     let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
-    let (new_total_strategy_holdings : Uint256) = uint256_checked_add(
+    let (new_total_strategy_holdings : Uint256) = SafeUint256.add(
         current_total_strategy_holdings, underlying_amount
     )
     total_strategy_holdings.write(new_total_strategy_holdings)
@@ -1018,13 +1016,13 @@ func withdraw_from_strategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     alloc_locals
     Only_trusted_strategy(strategy_address)
     let (current_strategy_data : StrategyData) = strategy_data.read(strategy_address)
-    let (new_strategy_balance : Uint256) = uint256_checked_sub_le(
+    let (new_strategy_balance : Uint256) = SafeUint256.sub_le(
         current_strategy_data.balance, underlying_amount
     )
     strategy_data.write(strategy_address, StrategyData(TRUE, new_strategy_balance))
 
     let (current_total_strategy_holdings : Uint256) = total_strategy_holdings.read()
-    let (new_total_strategy_holdings : Uint256) = uint256_checked_sub_le(
+    let (new_total_strategy_holdings : Uint256) = SafeUint256.sub_le(
         current_total_strategy_holdings, underlying_amount
     )
     total_strategy_holdings.write(new_total_strategy_holdings)
@@ -1054,16 +1052,16 @@ func check_enough_underlying_balance{
     if not_enough_balance_in_contract == TRUE:
         let (total_assets : Uint256) = ERC4626_totalAssets()
         let (current_target_float_percent : felt) = target_float_percent.read()
-        let (sub : Uint256) = uint256_checked_sub_lt(total_assets, underlying_amount)
+        let (sub : Uint256) = SafeUint256.sub_lt(total_assets, underlying_amount)
 
         let (float_missing_for_target : Uint256) = mul_div_down(
             sub, Uint256(current_target_float_percent, 0), Uint256(10 ** 18, 0)
         )
-        let (float_missing_for_withdrawal : Uint256) = uint256_checked_sub_lt(
+        let (float_missing_for_withdrawal : Uint256) = SafeUint256.sub_lt(
             underlying_amount, total_float
         )
 
-        let (withdraw_amount_required : Uint256) = uint256_checked_add(
+        let (withdraw_amount_required : Uint256) = SafeUint256.add(
             float_missing_for_target, float_missing_for_withdrawal
         )
 
@@ -1114,7 +1112,7 @@ func pull_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
 
     if enough_balance_in_strategy == TRUE:
         withdraw_from_strategy(strategies[index], amount_to_withdraw)
-        let (remaining_amount_in_strategy_balance : Uint256) = uint256_checked_sub_le(
+        let (remaining_amount_in_strategy_balance : Uint256) = SafeUint256.sub_le(
             strategy_details.balance, amount_to_withdraw
         )
         strategy_data.write(
@@ -1122,7 +1120,7 @@ func pull_from_withdrawal_stack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*
         )
         return (Uint256(0, 0))
     else:
-        let (remaining_amount : Uint256) = uint256_checked_sub_le(
+        let (remaining_amount : Uint256) = SafeUint256.sub_le(
             amount_to_withdraw, strategy_details.balance
         )
         strategy_data.write(strategies[index], StrategyData(TRUE, Uint256(0, 0)))

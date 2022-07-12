@@ -3,20 +3,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
 
-from openzeppelin.token.erc20.library import (
-    ERC20_name,
-    ERC20_symbol,
-    ERC20_totalSupply,
-    ERC20_decimals,
-    ERC20_balanceOf,
-    ERC20_allowance,
-    ERC20_initializer,
-    ERC20_approve,
-    ERC20_transfer,
-    ERC20_transferFrom,
-    ERC20_mint,
-    ERC20_burn,
-)
+from openzeppelin.token.erc20.library import ERC20
 
 from starkware.cairo.common.bool import TRUE
 
@@ -56,13 +43,13 @@ from contracts.erc4626.library import (
 
 @view
 func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
-    let (name) = ERC20_name()
+    let (name) = ERC20.name()
     return (name)
 end
 
 @view
 func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
-    let (symbol) = ERC20_symbol()
+    let (symbol) = ERC20.symbol()
     return (symbol)
 end
 
@@ -70,7 +57,7 @@ end
 func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     totalSupply : Uint256
 ):
-    let (totalSupply : Uint256) = ERC20_totalSupply()
+    let (totalSupply : Uint256) = ERC20.total_supply()
     return (totalSupply)
 end
 
@@ -78,7 +65,7 @@ end
 func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     decimals : felt
 ):
-    let (decimals) = ERC20_decimals()
+    let (decimals) = ERC20.decimals()
     return (decimals)
 end
 
@@ -86,7 +73,7 @@ end
 func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     account : felt
 ) -> (balance : Uint256):
-    let (balance : Uint256) = ERC20_balanceOf(account)
+    let (balance : Uint256) = ERC20.balance_of(account)
     return (balance)
 end
 
@@ -94,7 +81,7 @@ end
 func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     owner : felt, spender : felt
 ) -> (remaining : Uint256):
-    let (remaining : Uint256) = ERC20_allowance(owner, spender)
+    let (remaining : Uint256) = ERC20.allowance(owner, spender)
     return (remaining)
 end
 

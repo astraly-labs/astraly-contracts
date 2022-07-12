@@ -1,3 +1,4 @@
+from utils import generate_merkle_proof, generate_merkle_root, get_leaves
 from pymongo import MongoClient
 import os
 from pprint import pprint as pp
@@ -5,7 +6,6 @@ import sys
 import json
 
 sys.path.append(os.path.dirname(__file__))
-from utils import generate_merkle_proof, generate_merkle_root, get_leaves
 
 # Get environment variables
 HOST = os.getenv("DB_HOST")

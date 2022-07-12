@@ -6,10 +6,7 @@ from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from openzeppelin.access.ownable import (
-    Ownable_initializer,
-    Ownable_only_owner
-)
+from openzeppelin.access.ownable import Ownable
 
 from InterfaceAll import IVault
 
@@ -32,7 +29,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ):
     assert_not_zero(_vault_address)
     __vaultAddress.write(_vault_address)
-    Ownable_initializer(_vault_address)
+    Ownable.initializer(_vault_address)
     return ()
 end
 
