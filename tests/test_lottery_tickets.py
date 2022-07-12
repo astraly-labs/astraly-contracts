@@ -10,7 +10,7 @@ from starkware.cairo.common.small_merkle_tree import MerkleTree
 signer = Signer(123456789987654321)
 account_path = 'openzeppelin/account/Account.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
-ido_path = 'mocks/ZkPadIDOContract_mock.cairo'
+ido_path = 'ZkPadIDOContract.cairo'
 factory_path = 'ZkPadIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
@@ -113,8 +113,8 @@ async def erc1155_init(contract_defs):
         constructor_calldata=[signer.public_key]
     )
     ido_class = await starknet.declare(contract_class=ido_def)
-    ido = await starknet.deploy(contract_class=ido_def)
-    ido2 = await starknet.deploy(contract_class=ido_def)
+    ido = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
+    ido2 = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
     await starknet.declare(contract_class=factory_def)
     factory = await starknet.deploy(contract_class=factory_def, constructor_calldata=[ido_class.class_hash, account1.contract_address])
     await starknet.declare(contract_class=task_def)
