@@ -74,8 +74,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let (caller) = get_caller_address()
     Ownable.initializer(caller)
 
-    local array_index = 0
-    _populate_arrays(payees_len, payees, shares, array_index)
+    _populate_arrays(payees_len, payees, shares, 0)
 
     assert_not_zero(_start_timestamp)
     assert_not_zero(duration_seconds)
@@ -181,6 +180,6 @@ func _populate_arrays{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 
     payees.write(index, _payees[index])
     shares.write(_payees[index], _shares[index])
-    _populate_arrays(len=len - 1, _payees=_payees + 1, _shares=_shares + 1, index=index + 1)
+    _populate_arrays(len=len - 1, _payees=_payees, _shares=_shares, index=index + 1)
     return ()
 end

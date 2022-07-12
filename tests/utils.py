@@ -253,6 +253,17 @@ def assert_approx_eq(a: int, b: int, max_delta: int):
         assert False
     assert True
 
+def uint_array(l):
+    return list(map(to_uint, l))
+
+
+def uarr2cd(arr):
+    acc = [len(arr)]
+    for lo, hi in arr:
+        acc.append(lo)
+        acc.append(hi)
+    return acc
+
 
 def get_next_level(level):
     next_level = []
