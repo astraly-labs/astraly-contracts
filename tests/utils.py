@@ -3,7 +3,6 @@ from collections import namedtuple
 from pathlib import Path
 import math
 import asyncio
-import site
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
 from starkware.starknet.business_logic.state.state import BlockInfo

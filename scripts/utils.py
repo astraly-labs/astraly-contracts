@@ -58,7 +58,7 @@ _root = Path(__file__).parent.parent
 
 def contract_path(name):
     if name.startswith("openzeppelin"):
-        return site.getsitepackages()[0] + "/" + name
+        return str(_root / "lib/cairo_contracts/src" / name)
     elif name.startswith("tests/"):
         return str(_root / name)
     elif name.startswith('/'):
@@ -155,7 +155,8 @@ def get_contract_def(path):
     path = contract_path(path)
     contract_def = compile_starknet_files(
         files=[path],
-        debug_info=True
+        debug_info=True,
+        cairo_path=[str(_root / "lib/cairo_contracts/src")]
     )
     return contract_def
 

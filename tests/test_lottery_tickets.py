@@ -146,7 +146,7 @@ async def erc1155_init(contract_defs):
     await starknet.declare(contract_class=rnd_nbr_gen_def)
     rnd_nbr_gen = await starknet.deploy(
         contract_class=rnd_nbr_gen_def,
-        constructor_calldata=[1], #seed
+        constructor_calldata=[1],  # seed
     )
 
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
@@ -1460,20 +1460,6 @@ async def test_claim_no_tickets(full_factory):
     # Try to claim with a user with no xZKP tokens
     await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
-
-
-@pytest.mark.asyncio
-async def test_claim_expired(full_factory):
-    """Should revert when allocation round has started"""
-    erc1155, owner, user, receiver, ido, zk_pad_token, zk_pad_stake = full_factory
-
-    IDO_ID = to_uint(0)
-
-    # Update ido_launch_date to be in the past
-    await signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
-
-    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::Standby Phase is over")
 
 
 @pytest.mark.asyncio
