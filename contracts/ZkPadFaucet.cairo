@@ -16,7 +16,7 @@ from openzeppelin.access.ownable import Ownable
 from InterfaceAll import IERC20
 
 #
-# Sorage
+# Storage
 #
 @storage_var
 func faucet_unlock_time(user : felt) -> (unlock_time : felt):
