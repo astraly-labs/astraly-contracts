@@ -7,16 +7,14 @@ from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_caller_address
 
 from openzeppelin.token.erc20.library import ERC20
-from openzeppelin.access.ownable import Ownable
+from contracts.ZkPadAccessControl import ZkPadAccessControl
 
 from contracts.utils import or, get_is_equal
 
-@storage_var
-func cap_() -> (res : Uint256):
-end
+const VAULT_ROLE = 'VAULT'
 
 @storage_var
-func vault_address() -> (res : felt):
+func cap_() -> (res : Uint256):
 end
 
 @constructor
@@ -34,7 +32,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     assert_not_zero(1 - cap_valid)
     ERC20.initializer(name, symbol, decimals)
     ERC20._mint(recipient, initial_supply)
-    Ownable.initializer(owner)
+    ZkPadAccessControl.initializer(owner)
     cap_.write(_cap)
     return ()
 end
@@ -101,9 +99,8 @@ end
 func set_vault_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _vault_address : felt
 ):
-    Ownable.assert_only_owner()
     assert_not_zero(_vault_address)
-    vault_address.write(_vault_address)
+    ZkPadAccessControl.grant_role(VAULT_ROLE, _vault_address)
     return ()
 end
 
@@ -164,17 +161,14 @@ func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
 end
 
 func Authorized_only{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    let (owner : felt) = Ownable.owner()
-    let (xzkp_address : felt) = vault_address.read()
     let (caller : felt) = get_caller_address()
 
-    let (is_owner : felt) = get_is_equal(owner, caller)
-    let (is_vault : felt) = get_is_equal(xzkp_address, caller)
+    let (is_owner : felt) = ZkPadAccessControl.is_owner(caller)
+    let (is_vault : felt) = ZkPadAccessControl.has_role(VAULT_ROLE, caller)
 
     with_attr error_message("ZkPadToken:: Caller should be owner or vault"):
         let (is_valid : felt) = or(is_vault, is_owner)
         assert is_valid = TRUE
     end
-
     return ()
 end

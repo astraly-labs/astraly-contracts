@@ -26,7 +26,6 @@ from openzeppelin.security.pausable import Pausable
 from openzeppelin.security.reentrancyguard import ReentrancyGuard
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.token.erc20.library import ERC20
-from openzeppelin.access.ownable import Ownable
 from openzeppelin.upgrades.library import Proxy
 
 from contracts.erc4626.ERC4626 import (
@@ -98,6 +97,7 @@ from contracts.utils import (
     is_lt,
 )
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
+from contracts.ZkPadAccessControl import ZkPadAccessControl
 from InterfaceAll import IERC20, UserInfo
 
 @contract_interface
@@ -114,6 +114,10 @@ struct WhitelistedToken:
     member mint_calculator_address : felt
     member is_NFT : felt
 end
+
+const EMERGENCY_BREAKER_ROLE = 'EMERGENCY_BREAKER'
+const HARVESTER_ROLE = 'HARVESTER'
+
 #
 # Events
 #
@@ -197,14 +201,6 @@ end
 # value is multiplied by 10 to store floating points number in felt type
 @storage_var
 func lp_stake_boost() -> (boost : felt):
-end
-
-@storage_var
-func emergency_breaker() -> (address : felt):
-end
-
-@storage_var
-func harvest_task_contract() -> (address : felt):
 end
 
 #
@@ -327,14 +323,6 @@ func getTokensMask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
 end
 
 @view
-func getEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    address : felt
-):
-    let (address : felt) = emergency_breaker.read()
-    return (address)
-end
-
-@view
 func getImplementationHash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     address : felt
 ):
@@ -362,13 +350,6 @@ func getDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
 ):
     let (lock_time_days : felt) = default_lock_time_days.read()
     return (lock_time_days)
-end
-
-@view
-func getHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    ) -> (address : felt):
-    let (address : felt) = harvest_task_contract.read()
-    return (address)
 end
 
 @view
@@ -507,7 +488,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     assert_not_zero(owner)
     Proxy.initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
-    Ownable.initializer(owner)
+    ZkPadAccessControl.initializer(owner)
     setDefaultLockTime(365)
     setStakeBoost(25)
     setFeePercent(1)  # TODO : Check division later
@@ -539,7 +520,7 @@ func addWhitelistedToken{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
 }(lp_token : felt, mint_calculator_address : felt, is_NFT : felt) -> (token_mask : felt):
     alloc_locals
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     with_attr error_message("invalid token address"):
         assert_not_zero(lp_token)
     end
@@ -571,7 +552,7 @@ end
 func removeWhitelistedToken{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
 }(lp_token : felt):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (all_token_masks : felt) = whitelisted_tokens_mask.read()
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     let (new_tokens_masks : felt) = bitwise_xor(whitelisted_token.bit_mask, all_token_masks)
@@ -586,9 +567,8 @@ end
 func setEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     address : felt
 ):
-    Ownable.assert_only_owner()
     assert_not_zero(address)
-    emergency_breaker.write(address)
+    ZkPadAccessControl.grant_role(EMERGENCY_BREAKER_ROLE, address)
     return ()
 end
 
@@ -914,7 +894,7 @@ end
 func setDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_lock_time_days : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_default_lock_time(new_lock_time_days)
     return ()
 end
@@ -923,7 +903,7 @@ end
 func setStakeBoost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_boost_value : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     assert_not_zero(new_boost_value)
     lp_stake_boost.write(new_boost_value)
     return ()
@@ -931,7 +911,7 @@ end
 
 @external
 func setFeePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(fee : felt):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_fee_percent(fee)
     return ()
 end
@@ -940,7 +920,7 @@ end
 func setHarvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     window : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_harvest_window(window)
     return ()
 end
@@ -949,7 +929,7 @@ end
 func setHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_delay : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_harvest_delay(new_delay)
     return ()
 end
@@ -958,7 +938,7 @@ end
 func setTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_float : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_target_float_percent(new_float)
     return ()
 end
@@ -967,9 +947,8 @@ end
 func setHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     address : felt
 ):
-    Ownable.assert_only_owner()
     assert_not_zero(address)
-    harvest_task_contract.write(address)
+    ZkPadAccessControl.grant_role(HARVESTER_ROLE, address)
     return ()
 end
 
@@ -986,7 +965,7 @@ end
 func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     deposit_into_strategy(strategy_address, underlying_amount)
     return ()
 end
@@ -995,7 +974,7 @@ end
 func withdrawFromStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     withdraw_from_strategy(strategy_address, underlying_amount)
     return ()
 end
@@ -1004,7 +983,7 @@ end
 func trustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     trust_strategy(strategy_address)
     return ()
 end
@@ -1013,14 +992,14 @@ end
 func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     distrust_strategy(strategy_address)
     return ()
 end
 
 @external
 func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     claim_fees(amount)
     return ()
 end
@@ -1029,14 +1008,14 @@ end
 func pushToWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     push_to_withdrawal_stack(strategy)
     return ()
 end
 
 @external
 func popFromWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     pop_from_withdrawal_stack()
     return ()
 end
@@ -1045,7 +1024,7 @@ end
 func setWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     stack_len : felt, stack : felt*
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     set_withdrawal_stack(stack_len, stack)
     return ()
 end
@@ -1054,7 +1033,7 @@ end
 func replaceWithdrawalStackIndex{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     index : felt, address : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     replace_withdrawal_stack_index(index, address)
     return ()
 end
@@ -1063,7 +1042,7 @@ end
 func swapWithdrawalStackIndexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     index1 : felt, index2 : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     swap_withdrawal_stack_indexes(index1, index2)
     return ()
 end
@@ -1080,7 +1059,7 @@ func updateRewardPerBlockAndEndBlock{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(_reward_per_block : Uint256, new_end_block : felt):
     alloc_locals
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (local current_start_block : felt) = startBlock()
     let (block_number : felt) = get_block_number()
     let (is_lower : felt) = is_le(current_start_block, block_number)
@@ -1151,7 +1130,7 @@ end
 func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_owner : felt
 ):
-    Ownable.transfer_ownership(new_owner)
+    ZkPadAccessControl.transfer_ownership(new_owner)
     Proxy._set_admin(new_owner)
     return ()
 end
@@ -1160,14 +1139,15 @@ end
 func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (owner : felt) = Ownable.owner()
+    let (is_owner : felt) = ZkPadAccessControl.is_owner(caller_address)
     local permissions
-    if owner == caller_address:
+    if is_owner == TRUE:
         permissions = TRUE
-    end
-    let (emergency_breaker_address : felt) = emergency_breaker.read()
-    if emergency_breaker_address == caller_address:
-        permissions = TRUE  # either owner or emergency breaker have permission to pause the contract
+    else:
+        let (is_emergency_breaker : felt) = ZkPadAccessControl.has_role(EMERGENCY_BREAKER_ROLE, caller_address)
+        if is_emergency_breaker == TRUE:
+            permissions = TRUE  # either owner or emergency breaker have permission to pause the contract
+        end
     end
     with_attr error_message("invalid permissions"):
         assert permissions = TRUE
@@ -1178,7 +1158,7 @@ end
 
 @external
 func unpause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     Pausable._unpause()
     return ()
 end
@@ -1192,16 +1172,19 @@ func only_owner_or_harvest_task_contract{
 }():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (owner : felt) = Ownable.owner()
+    let (is_owner : felt) = ZkPadAccessControl.is_owner(caller_address)
     local permissions
-    if owner == caller_address:
+    if is_owner == TRUE:
         permissions = TRUE
+        return ()
+    else:
+        let (is_harvest_task_contract : felt) = ZkPadAccessControl.has_role(HARVESTER_ROLE, caller_address)
+        if is_harvest_task_contract == TRUE:
+            permissions = TRUE
+            return ()
+        end
     end
-    let (harvest_task_contract_address : felt) = harvest_task_contract.read()
-    if harvest_task_contract_address == caller_address:
-        permissions = TRUE
-    end
-    with_attr error_message("Ownable: caller is not the owner or harvest task contract"):
+    with_attr error_message("AccessControl: caller is not the owner or harvest task contract"):
         assert permissions = TRUE
     end
 
