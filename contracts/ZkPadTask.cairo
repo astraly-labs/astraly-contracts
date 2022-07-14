@@ -8,7 +8,7 @@ from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from openzeppelin.access.ownable import Ownable
+from contracts.ZkPadAccessControl import ZkPadAccessControl
 
 from InterfaceAll import IZkPadIDOContract, Registration
 
@@ -36,7 +36,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _ido_factory_address : felt
 ):
-    Ownable.initializer(_ido_factory_address)
+    ZkPadAccessControl.initializer(_ido_factory_address)
     return ()
 end
 
@@ -96,7 +96,7 @@ func setIDOContractAddress{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     address : felt
 ) -> ():
     assert_not_zero(address)
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     __idoContractAddress.write(address)
     return ()
 end

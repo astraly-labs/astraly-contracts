@@ -22,7 +22,7 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 
-from openzeppelin.access.ownable import Ownable
+from contracts.ZkPadAccessControl import ZkPadAccessControl
 from openzeppelin.security.safemath import SafeUint256
 
 from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
@@ -72,7 +72,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 ):
     alloc_locals
     let (caller) = get_caller_address()
-    Ownable.initializer(caller)
+    ZkPadAccessControl.initializer(caller)
 
     _populate_arrays(payees_len, payees, shares, 0)
 

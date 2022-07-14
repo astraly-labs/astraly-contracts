@@ -26,7 +26,7 @@ from starkware.starknet.common.syscalls import (
 )
 
 from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.access.ownable import Ownable
+from contracts.ZkPadAccessControl import ZkPadAccessControl
 from openzeppelin.security.safemath import SafeUint256
 
 from contracts.utils.ZkPadConstants import DAYS_30
@@ -45,6 +45,7 @@ from contracts.utils.Math64x61 import (
 from InterfaceAll import IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR
 
 const Math64x61_BOUND_LOCAL = 2 ** 64
+const SALE_OWNER_ROLE = 'SALE_OWNER'
 
 struct Sale:
     # Token being sold (interface)
@@ -179,16 +180,6 @@ end
 func ido_allocation() -> (res : Uint256):
 end
 
-func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    let (caller) = get_caller_address()
-    let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract: only sale owner can call this function"):
-        assert the_sale.sale_owner = caller
-    end
-
-    return ()
-end
-
 @event
 func tokens_sold(user_address : felt, amount : Uint256):
 end
@@ -238,7 +229,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     _admin_address : felt
 ):
     assert_not_zero(_admin_address)
-    Ownable.initializer(_admin_address)
+    ZkPadAccessControl.initializer(_admin_address)
 
     let (caller : felt) = get_caller_address()
     ido_factory_contract_address.write(caller)
@@ -345,7 +336,7 @@ func set_vesting_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     _max_vesting_time_shift : felt,
 ):
     alloc_locals
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
 
     with_attr error_message("ZkPadIDOContract::set_vesting_params unlocking times array length 0"):
         assert_not_zero(_unlocking_times_len)
@@ -449,7 +440,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _lottery_tickets_burn_cap : Uint256,
 ):
     alloc_locals
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let (block_timestamp) = get_block_timestamp()
     with_attr error_message("ZkPadIDOContract::set_sale_params Sale is already created"):
@@ -499,6 +490,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         number_of_participants=Uint256(0, 0),
     )
     sale.write(new_sale)
+    ZkPadAccessControl.grant_role(SALE_OWNER_ROLE, _sale_owner_address)
     # Set portion vesting precision
     portion_vesting_precision.write(_portion_vesting_precision)
     # emit event
@@ -516,7 +508,7 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _sale_token_address : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let upd_sale = Sale(
         token=_sale_token_address,
@@ -543,7 +535,7 @@ end
 func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _registration_time_starts : felt, _registration_time_ends : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
@@ -580,7 +572,7 @@ end
 func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _purchase_time_starts : felt, _purchase_time_ends : felt
 ):
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (the_reg) = registration.read()
     let (the_purchase) = purchase_round.read()
     with_attr error_message("ZkPadIDOContract::set_purchase_round_params Bad input"):
@@ -726,7 +718,7 @@ end
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (current_allocation : Uint256) = ido_allocation.read()
     with_attr error_message("ZkPadIDOContract::calculate_allocation allocation already calculated"):
         let (allocation_check : felt) = uint256_eq(current_allocation, Uint256(0, 0))
@@ -939,7 +931,7 @@ end
 @external
 func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
-    only_sale_owner()
+    ZkPadAccessControl.assert_only_role(SALE_OWNER_ROLE)
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (the_sale) = sale.read()
@@ -1051,7 +1043,7 @@ end
 
 @external
 func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    Ownable.assert_only_owner()
+    ZkPadAccessControl.assert_only_owner()
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
@@ -1090,7 +1082,7 @@ end
 
 @external
 func withdraw_leftovers{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    only_sale_owner()
+    ZkPadAccessControl.assert_only_role(SALE_OWNER_ROLE)
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
