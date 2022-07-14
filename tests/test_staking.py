@@ -630,7 +630,7 @@ async def test_permissions(contracts_factory):
     await assert_revert(
         user1.send_transaction(
             user1_account, zk_pad_staking.contract_address, "addWhitelistedToken", [123, 123, False]),
-        "AccessControl: caller is missing role OWNER")
+        "AccessControl: caller is missing role {}".format("OWNER"))
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "addWhitelistedToken",
                                  [123, 123, False])
@@ -638,7 +638,7 @@ async def test_permissions(contracts_factory):
     await assert_revert(
         user1.send_transaction(
             user1_account, zk_pad_staking.contract_address, "removeWhitelistedToken", [123]),
-        "AccessControl: caller is missing role OWNER")
+        "AccessControl: caller is missing role {}".format("OWNER"))
 
     await assert_revert(user1.send_transaction(user1_account, zk_pad_staking.contract_address, "setStakeBoost", [25]))
 
