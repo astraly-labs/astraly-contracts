@@ -22,6 +22,11 @@ namespace ZkPadAccessControl:
         return ()
     end
 
+    func assert_only_role{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(role : felt):
+        AccessControl.assert_only_role(role)
+        return ()
+    end
+
     func transfer_ownership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         new_owner : felt
     ):

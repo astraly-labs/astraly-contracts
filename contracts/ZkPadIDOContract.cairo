@@ -45,6 +45,7 @@ from contracts.utils.Math64x61 import (
 from InterfaceAll import IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR
 
 const Math64x61_BOUND_LOCAL = 2 ** 64
+const SALE_OWNER_ROLE = 'SALE_OWNER'
 
 struct Sale:
     # Token being sold (interface)
@@ -177,16 +178,6 @@ end
 
 @storage_var
 func ido_allocation() -> (res : Uint256):
-end
-
-func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    let (caller) = get_caller_address()
-    let (the_sale) = sale.read()
-    with_attr error_message("ZkPadIDOContract: only sale owner can call this function"):
-        assert the_sale.sale_owner = caller
-    end
-
-    return ()
 end
 
 @event
@@ -499,6 +490,7 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         number_of_participants=Uint256(0, 0),
     )
     sale.write(new_sale)
+    ZkPadAccessControl.grant_role(SALE_OWNER_ROLE, _sale_owner_address)
     # Set portion vesting precision
     portion_vesting_precision.write(_portion_vesting_precision)
     # emit event
@@ -939,7 +931,7 @@ end
 @external
 func deposit_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
-    only_sale_owner()
+    ZkPadAccessControl.assert_only_role(SALE_OWNER_ROLE)
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (the_sale) = sale.read()
@@ -1090,7 +1082,7 @@ end
 
 @external
 func withdraw_leftovers{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    only_sale_owner()
+    ZkPadAccessControl.assert_only_role(SALE_OWNER_ROLE)
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
