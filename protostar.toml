@@ -8,9 +8,6 @@ libs_path = "./lib"
 cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
-ZkPadAdmin = [
-    "contracts/ZkPadAdmin.cairo",
-]
 ZkPadFaucet = [
     "contracts/ZkPadFaucet.cairo",
 ]
@@ -37,7 +34,4 @@ ZkPadToken = [
 ]
 ZkPadVaultHarvestTask = [
     "contracts/ZkPadVaultHarvestTask.cairo",
-]
-ZkPadVesting = [
-    "contracts/ZkPadVesting.cairo",
 ]
