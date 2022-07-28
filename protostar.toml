@@ -14,6 +14,9 @@ ZkPadAdmin = [
 ZkPadFaucet = [
     "contracts/ZkPadFaucet.cairo",
 ]
+ZkPadINOContract = [
+    "contracts/ZkPadINOContract.cairo",
+]
 ZkPadIDOContract = [
     "contracts/ZkPadIDOContract.cairo",
 ]
