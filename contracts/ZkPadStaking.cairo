@@ -24,6 +24,7 @@ from starkware.starknet.common.syscalls import (
 from openzeppelin.security.safemath import SafeUint256
 from openzeppelin.security.pausable import Pausable
 from openzeppelin.security.reentrancyguard import ReentrancyGuard
+from openzeppelin.security.initializable import Initializable
 from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
 from openzeppelin.token.erc20.library import ERC20
 from openzeppelin.upgrades.library import Proxy
@@ -485,6 +486,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     end_reward_block : felt,
 ):
     alloc_locals
+    Initializable.initialize()
     assert_not_zero(owner)
     Proxy.initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
