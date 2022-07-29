@@ -35,3 +35,6 @@ ZkPadToken = [
 ZkPadVaultHarvestTask = [
     "contracts/ZkPadVaultHarvestTask.cairo",
 ]
+JediSwapWrapper = [
+    "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
+]
