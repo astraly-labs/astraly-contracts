@@ -5,3 +5,6 @@
 [submodule "stark_attestations"]
 	url = https://github.com/maxgillett/stark-attestations
 	path = lib/stark_attestations
+[submodule "fossil"]
+	url = https://github.com/OilerNetwork/fossil
+	path = lib/fossil
