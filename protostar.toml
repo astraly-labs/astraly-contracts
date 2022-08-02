@@ -5,7 +5,7 @@ protostar_version = "0.2.5"
 libs_path = "./lib"
 
 ["protostar.build"]
-cairo-path = ["./lib/cairo_contracts/src"]
+cairo-path = ["./lib/cairo_contracts/src", "./lib/fossil/contracts"]
 
 ["protostar.contracts"]
 ZkPadFaucet = [
@@ -34,4 +34,10 @@ ZkPadToken = [
 ]
 ZkPadVaultHarvestTask = [
     "contracts/ZkPadVaultHarvestTask.cairo",
+]
+AstralyBalanceProofBadge = [
+    "contracts/SBTs/AstralyBalanceProofBadge.cairo",
+]
+IL1HeadersStore = [
+    "contracts/SBTs/IL1HeadersStore.cairo",
 ]
