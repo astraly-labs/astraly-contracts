@@ -125,6 +125,7 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
         contract_address_salt=_id,
         constructor_calldata_size=1,
         constructor_calldata=cast(new (ido_admin), felt*),
+        deploy_from_zero=0
     )
     ido_contract_addresses.write(_id, new_ido_contract_address)
     let (task_addr : felt) = task_address.read()

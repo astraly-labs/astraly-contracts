@@ -105,13 +105,6 @@ func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     return write_to_array(array_len - 1, array, mapping_ref)
 end
 
-func and{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
-    if lhs + rhs == 2:
-        return (1)
-    end
-    return (0)
-end
-
 func or{syscall_ptr : felt*}(lhs : felt, rhs : felt) -> (res : felt):
     if (lhs - 1) * (rhs - 1) == 0:
         return (1)

@@ -90,13 +90,7 @@ from contracts.erc4626.library import (
     days_to_seconds,
     default_lock_time_days,
 )
-from contracts.utils import (
-    uint256_is_zero,
-    uint256_is_not_zero,
-    uint256_assert_not_zero,
-    and,
-    is_lt,
-)
+from contracts.utils import uint256_is_zero, uint256_is_not_zero, uint256_assert_not_zero, is_lt
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
 from contracts.ZkPadAccessControl import ZkPadAccessControl
 from InterfaceAll import IERC20, UserInfo
@@ -423,8 +417,8 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
     let (staked_token_supply_not_zero : felt) = uint256_is_not_zero(staked_token_supply)
     let (current_acc_token_per_share : Uint256) = accTokenPerShare()
     let (cur_user_info : UserInfo) = userInfo(user)
-    let (yes_no : felt) = and(block_no_higher_than_last_reward, staked_token_supply_not_zero)
-    if yes_no == TRUE:
+
+    if block_no_higher_than_last_reward == TRUE and staked_token_supply_not_zero == TRUE:
         let (multiplier : felt) = getMultiplier(current_last_reward_block, block_number)
         let (current_reward_per_block : Uint256) = rewardPerBlock()
         let (token_reward : Uint256) = SafeUint256.mul(
@@ -440,12 +434,11 @@ func calculatePendingRewards{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, r
         let (res : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
 
         return (res)
-    else:
-        let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
-        let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
-        let (res : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
-        return (res)
     end
+    let (mul : Uint256) = SafeUint256.mul(cur_user_info.amount, current_acc_token_per_share)
+    let (div : Uint256, _) = SafeUint256.div_rem(mul, PRECISION_FACTOR)
+    let (res : Uint256) = SafeUint256.sub_le(div, cur_user_info.reward_debt)
+    return (res)
 end
 
 # @notice Return reward multiplier over the given "from" to "to" block.
@@ -1146,7 +1139,9 @@ func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     if is_owner == TRUE:
         permissions = TRUE
     else:
-        let (is_emergency_breaker : felt) = ZkPadAccessControl.has_role(EMERGENCY_BREAKER_ROLE, caller_address)
+        let (is_emergency_breaker : felt) = ZkPadAccessControl.has_role(
+            EMERGENCY_BREAKER_ROLE, caller_address
+        )
         if is_emergency_breaker == TRUE:
             permissions = TRUE  # either owner or emergency breaker have permission to pause the contract
         end
@@ -1180,7 +1175,9 @@ func only_owner_or_harvest_task_contract{
         permissions = TRUE
         return ()
     else:
-        let (is_harvest_task_contract : felt) = ZkPadAccessControl.has_role(HARVESTER_ROLE, caller_address)
+        let (is_harvest_task_contract : felt) = ZkPadAccessControl.has_role(
+            HARVESTER_ROLE, caller_address
+        )
         if is_harvest_task_contract == TRUE:
             permissions = TRUE
             return ()
