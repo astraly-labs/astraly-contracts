@@ -2,9 +2,6 @@
 	url = https://github.com/OpenZeppelin/cairo-contracts
 	path = lib/cairo_contracts
 	branch = refs/heads/v0.2.1
-[submodule "stark_attestations"]
-	url = https://github.com/maxgillett/stark-attestations
-	path = lib/stark_attestations
-[submodule "fossil"]
-	url = https://github.com/OilerNetwork/fossil
-	path = lib/fossil
+[submodule "starknet_attestations"]
+	url = https://github.com/maxgillett/starknet-attestations
+	path = lib/starknet_attestations
