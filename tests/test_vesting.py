@@ -30,7 +30,7 @@ def event_loop():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/Account.cairo')
+    account_def = get_contract_def('openzeppelin/account/library.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     vesting_def = get_contract_def('ZkPadVesting.cairo')
     return account_def, zk_pad_token_def, vesting_def

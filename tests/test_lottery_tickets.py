@@ -8,7 +8,7 @@ from utils import *
 from starkware.cairo.common.small_merkle_tree import MerkleTree
 
 signer = Signer(123456789987654321)
-account_path = 'openzeppelin/account/Account.cairo'
+account_path = 'openzeppelin/account/library.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 ido_path = 'ZkPadIDOContract.cairo'
 factory_path = 'ZkPadIDOFactory.cairo'
@@ -152,7 +152,7 @@ async def erc1155_init(contract_defs):
     zk_pad_stake_class = await starknet.declare(contract_class=zk_pad_stake_def)
     zk_pad_stake_implementation = await starknet.deploy(contract_class=zk_pad_stake_def)
 
-    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/library.cairo')
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])

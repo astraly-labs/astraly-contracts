@@ -22,7 +22,7 @@ TOKEN_ID = uint(0)
 MINT_AMOUNT = uint(1000)
 ONE_DAY = 24 * 60 * 60
 
-account_path = 'openzeppelin/account/Account.cairo'
+account_path = 'openzeppelin/account/library.cairo'
 ido_factory_path = 'ZkPadIDOFactory.cairo'
 ido_path = 'ZkPadIDOContract.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
