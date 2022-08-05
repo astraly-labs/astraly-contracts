@@ -28,7 +28,8 @@ def event_loop():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/library.cairo')
+    account_def = get_contract_def(
+        'openzeppelin/account/presets/Account.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     return account_def, zk_pad_token_def
 

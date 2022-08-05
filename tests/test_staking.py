@@ -73,8 +73,9 @@ async def get_starknet():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/library.cairo')
-    proxy_def = get_contract_def('openzeppelin/upgrades/library.cairo')
+    account_def = get_contract_def(
+        'openzeppelin/account/presets/Account.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/presets/Proxy.cairo')
     zk_pad_token_def = get_contract_def('mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
