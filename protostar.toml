@@ -5,7 +5,7 @@ protostar_version = "0.2.5"
 libs_path = "./lib"
 
 ["protostar.build"]
-cairo-path = ["./lib/cairo_contracts/src"]
+cairo-path = ["./lib/cairo_contracts/src", "./lib/starknet_attestations"]
 
 ["protostar.contracts"]
 ZkPadFaucet = [
@@ -37,4 +37,7 @@ ZkPadVaultHarvestTask = [
 ]
 JediSwapWrapper = [
     "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
+]
+AstralyBalanceProofBadge = [
+    "contracts/SBTs/AstralyBalanceProofBadge.cairo",
 ]

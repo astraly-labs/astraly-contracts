@@ -19,6 +19,7 @@ pytest-order = "^1.0.1"
 wheel = "^0.37.1"
 amarna = {git = "https://github.com/crytic/amarna.git", rev = "159f57d772d9240f61e3ef4d2e8143d9c3ec6cd0"}
 pre-commit = "^2.18.1"
+python-dotenv = "^0.20.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
