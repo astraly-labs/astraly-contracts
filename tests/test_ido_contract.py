@@ -261,7 +261,7 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
 
 @pytest.mark.asyncio
 async def test_winning_tickets(contracts_factory):
-     deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, ido, erc1155, erc20_eth_token, starknet_state = contracts_factory
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, ido, erc1155, erc20_eth_token, starknet_state = contracts_factory
 
     res = await ido.draw_winning_tickets(to_uint(10000), 2).invoke()
     print(res.result.res)
