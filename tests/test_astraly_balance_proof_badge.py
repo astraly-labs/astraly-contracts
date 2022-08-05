@@ -1,16 +1,18 @@
+from datetime import datetime
+
 import pytest
 from utils import *
 import asyncio
-import json
+import csv
 
 from starkware.starknet.testing.starknet import Starknet
 
 account_path = 'openzeppelin/account/Account.cairo'
 contract_path = 'SBTs/AstralyBalanceProofBadge.cairo'
-proof = json.load(open("tests/proof.json"))
+with open('tests/proof.csv', newline='') as csvfile:
+    proof = list(csv.reader(csvfile))[0]
 
-
-proover = Signer(1234321)
+prover = Signer(1234321)
 
 
 @pytest.fixture(scope='module')
@@ -38,34 +40,35 @@ async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, balance_proof_badge_def = contract_defs
     await starknet.declare(contract_class=account_def)
-    proover_account = await starknet.deploy(
+    prover_account = await starknet.deploy(
         contract_class=account_def,
-        constructor_calldata=[deployer.public_key]
+        constructor_calldata=[prover.public_key]
     )
 
     await starknet.declare(contract_class=balance_proof_badge_def)
     balance_proof_badge = await starknet.deploy(
         contract_class=balance_proof_badge_def,
-        constructor_calldata=[123]
+        constructor_calldata=[]
     )
 
-    return proover_account, balance_proof_badge
+    return prover_account, balance_proof_badge
 
 
 @pytest.fixture
 def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, balance_proof_badge_def = contract_defs
-    proover_account, balance_proof_badge = contacts_init
+    prover_account, balance_proof_badge = contacts_init
     _state = get_starknet.state.copy()
 
-    proover_cached = cached_contract(
-        _state, account_def, proover_account)
+    prover_cached = cached_contract(
+        _state, account_def, prover_account)
     balance_proof_badge_cached = cached_contract(
         _state, balance_proof_badge_def, balance_proof_badge)
 
-    return proover_cached, balance_proof_badge_cached, _state
+    return prover_cached, balance_proof_badge_cached, _state
 
 
 @pytest.mark.asyncio
-async def test_winning_tickets(contracts_factory):
-    proover_account, balance_proof_badge, starknet_state = contracts_factory
+async def test_proof(contracts_factory):
+    prover_account, balance_proof_badge, starknet_state = contracts_factory
+    t = 2

@@ -134,7 +134,7 @@ def get_contract_def(path):
     contract_def = compile_starknet_files(
         files=[path],
         debug_info=True,
-        cairo_path=[str(_root / "lib/cairo_contracts/src")]
+        cairo_path=[str(_root / "lib/cairo_contracts/src"), str(_root / "lib/starknet_attestations")]
     )
     return contract_def
 
@@ -252,6 +252,7 @@ def assert_approx_eq(a: int, b: int, max_delta: int):
         print(f"delta: {delta}")
         assert False
     assert True
+
 
 def uint_array(l):
     return list(map(to_uint, l))
