@@ -13,7 +13,7 @@
 %lang starknet
 from starkware.cairo.common.uint256 import Uint256
 
-from openzeppelin.introspection.IERC165 import IERC165
+from openzeppelin.introspection.erc165.IERC165 import IERC165
 
 struct UserInfo:
     member amount : Uint256

@@ -104,7 +104,9 @@ func get_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin
 end
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(_ido_contract_class_hash : felt, owner_: felt):
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _ido_contract_class_hash : felt, owner_ : felt
+):
     ZkPadAccessControl.initializer(owner_)
 
     ido_contract_class_hash.write(_ido_contract_class_hash)
@@ -112,7 +114,9 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 @external
-func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(ido_admin : felt) -> (new_ido_contract_address : felt):
+func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    ido_admin : felt
+) -> (new_ido_contract_address : felt):
     alloc_locals
     ZkPadAccessControl.assert_only_owner()
     let (_id) = current_id.read()
@@ -125,7 +129,7 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
         contract_address_salt=_id,
         constructor_calldata_size=1,
         constructor_calldata=cast(new (ido_admin), felt*),
-        deploy_from_zero=0
+        deploy_from_zero=0,
     )
     ido_contract_addresses.write(_id, new_ido_contract_address)
     let (task_addr : felt) = task_address.read()

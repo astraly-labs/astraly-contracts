@@ -25,9 +25,9 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+from openzeppelin.token.erc20.IERC20 import IERC20
 from contracts.ZkPadAccessControl import ZkPadAccessControl
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.utils.ZkPadConstants import DAYS_30
 from contracts.utils.ZkPadUtils import get_is_equal, uint256_max

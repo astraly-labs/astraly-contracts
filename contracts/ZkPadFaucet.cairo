@@ -13,7 +13,7 @@ from starkware.starknet.common.syscalls import (
 
 from contracts.ZkPadAccessControl import ZkPadAccessControl
 
-from InterfaceAll import IERC20
+from openzeppelin.token.erc20.IERC20 import IERC20
 
 #
 # Sorage

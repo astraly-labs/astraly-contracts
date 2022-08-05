@@ -8,7 +8,7 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
@@ -66,19 +66,15 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return get_array(array_len - 1, array, mapping_ref)
 end
 
-func concat_arr{range_check_ptr}(
-        arr1_len: felt,
-        arr1: felt*,
-        arr2_len: felt,
-        arr2: felt*,
-    ) -> (res: felt*, res_len: felt):
+func concat_arr{range_check_ptr}(arr1_len : felt, arr1 : felt*, arr2_len : felt, arr2 : felt*) -> (
+    res : felt*, res_len : felt
+):
     alloc_locals
-    let (local res: felt*) = alloc()
+    let (local res : felt*) = alloc()
     memcpy(res, arr1, arr1_len)
     memcpy(res + arr1_len, arr2, arr2_len)
     return (res, arr1_len + arr2_len)
 end
-
 
 # EXAMPLE
 # @storage_var
@@ -90,7 +86,8 @@ end
 # end
 
 func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        array_len : felt, array : felt*, mapping_ref : felt*) -> ():
+    array_len : felt, array : felt*, mapping_ref : felt*
+) -> ():
     if array_len == 0:
         return ()
     end

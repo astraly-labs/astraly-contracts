@@ -4,8 +4,8 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_not_equal
 
-from openzeppelin.security.initializable import Initializable
-from openzeppelin.access.accesscontrol import AccessControl
+from openzeppelin.security.initializable.library import Initializable
+from openzeppelin.access.accesscontrol.library import AccessControl
 
 const OWNER_ROLE = 'OWNER'
 
@@ -25,7 +25,9 @@ namespace ZkPadAccessControl:
         return ()
     end
 
-    func assert_only_role{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(role : felt):
+    func assert_only_role{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        role : felt
+    ):
         AccessControl.assert_only_role(role)
         return ()
     end

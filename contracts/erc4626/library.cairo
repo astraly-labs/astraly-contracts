@@ -16,7 +16,7 @@ from starkware.cairo.common.pow import pow
 
 from openzeppelin.token.erc20.library import ERC20
 
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.utils import (
     get_array,
@@ -737,7 +737,7 @@ func remove_lock_time_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
         return (shares)
     end
     tempvar multiplicator = 100
-    
+
     let (temp_lock_time : Uint256) = SafeUint256.mul(
         Uint256(lock_time, 0), Uint256(multiplicator, 0)
     )

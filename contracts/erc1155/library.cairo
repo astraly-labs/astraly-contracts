@@ -6,8 +6,8 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import assert_not_zero, assert_not_equal
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_check
-from openzeppelin.introspection.IERC165 import IERC165
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.introspection.erc165.IERC165 import IERC165
+from openzeppelin.security.safemath.library import SafeUint256
 
 from InterfaceAll import IERC1155_Receiver
 from contracts.utils import concat_arr
@@ -107,8 +107,8 @@ func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # ERC1155 returns the same URI for all token types.
     # TokenId will be represented by the substring '{id}' and so stored in a felt
     # Client calling the function must replace the '{id}' substring with the actual token type ID
-    let (tokenURI: felt*) = alloc()
-    let (tokenURI_len: felt) = ERC1155_uri_len_.read()
+    let (tokenURI : felt*) = alloc()
+    let (tokenURI_len : felt) = ERC1155_uri_len_.read()
     local index = 0
     _ERC1155_uri(tokenURI_len, tokenURI, index)
 
@@ -116,7 +116,7 @@ func ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 end
 
 func _ERC1155_uri{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    uri_len : felt, uri : felt*, index: felt
+    uri_len : felt, uri : felt*, index : felt
 ):
     if index == uri_len:
         return ()
