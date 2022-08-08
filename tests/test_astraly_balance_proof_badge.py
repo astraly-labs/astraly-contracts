@@ -71,4 +71,5 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
 @pytest.mark.asyncio
 async def test_proof(contracts_factory):
     prover_account, balance_proof_badge, starknet_state = contracts_factory
-    t = 2
+
+    await prover_account.mint(*balance_proof_badge).invoke()
