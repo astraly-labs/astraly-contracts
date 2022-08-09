@@ -16,7 +16,7 @@ from starkware.cairo.common.pow import pow
 
 from openzeppelin.token.erc20.library import ERC20
 
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.utils import (
     get_array,

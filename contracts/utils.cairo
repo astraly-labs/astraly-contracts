@@ -8,7 +8,7 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))

@@ -1,8 +1,11 @@
 import pytest
 
-from starkware.starknet.testing.starknet import Starknet
 from utils import *
 import asyncio
+
+from signers import MockSigner
+
+pytest.skip(allow_module_level=True)
 
 INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
@@ -17,10 +20,10 @@ vesting_len = 2
 shares = [*to_uint(500), *to_uint(500)]
 duration_seconds = 4 * 365 * 86400
 
-owner = Signer(1234)
-user1 = Signer(2345)
-user2 = Signer(3456)
-user3 = Signer(4567)
+owner = MockSigner(1234)
+user1 = MockSigner(2345)
+user2 = MockSigner(3456)
+user3 = MockSigner(4567)
 
 
 @pytest.fixture(scope='module')
@@ -30,7 +33,8 @@ def event_loop():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/Account.cairo')
+    account_def = get_contract_def(
+        'openzeppelin/account/presets/Account.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     vesting_def = get_contract_def('ZkPadVesting.cairo')
     return account_def, zk_pad_token_def, vesting_def

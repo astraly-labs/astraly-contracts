@@ -5,7 +5,7 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.starknet.common.syscalls import get_caller_address
 
 from verify_proof import Proof, encode_proof, verify_account_proof, verify_storage_proof, hash_eip191_message, recover_address
-from openzeppelin.security.initializable import Initializable
+from openzeppelin.security.initializable.library import Initializable
 
 @storage_var
 func _l1_headers_store_addr() -> (res : felt):

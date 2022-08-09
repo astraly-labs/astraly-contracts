@@ -4,8 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.math import assert_not_equal
 
-from openzeppelin.security.initializable import Initializable
-from openzeppelin.access.accesscontrol import AccessControl
+from openzeppelin.access.accesscontrol.library import AccessControl
 
 const OWNER_ROLE = 'OWNER'
 
@@ -13,7 +12,6 @@ namespace ZkPadAccessControl:
     func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         owner : felt
     ):
-        Initializable.initialize()
         AccessControl.initializer()
         AccessControl._set_role_admin(OWNER_ROLE, OWNER_ROLE)
         AccessControl._grant_role(OWNER_ROLE, owner)

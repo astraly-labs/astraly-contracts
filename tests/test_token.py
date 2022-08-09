@@ -2,13 +2,15 @@ import pytest
 import asyncio
 
 from starkware.starknet.testing.starknet import Starknet
+
+from signers import MockSigner
 from utils import (
-    Signer, to_uint, add_uint, sub_uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, INVALID_UINT256,
+    to_uint, add_uint, sub_uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, INVALID_UINT256,
     TRUE, get_contract_def, cached_contract, assert_revert, assert_event_emitted, contract_path
 )
 
-recipient = Signer(123456789987654321)
-owner = Signer(123456789876543210)
+recipient = MockSigner(123456789987654321)
+owner = MockSigner(123456789876543210)
 
 # testing vars
 INIT_SUPPLY = to_uint(1000)
@@ -28,7 +30,8 @@ def event_loop():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/Account.cairo')
+    account_def = get_contract_def(
+        'openzeppelin/account/presets/Account.cairo')
     zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
     return account_def, zk_pad_token_def
 
@@ -68,7 +71,7 @@ async def contracts_init(contract_defs):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contracts_init):
+async def contracts_factory(contract_defs, contracts_init):
     account_def, zk_pad_token_def = contract_defs
     state, account1, account2, erc20 = contracts_init
     _state = state.copy()

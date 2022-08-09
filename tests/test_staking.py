@@ -1,17 +1,17 @@
 import time
 import asyncio
 from decimal import Decimal
-
 import pytest
-from starkware.starknet.public.abi import get_selector_from_name
-from starkware.starkware_utils.error_handling import StarkException
 
-from utils import (
-    Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
-    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, set_block_number, assert_approx_eq
-)
+from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
 from starkware.starknet.testing.starknet import Starknet
+
+from signers import MockSigner
+from utils import (
+    to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
+    assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, set_block_number, assert_approx_eq
+)
 
 
 def parse_ether(value: int):
@@ -27,7 +27,7 @@ SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
 REWARDS_PER_BLOCK = to_uint(parse_ether(10))
-owner = Signer(1234)
+owner = MockSigner(1234)
 
 
 def add_lock_time_bonus(shares: int, lock_time=365):
@@ -73,8 +73,9 @@ async def get_starknet():
 
 @pytest.fixture(scope='module')
 def contract_defs():
-    account_def = get_contract_def('openzeppelin/account/Account.cairo')
-    proxy_def = get_contract_def('openzeppelin/upgrades/Proxy.cairo')
+    account_def = get_contract_def(
+        'openzeppelin/account/presets/Account.cairo')
+    proxy_def = get_contract_def('openzeppelin/upgrades/presets/Proxy.cairo')
     zk_pad_token_def = get_contract_def('mocks/test_ZkPadToken.cairo')
     zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
@@ -188,7 +189,7 @@ async def test_proxy_upgrade(contract_defs):
     account_def, proxy_def, _, zk_pad_stake_def = contract_defs
     erc20_def = get_contract_def('openzeppelin/token/erc20/ERC20.cairo')
     starknet = await Starknet.empty()
-    user = Signer(123)
+    user = MockSigner(123)
     owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
         contract_class=account_def,
         constructor_calldata=[owner.public_key]
@@ -268,7 +269,7 @@ async def test_conversions(contract_defs, contracts_factory):
 async def test_deposit_redeem_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -278,12 +279,12 @@ async def test_deposit_redeem_flow(contracts_factory):
         [user1_account.contract_address, *to_uint(100_000)],
     )
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
     assert (
-               await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
-           ).result.maxAssets == MAX_UINT256
+        await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
+    ).result.maxAssets == MAX_UINT256
 
     # max approve
     await user1.send_transaction(
@@ -304,8 +305,8 @@ async def test_deposit_redeem_flow(contracts_factory):
         [*amount, user1_account.contract_address],
     )
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(expected_user_asset_balance)
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(expected_user_asset_balance)
     assert_event_emitted(tx, zk_pad_staking.contract_address, "Deposit", data=[
         user1_account.contract_address,
         user1_account.contract_address,
@@ -313,8 +314,8 @@ async def test_deposit_redeem_flow(contracts_factory):
         *tx.result.response
     ])
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(90_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(90_000)
 
     advance_clock(starknet_state, days_to_seconds(365) + 1)
     # redeem vault shares, get back assets
@@ -327,8 +328,8 @@ async def test_deposit_redeem_flow(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == UINT_ZERO
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == UINT_ZERO
     assert_event_emitted(tx, zk_pad_staking.contract_address, "Withdraw", data=[
         user1_account.contract_address,
         user1_account.contract_address,
@@ -337,15 +338,15 @@ async def test_deposit_redeem_flow(contracts_factory):
         *to_uint(expected_user_asset_balance),
     ])
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
 
 @pytest.mark.asyncio
 async def test_deposit_for_time_and_redeem_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -355,12 +356,12 @@ async def test_deposit_for_time_and_redeem_flow(contracts_factory):
         [user1_account.contract_address, *to_uint(100_000)],
     )
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
     assert (
-               await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
-           ).result.maxAssets == MAX_UINT256
+        await zk_pad_staking.maxDeposit(user1_account.contract_address).invoke()
+    ).result.maxAssets == MAX_UINT256
 
     # max approve
     await user1.send_transaction(
@@ -384,8 +385,8 @@ async def test_deposit_for_time_and_redeem_flow(contracts_factory):
         [*amount, user1_account.contract_address, deposit_days],
     )
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(expected_user_asset_balance)
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(expected_user_asset_balance)
 
     set_block_timestamp(
         starknet_state, current_timestamp + days_to_seconds(deposit_days) + 1)
@@ -398,8 +399,8 @@ async def test_deposit_for_time_and_redeem_flow(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == UINT_ZERO
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == UINT_ZERO
     # assert_event_emitted(tx, zk_pad_staking.contract_address, "Withdraw", data=[
     #     user1_account.contract_address,
     #     user1_account.contract_address,
@@ -408,15 +409,15 @@ async def test_deposit_for_time_and_redeem_flow(contracts_factory):
     #     *amount,
     # ])
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
 
 @pytest.mark.asyncio
 async def test_mint_withdraw_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -426,15 +427,15 @@ async def test_mint_withdraw_flow(contracts_factory):
         [user1_account.contract_address, *to_uint(100_000)],
     )
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
     assert (
-               await zk_pad_staking.maxMint(user1_account.contract_address).invoke()
-           ).result.maxShares == MAX_UINT256
+        await zk_pad_staking.maxMint(user1_account.contract_address).invoke()
+    ).result.maxShares == MAX_UINT256
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == UINT_ZERO
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == UINT_ZERO
 
     # max approve
     await user1.send_transaction(
@@ -453,8 +454,8 @@ async def test_mint_withdraw_flow(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == shares
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == shares
     assert_event_emitted(tx, zk_pad_staking.contract_address, "Deposit", data=[
         user1_account.contract_address,
         user1_account.contract_address,
@@ -463,8 +464,8 @@ async def test_mint_withdraw_flow(contracts_factory):
     ])
 
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000 - expected_user_asset_balance)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000 - expected_user_asset_balance)
     advance_clock(starknet_state, days_to_seconds(365) + 1)
     # withdraw shares, get back assets
     tx = await user1.send_transaction(
@@ -476,8 +477,8 @@ async def test_mint_withdraw_flow(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == UINT_ZERO
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == UINT_ZERO
 
     assert_event_emitted(tx, zk_pad_staking.contract_address, "Withdraw", data=[
         user1_account.contract_address,
@@ -487,21 +488,21 @@ async def test_mint_withdraw_flow(contracts_factory):
         *tx.result.response,
     ])
     assert (
-               await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_token.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
 
 
 @pytest.mark.asyncio
 async def test_allowances(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
-    user2 = Signer(3456)
+    user2 = MockSigner(3456)
     user2_account = await deploy_account_func(user2.public_key)
 
-    user3 = Signer(4567)
+    user3 = MockSigner(4567)
     user3_account = await deploy_account_func(user3.public_key)
 
     amount = to_uint(100_000)
@@ -545,14 +546,14 @@ async def test_allowances(contracts_factory):
     # have user2 withdraw 50K assets from user1's vault position
     #
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(100_000)
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(100_000)
     assert (
-               await zk_pad_staking.balanceOf(user2_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_staking.balanceOf(user2_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
     assert (
-               await zk_pad_token.balanceOf(user2_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_token.balanceOf(user2_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
 
     await user2.send_transaction(
         user2_account,
@@ -563,29 +564,29 @@ async def test_allowances(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(50_000)
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(50_000)
     assert (
-               await zk_pad_staking.balanceOf(user2_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_staking.balanceOf(user2_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
     assert (
-               await zk_pad_token.balanceOf(user2_account.contract_address).invoke()
-           ).result.balance == to_uint(50_000)
+        await zk_pad_token.balanceOf(user2_account.contract_address).invoke()
+    ).result.balance == to_uint(50_000)
     assert (
-               await zk_pad_staking.allowance(
-                   user1_account.contract_address, user2_account.contract_address
-               ).invoke()
-           ).result.remaining == MAX_UINT256
+        await zk_pad_staking.allowance(
+            user1_account.contract_address, user2_account.contract_address
+        ).invoke()
+    ).result.remaining == MAX_UINT256
 
     #
     # have user3 withdraw 10K assets from user1's value position
     #
     assert (
-               await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
     assert (
-               await zk_pad_token.balanceOf(user3_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_token.balanceOf(user3_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
 
     await user3.send_transaction(
         user3_account,
@@ -596,19 +597,19 @@ async def test_allowances(contracts_factory):
     )
 
     assert (
-               await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
-           ).result.balance == to_uint(40_000)
+        await zk_pad_staking.balanceOf(user1_account.contract_address).invoke()
+    ).result.balance == to_uint(40_000)
     assert (
-               await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
-           ).result.balance == to_uint(0)
+        await zk_pad_staking.balanceOf(user3_account.contract_address).invoke()
+    ).result.balance == to_uint(0)
     assert (
-               await zk_pad_token.balanceOf(user3_account.contract_address).invoke()
-           ).result.balance == to_uint(10_000)
+        await zk_pad_token.balanceOf(user3_account.contract_address).invoke()
+    ).result.balance == to_uint(10_000)
     assert (
-               await zk_pad_staking.allowance(
-                   user1_account.contract_address, user3_account.contract_address
-               ).invoke()
-           ).result.remaining == to_uint(0)
+        await zk_pad_staking.allowance(
+            user1_account.contract_address, user3_account.contract_address
+        ).invoke()
+    ).result.remaining == to_uint(0)
 
     # user3 tries withdrawing again, has insufficient allowance, :burn:
     await assert_revert(
@@ -624,7 +625,7 @@ async def test_allowances(contracts_factory):
 @pytest.mark.asyncio
 async def test_permissions(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await assert_revert(
@@ -649,7 +650,7 @@ async def test_deposit_lp(contracts_factory):
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "updateRewardPerBlockAndEndBlock",
                                  [*UINT_ZERO, get_block_number(starknet_state) + 1])
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     deposit_amount = 10_000
@@ -683,12 +684,12 @@ async def test_deposit_lp(contracts_factory):
     ])
 
     assert (
-               await zk_pad_staking.isTokenWhitelisted(mock_lp_token.contract_address).call()
-           ).result.res == 1
+        await zk_pad_staking.isTokenWhitelisted(mock_lp_token.contract_address).call()
+    ).result.res == 1
 
     assert (
-               await mock_lp_token.balanceOf(user1_account.contract_address).call()
-           ).result.balance == to_uint(deposit_amount)
+        await mock_lp_token.balanceOf(user1_account.contract_address).call()
+    ).result.balance == to_uint(deposit_amount)
     zkp_assets_value = (
         await mint_calculator.getAmountToMint(to_uint(deposit_amount)).call()
     ).result.amount
@@ -733,7 +734,7 @@ async def test_deposit_lp(contracts_factory):
     user_stake_info = (await zk_pad_staking.getUserStakeInfo(user1_account.contract_address).call()).result
 
     assert user_stake_info.unlock_time == timestamp + \
-           days_to_seconds(initial_lock_time)
+        days_to_seconds(initial_lock_time)
     assert mock_lp_token.contract_address in user_stake_info.tokens
 
     set_block_timestamp(starknet_state, user_stake_info.unlock_time + 1)
@@ -760,8 +761,8 @@ async def test_deposit_lp(contracts_factory):
     ])
 
     assert (
-               await mock_lp_token.balanceOf(user1_account.contract_address).call()
-           ).result.balance == to_uint(deposit_amount)
+        await mock_lp_token.balanceOf(user1_account.contract_address).call()
+    ).result.balance == to_uint(deposit_amount)
 
 
 @pytest.mark.asyncio
@@ -1408,7 +1409,7 @@ async def test_claim_fees(contracts_factory):
 async def test_reward_system(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     stake_amount = INIT_SUPPLY

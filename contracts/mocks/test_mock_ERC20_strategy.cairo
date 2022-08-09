@@ -7,8 +7,8 @@ from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 
 from openzeppelin.token.erc20.library import ERC20
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.token.erc20.IERC20 import IERC20
+from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.utils import uint256_is_zero, or, mul_div_down
 

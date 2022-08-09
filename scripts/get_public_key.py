@@ -1,9 +1,11 @@
 import os
 
 from nile.nre import NileRuntimeEnvironment
-from nile.core.account import Signer
+from nile.signer import Signer
 
 # Dummy values, should be replaced by env variables
+from tests.signers import MockSigner
+
 os.environ["SIGNER"] = "123456"
 os.environ["USER_1"] = "12345654321"
 

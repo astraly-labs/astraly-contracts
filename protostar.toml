@@ -38,6 +38,9 @@ ZkPadVaultHarvestTask = [
 JediSwapWrapper = [
     "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
 ]
+ZkPadAccessControl = [
+    "contracts/ZkPadAccessControl.cairo",
+]
 AstralyBalanceProofBadge = [
     "contracts/SBTs/AstralyBalanceProofBadge.cairo",
 ]

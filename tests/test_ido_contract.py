@@ -1,10 +1,9 @@
 import pytest
+
+from signers import MockSigner
 from utils import *
 import asyncio
-from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starkware_utils.error_handling import StarkException
-from starkware.starknet.testing.starknet import Starknet
-from starkware.starknet.public.abi import get_selector_from_name
+
 from datetime import datetime, date, timedelta
 from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
@@ -21,21 +20,21 @@ TOKEN_ID = uint(0)
 MINT_AMOUNT = uint(1000)
 ONE_DAY = 24 * 60 * 60
 
-account_path = 'openzeppelin/account/Account.cairo'
+account_path = 'openzeppelin/account/presets/Account.cairo'
 ido_factory_path = 'ZkPadIDOFactory.cairo'
 ido_path = 'ZkPadIDOContract.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 erc20_eth_path = 'mocks/ZkPad_ETH_ERC20_mock.cairo'
 
-deployer = Signer(1234321)
-admin1 = Signer(2345432)
-staking = Signer(3456543)
-sale_owner = Signer(4567654)
-sale_participant = Signer(5678765)
-sale_participant_2 = Signer(678909876)
-zkp_recipient = Signer(123456789987654321)
-zkp_owner = Signer(123456789876543210)
+deployer = MockSigner(1234321)
+admin1 = MockSigner(2345432)
+staking = MockSigner(3456543)
+sale_owner = MockSigner(4567654)
+sale_participant = MockSigner(5678765)
+sale_participant_2 = MockSigner(678909876)
+zkp_recipient = MockSigner(123456789987654321)
+zkp_owner = MockSigner(123456789876543210)
 
 
 def uint_array(l):

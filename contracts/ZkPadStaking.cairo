@@ -21,11 +21,11 @@ from starkware.starknet.common.syscalls import (
     get_block_number,
 )
 
-from openzeppelin.security.safemath import SafeUint256
-from openzeppelin.security.pausable import Pausable
-from openzeppelin.security.reentrancyguard import ReentrancyGuard
-from openzeppelin.security.initializable import Initializable
-from openzeppelin.token.erc721.interfaces.IERC721 import IERC721
+from openzeppelin.security.safemath.library import SafeUint256
+from openzeppelin.security.pausable.library import Pausable
+from openzeppelin.security.reentrancyguard.library import ReentrancyGuard
+from openzeppelin.security.initializable.library import Initializable
+from openzeppelin.token.erc721.IERC721 import IERC721
 from openzeppelin.token.erc20.library import ERC20
 from openzeppelin.upgrades.library import Proxy
 

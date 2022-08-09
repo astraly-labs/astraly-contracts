@@ -1,18 +1,20 @@
 from datetime import datetime
 
 import pytest
+
+from signers import MockSigner
 from utils import *
 import asyncio
 import csv
 
 from starkware.starknet.testing.starknet import Starknet
 
-account_path = 'openzeppelin/account/Account.cairo'
+account_path = 'openzeppelin/account/presets/Account.cairo'
 contract_path = 'SBTs/AstralyBalanceProofBadge.cairo'
 with open('tests/proof.csv', newline='') as csvfile:
     proof = list(csv.reader(csvfile))[0]
 
-prover = Signer(1234321)
+prover = MockSigner(1234321)
 
 
 @pytest.fixture(scope='module')
