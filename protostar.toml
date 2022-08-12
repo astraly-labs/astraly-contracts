@@ -44,3 +44,6 @@ ZkPadAccessControl = [
 AstralyBalanceProofBadge = [
     "contracts/SBTs/AstralyBalanceProofBadge.cairo",
 ]
+AstralyBalanceSBTContractFactory = [
+    "contracts/SBTs/AstralyBalanceSBTContractFactory.cairo",
+]

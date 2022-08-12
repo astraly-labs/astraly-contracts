@@ -8,7 +8,15 @@ from verify_proof import Proof, encode_proof, verify_account_proof, verify_stora
 from openzeppelin.security.initializable.library import Initializable
 
 @storage_var
-func _l1_headers_store_addr() -> (res : felt):
+func block_number() -> (res : felt):
+end
+
+@storage_var
+func min_balance() -> (res : Uint256):
+end
+
+@storage_var
+func token_address() -> (res : felt):
 end
 
  # TODO: Emit
@@ -16,12 +24,14 @@ end
 func BadgeMinted(owner : felt, l1_address : felt):
 end
 
-@external
-func initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    l1_headers_store_addr : felt
+@constructor
+func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    _block_number : felt, _balance : Uint256, _token_address : felt
 ):
     Initializable.initialize()
-    _l1_headers_store_addr.write(l1_headers_store_addr)
+    block_number.write(_block_number)
+    min_balance.write(_balance)
+    token_address.write(_token_address)
     return ()
 end
 
@@ -135,6 +145,7 @@ func mint{
                           storage_hash_[3]
 
     let (caller : felt) = get_caller_address()
+    assert starknet_account = caller
     BadgeMinted.emit(caller, 0)
 
     return ()
