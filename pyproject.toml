@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "zkpad-contracts"
+name = "astraly-contracts"
 version = "0.1.0"
 description = ""
-authors = ["zkpad"]
+authors = ["astraly"]
 
 [tool.poetry.dependencies]
 python = "^3.8"

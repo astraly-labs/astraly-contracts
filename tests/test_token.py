@@ -16,7 +16,7 @@ CAP = to_uint(1000)
 AMOUNT = to_uint(200)
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
-NAME = str_to_felt("ZkPad")
+NAME = str_to_felt("Astraly")
 SYMBOL = str_to_felt("ZKP")
 DECIMALS = 18
 
@@ -30,7 +30,7 @@ def event_loop():
 def contract_defs():
     account_def = get_contract_def(
         'openzeppelin/account/presets/Account.cairo')
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
+    zk_pad_token_def = get_contract_def('AstralyToken.cairo')
     return account_def, zk_pad_token_def
 
 
@@ -104,7 +104,7 @@ async def test_constructor_exceed_max_decimals(contracts_factory):
     bad_decimals = 2**8 + 1
 
     starknet = await Starknet.empty()
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
+    zk_pad_token_def = get_contract_def('AstralyToken.cairo')
     await assert_revert(
         starknet.deploy(
             contract_class=zk_pad_token_def,

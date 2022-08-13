@@ -8,7 +8,7 @@ INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
-NAME = str_to_felt("xZkPad")
+NAME = str_to_felt("xAstraly")
 SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
@@ -32,8 +32,8 @@ def event_loop():
 def contract_defs():
     account_def = get_contract_def(
         'openzeppelin/account/presets/Account.cairo')
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
-    vesting_def = get_contract_def('ZkPadVesting.cairo')
+    zk_pad_token_def = get_contract_def('AstralyToken.cairo')
+    vesting_def = get_contract_def('AstralyVesting.cairo')
     return account_def, zk_pad_token_def, vesting_def
 
 
@@ -62,7 +62,7 @@ async def contracts_init(contract_defs):
     zk_pad_token = await starknet.deploy(
         contract_class=zk_pad_token_def,
         constructor_calldata=[
-            str_to_felt("ZkPad"),
+            str_to_felt("Astraly"),
             str_to_felt("ZKP"),
             DECIMALS,
             *INIT_SUPPLY,
@@ -122,4 +122,4 @@ async def test_reject_payee_zero_address(contract_defs, contracts_factory):
             vesting_len, user1_account.contract_address, 0, vesting_len, *shares,
             _start_timestamp, duration_seconds, token.contract_address
         ],
-    ), "ZkPadVesting::payee can't be null")
+    ), "AstralyVesting::payee can't be null")

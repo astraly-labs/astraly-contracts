@@ -6,9 +6,9 @@ from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, deploy
 
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
-from InterfaceAll import IZkPadIDOContract, ITask
+from InterfaceAll import IAstralyIDOContract, ITask
 
 @storage_var
 func ido_contract_addresses(id : felt) -> (address : felt):
@@ -51,7 +51,7 @@ func get_ido_launch_date{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     id : felt
 ) -> (launch_date : felt):
     let (the_address : felt) = ido_contract_addresses.read(id)
-    let (launch_date) = IZkPadIDOContract.get_ido_launch_date(contract_address=the_address)
+    let (launch_date) = IAstralyIDOContract.get_ido_launch_date(contract_address=the_address)
     return (launch_date)
 end
 
@@ -107,7 +107,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _ido_contract_class_hash : felt, owner_ : felt
 ):
-    ZkPadAccessControl.initializer(owner_)
+    AstralyAccessControl.initializer(owner_)
 
     ido_contract_class_hash.write(_ido_contract_class_hash)
     return ()
@@ -118,7 +118,7 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     ido_admin : felt
 ) -> (new_ido_contract_address : felt):
     alloc_locals
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (_id) = current_id.read()
     let (ido_contract_class : felt) = get_ido_contract_class_hash()
     with_attr error_message("IDO contract class hash is not set"):
@@ -143,7 +143,7 @@ end
 func set_random_number_generator_address{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(rnd_nbr_gen_adr : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(rnd_nbr_gen_adr)
     end
@@ -155,7 +155,7 @@ end
 func set_task_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     task_addr : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(task_addr)
     end
@@ -167,7 +167,7 @@ end
 func set_lottery_ticket_contract_address{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(_lottery_ticket_contract_address : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(_lottery_ticket_contract_address)
     end
@@ -179,7 +179,7 @@ end
 func set_payment_token_address{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _pmt_tkn_addr : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid address"):
         assert_not_zero(_pmt_tkn_addr)
     end
@@ -191,7 +191,7 @@ end
 func set_merkle_root{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _merkle_root : felt, _id : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     # with_attr error_message("Invalid id"):
     #     assert_not_zero(_id)
     # end
@@ -206,7 +206,7 @@ end
 func set_ido_contract_class_hash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_class_hash : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid contract class hash"):
         assert_not_zero(new_class_hash)
     end

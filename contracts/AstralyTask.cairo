@@ -8,13 +8,13 @@ from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
-from InterfaceAll import IZkPadIDOContract, Registration
+from InterfaceAll import IAstralyIDOContract, Registration
 
 # # @title Yagi Task
 # # @description Triggers `calculate_allocation` at the end of the registration phase
-# # @author ZkPad
+# # @author Astraly
 
 #############################################
 # #                 STORAGE                 ##
@@ -36,7 +36,7 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _ido_factory_address : felt
 ):
-    ZkPadAccessControl.initializer(_ido_factory_address)
+    AstralyAccessControl.initializer(_ido_factory_address)
     return ()
 end
 
@@ -65,7 +65,9 @@ func probeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     let (address : felt) = __idoContractAddress.read()
     assert_not_zero(address)
 
-    let (registration : Registration) = IZkPadIDOContract.get_registration(contract_address=address)
+    let (registration : Registration) = IAstralyIDOContract.get_registration(
+        contract_address=address
+    )
 
     let (block_timestamp : felt) = get_block_timestamp()
     let (taskReady : felt) = is_le(registration.registration_time_ends, block_timestamp)
@@ -77,7 +79,7 @@ end
 func executeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
     alloc_locals
     let (taskReady : felt) = probeTask()
-    with_attr error_message("ZkPadTask::Task not ready"):
+    with_attr error_message("AstralyTask::Task not ready"):
         assert taskReady = TRUE
     end
 
@@ -86,7 +88,7 @@ func executeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     # Calculate Allocation
     let (ido_address : felt) = __idoContractAddress.read()
-    IZkPadIDOContract.calculate_allocation(contract_address=ido_address)
+    IAstralyIDOContract.calculate_allocation(contract_address=ido_address)
 
     return ()
 end
@@ -96,7 +98,7 @@ func setIDOContractAddress{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
     address : felt
 ) -> ():
     assert_not_zero(address)
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     __idoContractAddress.write(address)
     return ()
 end

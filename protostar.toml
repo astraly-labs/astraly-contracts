@@ -8,32 +8,32 @@ libs_path = "./lib"
 cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
-ZkPadFaucet = [
-    "contracts/ZkPadFaucet.cairo",
+AstralyFaucet = [
+    "contracts/AstralyFaucet.cairo",
 ]
-ZkPadINOContract = [
-    "contracts/ZkPadINOContract.cairo",
+AstralyINOContract = [
+    "contracts/AstralyINOContract.cairo",
 ]
-ZkPadIDOContract = [
-    "contracts/ZkPadIDOContract.cairo",
+AstralyIDOContract = [
+    "contracts/AstralyIDOContract.cairo",
 ]
-ZkPadIDOFactory = [
-    "contracts/ZkPadIDOFactory.cairo",
+AstralyIDOFactory = [
+    "contracts/AstralyIDOFactory.cairo",
 ]
-ZkPadLotteryToken = [
-    "contracts/ZkPadLotteryToken.cairo",
+AstralyLotteryToken = [
+    "contracts/AstralyLotteryToken.cairo",
 ]
-ZkPadStaking = [
-    "contracts/ZkPadStaking.cairo",
+AstralyStaking = [
+    "contracts/AstralyStaking.cairo",
 ]
-ZkPadTask = [
-    "contracts/ZkPadTask.cairo",
+AstralyTask = [
+    "contracts/AstralyTask.cairo",
 ]
-ZkPadToken = [
-    "contracts/ZkPadTask.cairo",
+AstralyToken = [
+    "contracts/AstralyTask.cairo",
 ]
-ZkPadVaultHarvestTask = [
-    "contracts/ZkPadVaultHarvestTask.cairo",
+AstralyVaultHarvestTask = [
+    "contracts/AstralyVaultHarvestTask.cairo",
 ]
 JediSwapWrapper = [
     "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",

@@ -6,13 +6,13 @@ from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
 from InterfaceAll import IVault
 
 # # @title Yagi Task
-# # @description 
-# # @author ZkPad
+# # @description
+# # @author Astraly
 
 @storage_var
 func __lastExecuted() -> (lastExecuted : felt):
@@ -22,14 +22,13 @@ end
 func __vaultAddress() -> (address : felt):
 end
 
-
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _vault_address : felt
 ):
     assert_not_zero(_vault_address)
     __vaultAddress.write(_vault_address)
-    ZkPadAccessControl.initializer(_vault_address)
+    AstralyAccessControl.initializer(_vault_address)
     return ()
 end
 
@@ -45,7 +44,6 @@ func lastExecuted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     return (lastExecuted)
 end
 
-
 @view
 func probeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
     taskReady : felt
@@ -56,7 +54,6 @@ func probeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return (can_harvest)
 end
 
-
 #############################################
 # #                  TASK                   ##
 #############################################
@@ -65,7 +62,7 @@ end
 func executeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
     alloc_locals
     let (taskReady : felt) = probeTask()
-    with_attr error_message("ZkPadTask::Task not ready"):
+    with_attr error_message("AstralyTask::Task not ready"):
         assert taskReady = TRUE
     end
 

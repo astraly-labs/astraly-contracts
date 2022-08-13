@@ -43,7 +43,7 @@ JEDI_SWAP_WRAPPER_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${JEDI_SWAP_WRAPPER_DEPL
 
 # echo "Add AlphaRoad LP token as whitelisted token"
 # starknet invoke --address "${XZKP_ADDRESS}" \
-#     --abi ../artifacts/ZkPadStaking_abi.json \
+#     --abi ../artifacts/AstralyStaking_abi.json \
 #     --function addWhitelistedToken \
 #     --inputs ${ALPHA_ROAD_POOL} "${ALPHA_ROAD_WRAPPER_ADDRESS}" 0 \
 #     --max_fee ${MAX_FEE} \
@@ -52,7 +52,7 @@ JEDI_SWAP_WRAPPER_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${JEDI_SWAP_WRAPPER_DEPL
 
 echo "Add Jedi Swap LP token as whitelisted token"
 starknet invoke --address "${XZKP_ADDRESS}" \
-    --abi ../build/ZkPadStaking_abi.json \
+    --abi ../build/AstralyStaking_abi.json \
     --function addWhitelistedToken \
     --inputs ${JEDI_SWAP_POOL} "${JEDI_SWAP_WRAPPER_ADDRESS}" 0 \
     --max_fee ${MAX_FEE} \

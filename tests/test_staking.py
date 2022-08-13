@@ -22,7 +22,7 @@ INIT_SUPPLY = to_uint(parse_ether(1_000))
 CAP = to_uint(parse_ether(1_000_000_000_000))
 UINT_ONE = to_uint(1)
 UINT_ZERO = to_uint(0)
-NAME = str_to_felt("xZkPad")
+NAME = str_to_felt("xAstraly")
 SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
@@ -76,8 +76,8 @@ def contract_defs():
     account_def = get_contract_def(
         'openzeppelin/account/presets/Account.cairo')
     proxy_def = get_contract_def('openzeppelin/upgrades/presets/Proxy.cairo')
-    zk_pad_token_def = get_contract_def('mocks/test_ZkPadToken.cairo')
-    zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
+    zk_pad_token_def = get_contract_def('mocks/test_AstralyToken.cairo')
+    zk_pad_stake_def = get_contract_def('AstralyStaking.cairo')
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
 
 
@@ -94,7 +94,7 @@ async def contacts_init(contract_defs, get_starknet):
     zk_pad_token = await starknet.deploy(
         contract_class=zk_pad_token_def,
         constructor_calldata=[
-            str_to_felt("ZkPad"),
+            str_to_felt("Astraly"),
             str_to_felt("ZKP"),
             DECIMALS,
             *INIT_SUPPLY,
@@ -201,7 +201,7 @@ async def test_proxy_upgrade(contract_defs):
 
     erc20_contract = await cache_on_state(
         starknet.state, erc20_def, starknet.deploy(contract_class=erc20_def, constructor_calldata=[
-            str_to_felt("ZkPad"),
+            str_to_felt("Astraly"),
             str_to_felt("ZKP"),
             DECIMALS,
             *INIT_SUPPLY,
@@ -231,7 +231,7 @@ async def test_proxy_upgrade(contract_defs):
     assert zk_pad_stake_declared_class.class_hash == current_zk_pad_stake_implementation_hash
 
     mock_zk_pad_contract_def = get_contract_def(
-        'mocks/mock_ZkPadStaking.cairo')
+        'mocks/mock_AstralyStaking.cairo')
     mock_zk_pad_declaration_class = await starknet.declare(contract_class=mock_zk_pad_contract_def)
     new_zk_pad_implementation_declared_class = mock_zk_pad_declaration_class.class_hash
     await assert_revert(

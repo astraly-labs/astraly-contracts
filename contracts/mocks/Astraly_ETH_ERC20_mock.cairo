@@ -7,14 +7,14 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.bool import TRUE
 
 from openzeppelin.token.erc20.library import ERC20
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     recipient : felt, owner : felt
 ):
     ERC20.initializer('AstralyETH', 'AstrETH', 18)
-    ZkPadAccessControl.initializer(owner)
+    AstralyAccessControl.initializer(owner)
 
     ERC20._mint(recipient, Uint256(1000000000000000000000000, 0))
     return ()
@@ -116,7 +116,7 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     to : felt, amount : Uint256
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     ERC20._mint(to, amount)
     return ()
 end

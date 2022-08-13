@@ -7,7 +7,7 @@
 # - IERC4626
 # - ITask
 # - IZkIDOFactory
-# @author zkpad
+# @author astraly
 ####################################################################################
 
 %lang starknet
@@ -33,7 +33,7 @@ struct Registration:
 end
 
 @contract_interface
-namespace IZkPadIDOContract:
+namespace IAstralyIDOContract:
     func get_ido_launch_date() -> (res : felt):
     end
 
@@ -59,7 +59,7 @@ namespace IAccount:
 end
 
 @contract_interface
-namespace IZKPadIDOFactory:
+namespace IAstralyIDOFactory:
     func get_ido_launch_date(id : felt) -> (res : felt):
     end
 

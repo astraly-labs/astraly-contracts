@@ -14,11 +14,11 @@ from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
 from openzeppelin.token.erc20.IERC20 import IERC20
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 from openzeppelin.security.safemath.library import SafeUint256
 
-from InterfaceAll import IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
-from contracts.utils.ZkPadConstants import DAYS_30
+from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
+from contracts.utils.AstralyConstants import DAYS_30
 from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (
@@ -145,7 +145,7 @@ end
 func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     let (caller) = get_caller_address()
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadINOContract: only sale owner can call this function"):
+    with_attr error_message("AstralyINOContract: only sale owner can call this function"):
         assert the_sale.sale_owner = caller
     end
 
@@ -201,7 +201,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     _admin_address : felt
 ):
     assert_not_zero(_admin_address)
-    ZkPadAccessControl.initializer(_admin_address)
+    AstralyAccessControl.initializer(_admin_address)
 
     let (caller : felt) = get_caller_address()
     ido_factory_contract_address.write(caller)
@@ -319,26 +319,26 @@ func set_sale_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     _lottery_tickets_burn_cap : Uint256,
 ):
     alloc_locals
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadINOContract::set_sale_params Sale is already created"):
+    with_attr error_message("AstralyINOContract::set_sale_params Sale is already created"):
         assert the_sale.is_created = FALSE
     end
-    with_attr error_message("ZkPadINOContract::set_sale_params Sale owner address can not be 0"):
+    with_attr error_message("AstralyINOContract::set_sale_params Sale owner address can not be 0"):
         assert_not_zero(_sale_owner_address)
     end
     with_attr error_message(
-            "ZkPadINOContract::set_sale_params INO Token price must be greater than zero"):
+            "AstralyINOContract::set_sale_params INO Token price must be greater than zero"):
         let (token_price_check : felt) = uint256_lt(Uint256(0, 0), _token_price)
         assert token_price_check = TRUE
     end
     with_attr error_message(
-            "ZkPadINOContract::set_sale_params Number of NFTs Tokens to sell must be greater than zero"):
+            "AstralyINOContract::set_sale_params Number of NFTs Tokens to sell must be greater than zero"):
         let (token_to_sell_check : felt) = uint256_lt(Uint256(0, 0), _amount_of_tokens_to_sell)
         assert token_to_sell_check = TRUE
     end
-    with_attr error_message("ZkPadINOContract::set_sale_params Bad input"):
+    with_attr error_message("AstralyINOContract::set_sale_params Bad input"):
         assert_lt(block_timestamp, _sale_end_time)
     end
 
@@ -374,7 +374,7 @@ end
 func set_sale_token{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _sale_token_address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let upd_sale = Sale(
         token=_sale_token_address,
@@ -399,24 +399,24 @@ end
 func set_registration_time{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _registration_time_starts : felt, _registration_time_ends : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (the_sale) = sale.read()
     let (the_reg) = registration.read()
     let (block_timestamp) = get_block_timestamp()
-    with_attr error_message("ZkPadINOContract::set_registration_time Sale not created yet"):
+    with_attr error_message("AstralyINOContract::set_registration_time Sale not created yet"):
         assert the_sale.is_created = TRUE
     end
     # with_attr error_message(
-    #         "ZkPadINOContract::set_registration_time the registration start time is already set"):
+    #         "AstralyINOContract::set_registration_time the registration start time is already set"):
     #     assert the_reg.registration_time_starts = 0
     # end
     with_attr error_message(
-            "ZkPadINOContract::set_registration_time registration start/end times issue"):
+            "AstralyINOContract::set_registration_time registration start/end times issue"):
         assert_le(block_timestamp, _registration_time_starts)
         assert_lt(_registration_time_starts, _registration_time_ends)
     end
     with_attr error_message(
-            "ZkPadINOContract::set_registration_time registration end has to be before sale end"):
+            "AstralyINOContract::set_registration_time registration end has to be before sale end"):
         assert_lt(_registration_time_ends, the_sale.sale_end)
     end
     let upd_reg = Registration(
@@ -436,24 +436,24 @@ end
 func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _purchase_time_starts : felt, _purchase_time_ends : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (the_reg) = registration.read()
     let (the_purchase) = purchase_round.read()
-    with_attr error_message("ZkPadINOContract::set_purchase_round_params Bad input"):
+    with_attr error_message("AstralyINOContract::set_purchase_round_params Bad input"):
         assert_not_zero(_purchase_time_starts)
         assert_not_zero(_purchase_time_ends)
     end
     with_attr error_message(
-            "ZkPadINOContract::set_purchase_round_params end time must be after start end"):
+            "AstralyINOContract::set_purchase_round_params end time must be after start end"):
         assert_lt(_purchase_time_starts, _purchase_time_ends)
     end
     with_attr error_message(
-            "ZkPadINOContract::set_purchase_round_params registration time not set yet"):
+            "AstralyINOContract::set_purchase_round_params registration time not set yet"):
         assert_not_zero(the_reg.registration_time_starts)
         assert_not_zero(the_reg.registration_time_ends)
     end
     with_attr error_message(
-            "ZkPadINOContract::set_purchase_round_params start time must be after registration end"):
+            "AstralyINOContract::set_purchase_round_params start time must be after registration end"):
         assert_lt(the_reg.registration_time_ends, _purchase_time_starts)
     end
     let upd_purchase = Purchase_Round(
@@ -478,28 +478,29 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     let (the_sale) = sale.read()
 
     let (factory_address) = ido_factory_contract_address.read()
-    let (lottery_ticket_address) = IZKPadIDOFactory.get_lottery_ticket_contract_address(
+    let (lottery_ticket_address) = IAstralyIDOFactory.get_lottery_ticket_contract_address(
         contract_address=factory_address
     )
     with_attr error_message(
-            "ZkPadINOContract::register_user Lottery ticket contract address not set"):
+            "AstralyINOContract::register_user Lottery ticket contract address not set"):
         assert_not_zero(lottery_ticket_address)
     end
     let (caller) = get_caller_address()
     with_attr error_message(
-            "ZkPadINOContract::register_user only the lottery ticket contract can make this call"):
+            "AstralyINOContract::register_user only the lottery ticket contract can make this call"):
         assert caller = lottery_ticket_address
     end
 
-    with_attr error_message("ZkPadINOContract::register_user account address is the zero address"):
+    with_attr error_message(
+            "AstralyINOContract::register_user account address is the zero address"):
         assert_not_zero(account)
     end
     with_attr error_message(
-            "ZkPadINOContract::register_user allocation claim amount not greater than 0"):
+            "AstralyINOContract::register_user allocation claim amount not greater than 0"):
         let (amount_check : felt) = uint256_lt(Uint256(0, 0), amount)
         assert amount_check = TRUE
     end
-    with_attr error_message("ZkPadINOContract::register_user Registration window is closed"):
+    with_attr error_message("AstralyINOContract::register_user Registration window is closed"):
         assert_le(the_reg.registration_time_starts, block_timestamp)
         assert_le(block_timestamp, the_reg.registration_time_ends)
     end
@@ -568,9 +569,10 @@ end
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (current_allocation : Uint256) = ido_allocation.read()
-    with_attr error_message("ZkPadINOContract::calculate_allocation allocation already calculated"):
+    with_attr error_message(
+            "AstralyINOContract::calculate_allocation allocation already calculated"):
         let (allocation_check : felt) = uint256_eq(current_allocation, Uint256(0, 0))
         assert allocation_check = TRUE
     end
@@ -580,7 +582,7 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
 
     # Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
     let (the_allocation : Uint256, _) = SafeUint256.div_rem(to_sell, total_winning_tickets)
-    # with_attr error_message("ZkPadINOContract::calculate_allocation calculation error"):
+    # with_attr error_message("AstralyINOContract::calculate_allocation calculation error"):
     #     assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
     # end
     ido_allocation.write(the_allocation)
@@ -640,15 +642,15 @@ func get_random_number{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     rnd : felt
 ):
     let (ido_factory_address) = ido_factory_contract_address.read()
-    let (rnd_nbr_gen_addr) = IZKPadIDOFactory.get_random_number_generator_address(
+    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
         contract_address=ido_factory_address
     )
     with_attr error_message(
-            "ZkPadINOContract::get_random_number random number generator address not set in the factory"):
+            "AstralyINOContract::get_random_number random number generator address not set in the factory"):
         assert_not_zero(rnd_nbr_gen_addr)
     end
     let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr)
-    with_attr error_message("ZkPadINOContract::get_random_number invalid random number value"):
+    with_attr error_message("AstralyINOContract::get_random_number invalid random number value"):
         assert_not_zero(rnd_felt)
     end
     return (rnd=rnd_felt)
@@ -666,43 +668,44 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     let (the_round) = purchase_round.read()
 
     # Validations
-    with_attr error_message("ZkPadINOContract::participate Purchase round has not started yet"):
+    with_attr error_message("AstralyINOContract::participate Purchase round has not started yet"):
         assert_le(the_round.time_starts, block_timestamp)
     end
-    with_attr error_message("ZkPadINOContract::participate Purchase round is over"):
+    with_attr error_message("AstralyINOContract::participate Purchase round is over"):
         assert_le(block_timestamp, the_round.time_ends)
     end
     let (user_participated) = has_participated.read(account)
-    with_attr error_message("ZkPadINOContract::participate user participated"):
+    with_attr error_message("AstralyINOContract::participate user participated"):
         assert user_participated = FALSE
     end
-    with_attr error_message("ZkPadINOContract::participate Account address is the zero address"):
+    with_attr error_message("AstralyINOContract::participate Account address is the zero address"):
         assert_not_zero(account)
     end
-    with_attr error_message("ZkPadINOContract::participate Amount paid is zero"):
+    with_attr error_message("AstralyINOContract::participate Amount paid is zero"):
         let (amount_paid_check : felt) = uint256_lt(Uint256(0, 0), amount_paid)
         assert amount_paid_check = TRUE
     end
     let (the_sale) = sale.read()
-    with_attr error_message("ZkPadINOContract::participate the IDO token price is not set"):
+    with_attr error_message("AstralyINOContract::participate the IDO token price is not set"):
         let (token_price_check : felt) = uint256_lt(Uint256(0, 0), the_sale.token_price)
         assert token_price_check = TRUE
     end
     let (the_alloc : Uint256) = ido_allocation.read()
     with_attr error_message(
-            "ZkPadINOContract::participate The IDO token allocation has not been calculated"):
+            "AstralyINOContract::participate The IDO token allocation has not been calculated"):
         let (allocation_check : felt) = uint256_lt(Uint256(0, 0), the_alloc)
         assert allocation_check = TRUE
     end
     let (winning_tickets : Uint256) = user_to_winning_lottery_tickets.read(account)
     with_attr error_message(
-            "ZkPadINOContract::participate account does not have any winning lottery tickets"):
+            "AstralyINOContract::participate account does not have any winning lottery tickets"):
         let (winning_tkts_check : felt) = uint256_lt(Uint256(0, 0), winning_tickets)
         assert winning_tkts_check = TRUE
     end
     let (max_tokens_to_purchase : Uint256) = SafeUint256.mul(winning_tickets, the_alloc)
     let (number_of_tokens_buying, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price)
-    with_attr error_message("ZkPadINOContract::participate Can't buy more than maximum allocation"):
+    with_attr error_message(
+            "AstralyINOContract::participate Can't buy more than maximum allocation"):
         let (is_tokens_buying_le_max) = uint256_le(number_of_tokens_buying, max_tokens_to_purchase)
         assert is_tokens_buying_le_max = TRUE
     end
@@ -746,16 +749,16 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     has_participated.write(account, TRUE)
 
     let (factory_address) = ido_factory_contract_address.read()
-    let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
+    let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
         contract_address=factory_address
     )
-    with_attr error_message("ZkPadINOContract::participate Payment token address not set"):
+    with_attr error_message("AstralyINOContract::participate Payment token address not set"):
         assert_not_zero(pmt_token_addr)
     end
     let (pmt_success : felt) = IERC20.transferFrom(
         pmt_token_addr, account, address_this, amount_paid
     )
-    with_attr error_message("ZkPadINOContract::participate Participation payment failed"):
+    with_attr error_message("AstralyINOContract::participate Participation payment failed"):
         assert pmt_success = TRUE
     end
     let new_number_of_purchases : felt = the_round.number_of_purchases + 1
@@ -778,11 +781,11 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (block_timestamp) = get_block_timestamp()
     let (participation) = user_to_participation.read(address_caller)
 
-    with_attr error_message("ZkPadINOContract::withdraw_tokens Tokens can not be withdrawn yet"):
+    with_attr error_message("AstralyINOContract::withdraw_tokens Tokens can not be withdrawn yet"):
         assert_le(the_sale.tokens_unlock_time, block_timestamp)
     end
 
-    with_attr error_message("ZkPadINOContract::already claimed"):
+    with_attr error_message("AstralyINOContract::already claimed"):
         assert participation.claimed = FALSE
     end
 
@@ -809,18 +812,18 @@ end
 
 @external
 func withdraw_from_contract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (address_caller : felt) = get_caller_address()
     let (address_this : felt) = get_contract_address()
     let (factory_address) = ido_factory_contract_address.read()
-    let (pmt_token_addr) = IZKPadIDOFactory.get_payment_token_address(
+    let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
         contract_address=factory_address
     )
     let (contract_balance : Uint256) = IERC20.balanceOf(pmt_token_addr, address_this)
     let (token_transfer_success : felt) = IERC20.transfer(
         pmt_token_addr, address_caller, contract_balance
     )
-    with_attr error_message("ZkPadIDOContract::withdraw_multiple_portions token transfer failed"):
+    with_attr error_message("AstralyIDOContract::withdraw_multiple_portions token transfer failed"):
         assert token_transfer_success = TRUE
     end
 

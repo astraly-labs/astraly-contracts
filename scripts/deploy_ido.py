@@ -1,3 +1,4 @@
+from utils import deploy_try_catch, run_tx
 import os
 import sys
 from datetime import datetime, timedelta
@@ -5,7 +6,6 @@ from datetime import datetime, timedelta
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import deploy_try_catch, run_tx
 
 
 def to_uint(a):
@@ -70,12 +70,12 @@ def run(nre: NileRuntimeEnvironment):
     zkp_token, zkp_token_abi = nre.get_deployment("zkp_token")
 
     # deploy Task contract
-    task_contract = deploy_try_catch(nre, "ZkPadTask", [
+    task_contract = deploy_try_catch(nre, "AstralyTask", [
         factory_contract
     ], f"task_contract_{day}")
 
     # deploy IDO contract
-    ido_contract_full = deploy_try_catch(nre, "ZkPadIDOContract", [
+    ido_contract_full = deploy_try_catch(nre, "AstralyIDOContract", [
         admin_contract,
         factory_contract
     ], f"ido_contract_{day}")

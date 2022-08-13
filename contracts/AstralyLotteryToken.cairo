@@ -20,7 +20,7 @@ from starkware.starknet.common.syscalls import (
     get_block_timestamp,
 )
 
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
 from contracts.erc1155.ERC1155_struct import TokenUri
 from contracts.erc1155.library import (
@@ -51,7 +51,7 @@ from contracts.utils.Math64x61 import (
 )
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 
-from InterfaceAll import IZkPadIDOContract, IERC20, IERC4626, IZKPadIDOFactory, IAccount
+from InterfaceAll import IAstralyIDOContract, IERC20, IERC4626, IAstralyIDOFactory, IAccount
 
 @storage_var
 func ido_factory_address() -> (res : felt):
@@ -80,7 +80,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     # Initialize Admin
     assert_not_zero(owner)
     admin_address.write(owner)
-    ZkPadAccessControl.initializer(owner)
+    AstralyAccessControl.initializer(owner)
     # Initialize ERC1155
     ERC1155_initializer(uri_len, uri)
     # Setup IDO Factory Params
@@ -186,7 +186,7 @@ end
 func setURI{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     uri_len : felt, uri : felt*
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     ERC1155_setURI(uri_len, uri)
     return ()
 end
@@ -235,7 +235,7 @@ end
 func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     to : felt, id : Uint256, amount : Uint256, data_len : felt, data : felt*
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     ERC1155_mint(to, id, amount, data_len, data)
     return ()
 end
@@ -256,7 +256,7 @@ func mintBatch{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     data_len : felt,
     data : felt*,
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     ERC1155_mint_batch(to, ids_len, ids, amounts_len, amounts, data_len, data)
     return ()
 end
@@ -275,7 +275,7 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     let (caller) = get_caller_address()
 
     let (claimed) = has_claimed.read(id, caller)
-    with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
+    with_attr error_message("AstralyLotteryToken::Tickets already claimed"):
         assert claimed = FALSE
     end
 
@@ -284,7 +284,7 @@ func claimLotteryTickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     let (xzkp_balance : Uint256) = IERC20.balanceOf(xzkp_address, caller)
 
     let (has_tickets) = uint256_le(xzkp_balance, Uint256(0, 0))
-    with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
+    with_attr error_message("AstralyLotteryToken::No tickets to claim"):
         assert_not_zero(1 - has_tickets)
     end
 
@@ -312,7 +312,7 @@ end
 # let (caller) = get_caller_address()
 
 # let (claimed) = has_claimed.read(caller)
-#     with_attr error_message("ZkPadLotteryToken::Tickets already claimed"):
+#     with_attr error_message("AstralyLotteryToken::Tickets already claimed"):
 #         assert claimed = FALSE
 #     end
 
@@ -322,7 +322,7 @@ end
 #     let (amount_to_claim: Uint256) = _balance_to_tickets(xzkp_balance)
 
 # let (has_tickets) = uint256_le(amount_to_claim, Uint256(0, 0))
-#     with_attr error_message("ZkPadLotteryToken::No tickets to claim"):
+#     with_attr error_message("AstralyLotteryToken::No tickets to claim"):
 #         assert_not_zero(1 - has_tickets)
 #     end
 
@@ -350,13 +350,13 @@ func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     # Spin up VRF and update allocation accordingly
     let (factory_address : felt) = ido_factory_address.read()
     let (felt_id : felt) = _uint_to_felt(id)
-    let (ido_address : felt) = IZKPadIDOFactory.get_ido_address(
+    let (ido_address : felt) = IAstralyIDOFactory.get_ido_address(
         contract_address=factory_address, id=felt_id
     )
-    let (success : felt) = IZkPadIDOContract.register_user(
+    let (success : felt) = IAstralyIDOContract.register_user(
         contract_address=ido_address, amount=amount, account=_from, nb_quest=0
     )
-    with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
+    with_attr error_message("AstralyLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
     end
     return ()
@@ -376,23 +376,23 @@ func burn_with_quest{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     let (factory_address : felt) = ido_factory_address.read()
     let (leaf) = hash2{hash_ptr=pedersen_ptr}(_from, nb_quest)
     let (_id : felt) = _uint_to_felt(id)
-    let (merkle_root : felt) = IZKPadIDOFactory.get_merkle_root(
+    let (merkle_root : felt) = IAstralyIDOFactory.get_merkle_root(
         contract_address=factory_address, id=_id
     )
     local root_loc = merkle_root
     let (_valid : felt) = merkle_verify(leaf, merkle_root, merkle_proof_len, merkle_proof)
-    with_attr error_message("ZkPadLotteryToken::Error in the number of quests done"):
+    with_attr error_message("AstralyLotteryToken::Error in the number of quests done"):
         assert _valid = 1
     end
     ERC1155_burn(_from, id, amount)
     # Spin up VRF and update allocation accordingly
-    let (ido_address : felt) = IZKPadIDOFactory.get_ido_address(
+    let (ido_address : felt) = IAstralyIDOFactory.get_ido_address(
         contract_address=factory_address, id=_id
     )
-    let (success : felt) = IZkPadIDOContract.register_user(
+    let (success : felt) = IAstralyIDOContract.register_user(
         contract_address=ido_address, amount=amount, account=_from, nb_quest=nb_quest
     )
-    with_attr error_message("ZkPadLotteryToken::Error while claiming the allocation"):
+    with_attr error_message("AstralyLotteryToken::Error while claiming the allocation"):
         assert success = TRUE
     end
     return ()
@@ -442,7 +442,7 @@ end
 #     # Spin up VRF and update allocations accordingly
 #     let (theAddress) = ido_contract_address.read()
 #     let (res) = IZkIDOContract.register_user(contract_address=theAddress, amount=amount, account=account)
-#     with_attr error_message("ZkPadLotteryToken: Error while claiming the allocation"):
+#     with_attr error_message("AstralyLotteryToken: Error while claiming the allocation"):
 #         assert res = 1
 #     end
 #     return ()
@@ -453,7 +453,7 @@ end
 func set_xzkp_contract_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     xzkp_contract_address.write(address)
     return ()
 end
@@ -463,7 +463,7 @@ end
 func set_ido_factory_address{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, range_check_ptr}(
     address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     ido_factory_address.write(address)
     return ()
 end
@@ -475,12 +475,12 @@ func _is_before_ido_launch{pedersen_ptr : HashBuiltin*, syscall_ptr : felt*, ran
     alloc_locals
     let (factory_address : felt) = ido_factory_address.read()
     let (felt_id : felt) = _uint_to_felt(id)
-    let (ido_launch) = IZKPadIDOFactory.get_ido_launch_date(
+    let (ido_launch) = IAstralyIDOFactory.get_ido_launch_date(
         contract_address=factory_address, id=felt_id
     )
     let (block_timestamp) = get_block_timestamp()
 
-    with_attr error_message("ZkPadLotteryToken::Standby Phase is over"):
+    with_attr error_message("AstralyLotteryToken::Standby Phase is over"):
         assert_nn_le(block_timestamp, ido_launch)
     end
 
