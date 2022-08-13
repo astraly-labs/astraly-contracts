@@ -19,7 +19,6 @@ from openzeppelin.security.safemath.library import SafeUint256
 
 from InterfaceAll import IZKPadIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.utils.ZkPadConstants import DAYS_30
-from contracts.utils.ZkPadUtils import get_is_equal, uint256_max
 from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (
@@ -30,7 +29,7 @@ from starkware.cairo.common.uint256 import (
     uint256_check,
 )
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_is_zero
+from contracts.utils import uint256_is_zero, get_is_equal, uint256_max
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -76,6 +75,7 @@ struct Participation:
     member amount_bought : Uint256
     member amount_paid : Uint256
     member time_participated : felt
+    member claimed : felt
 end
 
 struct Registration:
@@ -122,11 +122,6 @@ end
 # Mapping user to number of allocations
 @storage_var
 func address_to_allocations(user_address : felt) -> (res : Uint256):
-end
-
-# total allocations given
-@storage_var
-func total_allocations_given() -> (res : Uint256):
 end
 
 # mapping user to is registered or not
@@ -570,7 +565,6 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
-# does this method need anu inputs? or will it only use the number of users and winning tickets?
 @external
 func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
@@ -745,6 +739,7 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         amount_bought=number_of_tokens_buying,
         amount_paid=amount_paid,
         time_participated=block_timestamp,
+        claimed=FALSE,
     )
     user_to_participation.write(account, new_purchase)
 
@@ -787,10 +782,15 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
         assert_le(the_sale.tokens_unlock_time, block_timestamp)
     end
 
+    with_attr error_message("ZkPadINOContract::already claimed"):
+        assert participation.claimed = FALSE
+    end
+
     let participation_upd = Participation(
         amount_bought=participation.amount_bought,
         amount_paid=participation.amount_paid,
         time_participated=participation.time_participated,
+        claimed=TRUE,
     )
     user_to_participation.write(address_caller, participation_upd)
 
@@ -798,14 +798,13 @@ func withdraw_tokens{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_che
     if amt_withdrawing_check == TRUE:
         let token_address = the_sale.token
         let (current_id : Uint256) = currentId.read()
-        IERC721.mint(token_address, address_caller, current_id)
+        IERC721.mint(token_address, address_caller, participation.amount_bought)
         let (new_id : Uint256) = SafeUint256.add(current_id, participation.amount_bought)
         currentId.write(new_id)
         tokens_withdrawn.emit(user_address=address_caller, amount=participation.amount_bought)
         return ()
-    else:
-        return ()
     end
+    return ()
 end
 
 @external

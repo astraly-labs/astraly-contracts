@@ -30,9 +30,8 @@ from contracts.ZkPadAccessControl import ZkPadAccessControl
 from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.utils.ZkPadConstants import DAYS_30
-from contracts.utils.ZkPadUtils import get_is_equal, uint256_max
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_is_zero
+from contracts.utils import uint256_is_zero, get_is_equal, uint256_max
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
