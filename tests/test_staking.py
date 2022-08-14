@@ -188,7 +188,7 @@ async def cache_on_state(state, contract_def, deployment_func):
 @pytest.mark.asyncio
 async def test_proxy_upgrade(contract_defs):
     account_def, proxy_def, _, zk_pad_stake_def = contract_defs
-    erc20_def = get_contract_def('openzeppelin/token/erc20/ERC20.cairo')
+    erc20_def = get_contract_def('openzeppelin/token/erc20/presets/ERC20.cairo')
     starknet = await Starknet.empty()
     user = MockSigner(123)
     owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
