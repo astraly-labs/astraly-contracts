@@ -6,8 +6,9 @@ import pytest
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starkware_utils.error_handling import StarkException
 
+from signers import MockSigner
 from utils import (
-    Signer, to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
+    to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
     assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, set_block_number, assert_approx_eq
 )
 from starkware.starknet.definitions.error_codes import StarknetErrorCode
@@ -27,7 +28,7 @@ SYMBOL = str_to_felt("xZKP")
 DECIMALS = 18
 
 REWARDS_PER_BLOCK = to_uint(parse_ether(10))
-owner = Signer(1234)
+owner = MockSigner(1234)
 
 
 def add_lock_time_bonus(shares: int, lock_time=365):
@@ -189,7 +190,7 @@ async def test_proxy_upgrade(contract_defs):
     account_def, proxy_def, _, zk_pad_stake_def = contract_defs
     erc20_def = get_contract_def('openzeppelin/token/erc20/ERC20.cairo')
     starknet = await Starknet.empty()
-    user = Signer(123)
+    user = MockSigner(123)
     owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(
         contract_class=account_def,
         constructor_calldata=[owner.public_key]
@@ -269,7 +270,7 @@ async def test_conversions(contract_defs, contracts_factory):
 async def test_deposit_redeem_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -346,7 +347,7 @@ async def test_deposit_redeem_flow(contracts_factory):
 async def test_deposit_for_time_and_redeem_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -417,7 +418,7 @@ async def test_deposit_for_time_and_redeem_flow(contracts_factory):
 async def test_mint_withdraw_flow(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await owner.send_transaction(
@@ -496,13 +497,13 @@ async def test_mint_withdraw_flow(contracts_factory):
 async def test_allowances(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
-    user2 = Signer(3456)
+    user2 = MockSigner(3456)
     user2_account = await deploy_account_func(user2.public_key)
 
-    user3 = Signer(4567)
+    user3 = MockSigner(4567)
     user3_account = await deploy_account_func(user3.public_key)
 
     amount = to_uint(100_000)
@@ -625,7 +626,7 @@ async def test_allowances(contracts_factory):
 @pytest.mark.asyncio
 async def test_permissions(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, _ = contracts_factory
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     await assert_revert(
@@ -650,7 +651,7 @@ async def test_deposit_lp(contracts_factory):
 
     await owner.send_transaction(owner_account, zk_pad_staking.contract_address, "updateRewardPerBlockAndEndBlock",
                                  [*UINT_ZERO, get_block_number(starknet_state) + 1])
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     deposit_amount = 10_000
@@ -1409,7 +1410,7 @@ async def test_claim_fees(contracts_factory):
 async def test_reward_system(contracts_factory):
     zk_pad_token, zk_pad_staking, owner_account, deploy_account_func, _, starknet_state = contracts_factory
 
-    user1 = Signer(2345)
+    user1 = MockSigner(2345)
     user1_account = await deploy_account_func(user1.public_key)
 
     stake_amount = INIT_SUPPLY

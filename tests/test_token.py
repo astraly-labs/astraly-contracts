@@ -2,13 +2,15 @@ import pytest
 import asyncio
 
 from starkware.starknet.testing.starknet import Starknet
+
+from signers import MockSigner
 from utils import (
-    Signer, to_uint, add_uint, sub_uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, INVALID_UINT256,
+    to_uint, add_uint, sub_uint, str_to_felt, MAX_UINT256, ZERO_ADDRESS, INVALID_UINT256,
     TRUE, get_contract_def, cached_contract, assert_revert, assert_event_emitted, contract_path
 )
 
-recipient = Signer(123456789987654321)
-owner = Signer(123456789876543210)
+recipient = MockSigner(123456789987654321)
+owner = MockSigner(123456789876543210)
 
 # testing vars
 INIT_SUPPLY = to_uint(1000)

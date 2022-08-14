@@ -1,8 +1,12 @@
 import pytest
 
 from starkware.starknet.testing.starknet import Starknet
+
+from signers import MockSigner
 from utils import *
 import asyncio
+
+pytest.skip(allow_module_level=True)
 
 INIT_SUPPLY = to_uint(1_000_000)
 CAP = to_uint(1_000_000_000_000)
@@ -17,10 +21,10 @@ vesting_len = 2
 shares = [*to_uint(500), *to_uint(500)]
 duration_seconds = 4 * 365 * 86400
 
-owner = Signer(1234)
-user1 = Signer(2345)
-user2 = Signer(3456)
-user3 = Signer(4567)
+owner = MockSigner(1234)
+user1 = MockSigner(2345)
+user2 = MockSigner(3456)
+user3 = MockSigner(4567)
 
 
 @pytest.fixture(scope='module')

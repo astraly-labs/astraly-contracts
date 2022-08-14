@@ -4,10 +4,12 @@ import asyncio
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starknet.testing.starknet import Starknet, StarknetContract
 from starkware.cairo.lang.vm.crypto import pedersen_hash
+
+from signers import MockSigner
 from utils import *
 from starkware.cairo.common.small_merkle_tree import MerkleTree
 
-signer = Signer(123456789987654321)
+signer = MockSigner(123456789987654321)
 account_path = 'openzeppelin/account/presets/Account.cairo'
 erc1155_path = 'ZkPadLotteryToken.cairo'
 ido_path = 'ZkPadIDOContract.cairo'
