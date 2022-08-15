@@ -8,7 +8,7 @@ from openzeppelin.access.accesscontrol.library import AccessControl
 
 const OWNER_ROLE = 'OWNER'
 
-namespace ZkPadAccessControl:
+namespace AstralyAccessControl:
     func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         owner : felt
     ):
@@ -23,7 +23,9 @@ namespace ZkPadAccessControl:
         return ()
     end
 
-    func assert_only_role{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(role : felt):
+    func assert_only_role{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+        role : felt
+    ):
         AccessControl.assert_only_role(role)
         return ()
     end

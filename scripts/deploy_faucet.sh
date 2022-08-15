@@ -18,25 +18,25 @@ MAX_FEE=54452800237082000
 cd ../
 mkdir -p artifacts
 echo "Compile contracts"
-starknet-compile ./contracts/ZkPadFaucet.cairo --output ./artifacts/ZkPadFaucet.json --abi ./artifacts/ZkPadFaucet_abi.json
+starknet-compile ./contracts/AstralyFaucet.cairo --output ./artifacts/AstralyFaucet.json --abi ./artifacts/AstralyFaucet_abi.json
 printf "Contract compile successfully\n"
 
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
-echo "Declare ZkPadFaucet class"
-ZK_PAD_FAUCET_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadFaucet.json $STARKNET_DEVNET_ARGUMENTS)
+echo "Declare AstralyFaucet class"
+ZK_PAD_FAUCET_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/AstralyFaucet.json $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_FAUCET_DECLARATION_OUTPUT}"
 ZK_PAD_FAUCET_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_FAUCET_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
-echo "Deploy ZkPadFaucet"
-ZK_PAD_FAUCET_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadFaucet.json --inputs ${OWNER_ADDRESS} ${ZK_PAD_TOKEN_ADDRESS} ${WITHDRAWAL_AMOUNT} 0 ${WAIT_TIME} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
+echo "Deploy AstralyFaucet"
+ZK_PAD_FAUCET_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/AstralyFaucet.json --inputs ${OWNER_ADDRESS} ${ZK_PAD_TOKEN_ADDRESS} ${WITHDRAWAL_AMOUNT} 0 ${WAIT_TIME} --salt ${SALT} $STARKNET_DEVNET_ARGUMENTS)
 echo "${ZK_PAD_FAUCET_DEPLOY_RECEIPT}"
 ZK_PAD_FAUCET_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_FAUCET_DEPLOY_RECEIPT}")
 
 echo "Mint zkp to the faucet"
 starknet invoke --address "${ZK_PAD_TOKEN_ADDRESS}" \
-    --abi ../artifacts/ZkPadToken_abi.json \
+    --abi ../artifacts/AstralyToken_abi.json \
     --function mint \
     --inputs "${ZK_PAD_FAUCET_ADDRESS}" ${FAUCET_AMOUNT} 0 \
     --max_fee ${MAX_FEE} \

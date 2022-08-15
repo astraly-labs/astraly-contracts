@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul
+from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul, ALL_ONES
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.bool import TRUE, FALSE
@@ -13,6 +13,10 @@ from openzeppelin.security.safemath.library import SafeUint256
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
     return (yesno)
+end
+
+func uint256_max() -> (res : Uint256):
+    return (Uint256(low=ALL_ONES, high=ALL_ONES))
 end
 
 func uint256_is_not_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
@@ -66,19 +70,15 @@ func get_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
     return get_array(array_len - 1, array, mapping_ref)
 end
 
-func concat_arr{range_check_ptr}(
-        arr1_len: felt,
-        arr1: felt*,
-        arr2_len: felt,
-        arr2: felt*,
-    ) -> (res: felt*, res_len: felt):
+func concat_arr{range_check_ptr}(arr1_len : felt, arr1 : felt*, arr2_len : felt, arr2 : felt*) -> (
+    res : felt*, res_len : felt
+):
     alloc_locals
-    let (local res: felt*) = alloc()
+    let (local res : felt*) = alloc()
     memcpy(res, arr1, arr1_len)
     memcpy(res + arr1_len, arr2, arr2_len)
     return (res, arr1_len + arr2_len)
 end
-
 
 # EXAMPLE
 # @storage_var
@@ -90,7 +90,8 @@ end
 # end
 
 func write_to_array{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-        array_len : felt, array : felt*, mapping_ref : felt*) -> ():
+    array_len : felt, array : felt*, mapping_ref : felt*
+) -> ():
     if array_len == 0:
         return ()
     end

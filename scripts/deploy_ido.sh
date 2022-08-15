@@ -37,27 +37,27 @@ ZKP_IDO_CONTRACT_ADDRESS=0xfc2d1b34bca118df6cfbba3564cf688b49bd7bc5f1245271558ac
 cd ../
 mkdir -p artifacts
 echo "Compile contracts"
-starknet-compile ./contracts/ZkPadTask.cairo --output ./artifacts/ZkPadTask.json --abi ./artifacts/ZkPadTask_abi.json
-starknet-compile ./contracts/ZkPadIDOContract.cairo --output ./artifacts/ZkPadIDOContract.json --abi ./artifacts/ZkPadIDOContract_abi.json
+starknet-compile ./contracts/AstralyTask.cairo --output ./artifacts/AstralyTask.json --abi ./artifacts/AstralyTask_abi.json
+starknet-compile ./contracts/AstralyIDOContract.cairo --output ./artifacts/AstralyIDOContract.json --abi ./artifacts/AstralyIDOContract_abi.json
 
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
-# echo "Declare ZkPadTask"
-# starknet declare --contract ../artifacts/ZkPadTask.json
-echo "Declare ZkPadIDO class"
-ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json)
+# echo "Declare AstralyTask"
+# starknet declare --contract ../artifacts/AstralyTask.json
+echo "Declare AstralyIDO class"
+ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/AstralyIDOContract.json)
 echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
 ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
-# echo "Deploy ZkPadTask"
-# ZK_PAD_TASK_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadTask.json --inputs ${ZK_PAD_FACTORY_ADDRESS} --salt ${SALT})
+# echo "Deploy AstralyTask"
+# ZK_PAD_TASK_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/AstralyTask.json --inputs ${ZK_PAD_FACTORY_ADDRESS} --salt ${SALT})
 # echo "${ZK_PAD_TASK_DEPLOYMENT_RECEIPT}"
 # ZKP_TASK_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_TASK_DEPLOYMENT_RECEIPT}")
 
 # echo "Set Task Address"
 # starknet invoke --address "${ZK_PAD_FACTORY_ADDRESS}" \
-#     --abi ../artifacts/ZkPadIDOFactory_abi.json \
+#     --abi ../artifacts/AstralyIDOFactory_abi.json \
 #     --function set_task_address \
 #     --max_fee ${MAX_FEE} \
 #     --account ${OWNER_ACCOUNT_NAME} \
@@ -68,7 +68,7 @@ ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUT
 
 # echo "Set IDO Class Hash"
 # starknet invoke --address "${ZK_PAD_FACTORY_ADDRESS}" \
-#     --abi ../artifacts/ZkPadIDOFactory_abi.json \
+#     --abi ../artifacts/AstralyIDOFactory_abi.json \
 #     --function set_ido_contract_class_hash \
 #     --max_fee ${MAX_FEE} \
 #     --account ${OWNER_ACCOUNT_NAME} \
@@ -80,7 +80,7 @@ ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUT
 
 # echo "Create IDO"
 # starknet invoke --address "${ZK_PAD_FACTORY_ADDRESS}" \
-#     --abi ../artifacts/ZkPadIDOFactory_abi.json \
+#     --abi ../artifacts/AstralyIDOFactory_abi.json \
 #     --function create_ido \
 #     --max_fee ${MAX_FEE} \
 #     --account ${OWNER_ACCOUNT_NAME} \
@@ -90,7 +90,7 @@ ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUT
 
 
 starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
-    --abi ../artifacts/ZkPadIDOContract_abi.json \
+    --abi ../artifacts/AstralyIDOContract_abi.json \
     --function set_sale_params \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
@@ -100,7 +100,7 @@ starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
 sleep 400
 
 starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
-    --abi ../artifacts/ZkPadIDOContract_abi.json \
+    --abi ../artifacts/AstralyIDOContract_abi.json \
     --function set_vesting_params \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \
@@ -110,7 +110,7 @@ starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
 sleep 400
 
 starknet invoke --address ${ZKP_IDO_CONTRACT_ADDRESS} \
-    --abi ../artifacts/ZkPadIDOContract_abi.json \
+    --abi ../artifacts/AstralyIDOContract_abi.json \
     --function set_registration_time \
     --max_fee ${MAX_FEE} \
     --account ${OWNER_ACCOUNT_NAME} \

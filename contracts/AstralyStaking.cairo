@@ -92,7 +92,7 @@ from contracts.erc4626.library import (
 )
 from contracts.utils import uint256_is_zero, uint256_is_not_zero, uint256_assert_not_zero, is_lt
 from contracts.utils.Uint256_felt_conv import _felt_to_uint
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 from InterfaceAll import IERC20, UserInfo
 
 @contract_interface
@@ -483,7 +483,7 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     assert_not_zero(owner)
     Proxy.initializer(owner)
     ERC4626_initializer(name, symbol, asset_addr)
-    ZkPadAccessControl.initializer(owner)
+    AstralyAccessControl.initializer(owner)
     setDefaultLockTime(365)
     setStakeBoost(25)
     setFeePercent(1)  # TODO : Check division later
@@ -515,7 +515,7 @@ func addWhitelistedToken{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
 }(lp_token : felt, mint_calculator_address : felt, is_NFT : felt) -> (token_mask : felt):
     alloc_locals
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("invalid token address"):
         assert_not_zero(lp_token)
     end
@@ -547,7 +547,7 @@ end
 func removeWhitelistedToken{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr, bitwise_ptr : BitwiseBuiltin*
 }(lp_token : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (all_token_masks : felt) = whitelisted_tokens_mask.read()
     let (whitelisted_token : WhitelistedToken) = whitelisted_tokens.read(lp_token)
     let (new_tokens_masks : felt) = bitwise_xor(whitelisted_token.bit_mask, all_token_masks)
@@ -563,7 +563,7 @@ func setEmergencyBreaker{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     address : felt
 ):
     assert_not_zero(address)
-    ZkPadAccessControl.grant_role(EMERGENCY_BREAKER_ROLE, address)
+    AstralyAccessControl.grant_role(EMERGENCY_BREAKER_ROLE, address)
     return ()
 end
 
@@ -889,7 +889,7 @@ end
 func setDefaultLockTime{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_lock_time_days : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_default_lock_time(new_lock_time_days)
     return ()
 end
@@ -898,7 +898,7 @@ end
 func setStakeBoost{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_boost_value : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     assert_not_zero(new_boost_value)
     lp_stake_boost.write(new_boost_value)
     return ()
@@ -906,7 +906,7 @@ end
 
 @external
 func setFeePercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(fee : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_fee_percent(fee)
     return ()
 end
@@ -915,7 +915,7 @@ end
 func setHarvestWindow{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     window : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_harvest_window(window)
     return ()
 end
@@ -924,7 +924,7 @@ end
 func setHarvestDelay{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_delay : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_harvest_delay(new_delay)
     return ()
 end
@@ -933,7 +933,7 @@ end
 func setTargetFloatPercent{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_float : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_target_float_percent(new_float)
     return ()
 end
@@ -943,7 +943,7 @@ func setHarvestTaskContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ra
     address : felt
 ):
     assert_not_zero(address)
-    ZkPadAccessControl.grant_role(HARVESTER_ROLE, address)
+    AstralyAccessControl.grant_role(HARVESTER_ROLE, address)
     return ()
 end
 
@@ -960,7 +960,7 @@ end
 func depositIntoStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     deposit_into_strategy(strategy_address, underlying_amount)
     return ()
 end
@@ -969,7 +969,7 @@ end
 func withdrawFromStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt, underlying_amount : Uint256
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     withdraw_from_strategy(strategy_address, underlying_amount)
     return ()
 end
@@ -978,7 +978,7 @@ end
 func trustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     trust_strategy(strategy_address)
     return ()
 end
@@ -987,14 +987,14 @@ end
 func distrustStrategy{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy_address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     distrust_strategy(strategy_address)
     return ()
 end
 
 @external
 func claimFees{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(amount : Uint256):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     claim_fees(amount)
     return ()
 end
@@ -1003,14 +1003,14 @@ end
 func pushToWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     strategy : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     push_to_withdrawal_stack(strategy)
     return ()
 end
 
 @external
 func popFromWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     pop_from_withdrawal_stack()
     return ()
 end
@@ -1019,7 +1019,7 @@ end
 func setWithdrawalStack{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     stack_len : felt, stack : felt*
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     set_withdrawal_stack(stack_len, stack)
     return ()
 end
@@ -1028,7 +1028,7 @@ end
 func replaceWithdrawalStackIndex{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     index : felt, address : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     replace_withdrawal_stack_index(index, address)
     return ()
 end
@@ -1037,7 +1037,7 @@ end
 func swapWithdrawalStackIndexes{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     index1 : felt, index2 : felt
 ):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     swap_withdrawal_stack_indexes(index1, index2)
     return ()
 end
@@ -1054,7 +1054,7 @@ func updateRewardPerBlockAndEndBlock{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(_reward_per_block : Uint256, new_end_block : felt):
     alloc_locals
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     let (local current_start_block : felt) = startBlock()
     let (block_number : felt) = get_block_number()
     let (is_lower : felt) = is_le(current_start_block, block_number)
@@ -1125,7 +1125,7 @@ end
 func transferOwnership{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_owner : felt
 ):
-    ZkPadAccessControl.transfer_ownership(new_owner)
+    AstralyAccessControl.transfer_ownership(new_owner)
     Proxy._set_admin(new_owner)
     return ()
 end
@@ -1134,12 +1134,12 @@ end
 func pause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (is_owner : felt) = ZkPadAccessControl.is_owner(caller_address)
+    let (is_owner : felt) = AstralyAccessControl.is_owner(caller_address)
     local permissions
     if is_owner == TRUE:
         permissions = TRUE
     else:
-        let (is_emergency_breaker : felt) = ZkPadAccessControl.has_role(
+        let (is_emergency_breaker : felt) = AstralyAccessControl.has_role(
             EMERGENCY_BREAKER_ROLE, caller_address
         )
         if is_emergency_breaker == TRUE:
@@ -1155,7 +1155,7 @@ end
 
 @external
 func unpause{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
     Pausable._unpause()
     return ()
 end
@@ -1169,13 +1169,13 @@ func only_owner_or_harvest_task_contract{
 }():
     alloc_locals
     let (caller_address : felt) = get_caller_address()
-    let (is_owner : felt) = ZkPadAccessControl.is_owner(caller_address)
+    let (is_owner : felt) = AstralyAccessControl.is_owner(caller_address)
     local permissions
     if is_owner == TRUE:
         permissions = TRUE
         return ()
     else:
-        let (is_harvest_task_contract : felt) = ZkPadAccessControl.has_role(
+        let (is_harvest_task_contract : felt) = AstralyAccessControl.has_role(
             HARVESTER_ROLE, caller_address
         )
         if is_harvest_task_contract == TRUE:

@@ -1,6 +1,8 @@
 import pytest
 
 from signers import MockSigner
+
+from signers import MockSigner
 from utils import *
 import asyncio
 
@@ -10,7 +12,7 @@ from pprint import pprint as pp
 
 TRUE = 1
 FALSE = 0
-NAME = str_to_felt("ZkPad")
+NAME = str_to_felt("Astraly")
 SYMBOL = str_to_felt("ZKP")
 DECIMALS = 18
 INIT_SUPPLY = to_uint(1000000)
@@ -20,12 +22,12 @@ TOKEN_ID = uint(0)
 MINT_AMOUNT = uint(1000)
 ONE_DAY = 24 * 60 * 60
 
-account_path = 'openzeppelin/account/presets/Account.cairo'
+account_path = 'openzeppelin/account/Account.cairo'
 ido_factory_path = 'ZkPadIDOFactory.cairo'
 ido_path = 'ZkPadIDOContract.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
-erc1155_path = 'ZkPadLotteryToken.cairo'
-erc20_eth_path = 'mocks/ZkPad_ETH_ERC20_mock.cairo'
+erc1155_path = 'AstralyLotteryToken.cairo'
+erc20_eth_path = 'mocks/Astraly_ETH_ERC20_mock.cairo'
 
 deployer = MockSigner(1234321)
 admin1 = MockSigner(2345432)
@@ -80,8 +82,8 @@ def contract_defs():
     rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
     erc1155_def = get_contract_def(erc1155_path)
     zk_pad_ido_def = get_contract_def(ido_path)
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
-    task_def = get_contract_def('ZkPadTask.cairo')
+    zk_pad_token_def = get_contract_def('AstralyToken.cairo')
+    task_def = get_contract_def('AstralyTask.cairo')
     erc20_eth_def = get_contract_def(erc20_eth_path)
 
     return account_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def

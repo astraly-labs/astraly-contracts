@@ -76,9 +76,9 @@ func redeemUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_ch
 end
 
 @external
-func balanceOfUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(user : felt) -> (
-    res : Uint256
-):
+func balanceOfUnderlying{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    user : felt
+) -> (res : Uint256):
     let (_underlying : felt) = underlying()
     let (address_this : felt) = get_contract_address()
     let (balance_of_this : Uint256) = IERC20.balanceOf(_underlying, address_this)

@@ -51,11 +51,11 @@ def str_to_felt(text):
 INITIAL_SUPPLY = str(parse_ether(10_000_000))
 MAX_SUPPLY = str(parse_ether(100_000_000))  # TODO: check value before deploy
 DECIMALS = "18"
-NAME = str_to_felt("ZkPad")
+NAME = str_to_felt("Astraly")
 SYMBOL = str_to_felt("ZKP")
 
 # XZKP TOKEN PARAMS
-XZKP_NAME = str_to_felt("xZkPad")
+XZKP_NAME = str_to_felt("xAstraly")
 XZKP_SYMBOL = str_to_felt("xZKP")
 REWARDS_PER_BLOCK = to_uint(parse_ether(10))
 START_BLOCK = 0
@@ -103,7 +103,7 @@ def run(nre: NileRuntimeEnvironment):
     print(f"Admin2 account: {admin_2.address}")
 
     # Deploy ZKP token
-    zkp_token = deploy_try_catch(nre, "ZkPadToken", [
+    zkp_token = deploy_try_catch(nre, "AstralyToken", [
         str(NAME),
         str(SYMBOL),
         DECIMALS,
@@ -115,17 +115,17 @@ def run(nre: NileRuntimeEnvironment):
         "0"
     ], "zkp_token")
     # xzkp_token_implementation = deploy_try_catch(
-    #     nre, "ZkPadStaking", [], "xzkp_token_implementation")
-    xzkp_class_hash = nre.declare("ZkPadStaking")
+    #     nre, "AstralyStaking", [], "xzkp_token_implementation")
+    xzkp_class_hash = nre.declare("AstralyStaking")
     xzkp_token = deploy_try_catch(
         nre, "Proxy", [xzkp_class_hash], "xzkp_token_proxy")
 
     # deploy harvest task
     harvest_task = deploy_try_catch(
-        nre, "ZkPadVaultHarvestTask", [xzkp_token], "harvest_task")
+        nre, "AstralyVaultHarvestTask", [xzkp_token], "harvest_task")
 
     # deploy admin contract
-    admin_contract = deploy_try_catch(nre, "ZkPadAdmin", [
+    admin_contract = deploy_try_catch(nre, "AstralyAdmin", [
         os.environ.get("NUMBER_OF_ADMINS"),
         *[admin_1.address, admin_2.address]
     ], "admin_contract")
@@ -137,17 +137,18 @@ def run(nre: NileRuntimeEnvironment):
         ], "xoroshiro_contract")
 
     # Deploy IDO Factory
-    ido_class_hash = nre.declare("ZkPadIDOContract", alias="ZkPadIDOContract")
+    ido_class_hash = nre.declare(
+        "AstralyIDOContract", alias="AstralyIDOContract")
     factory_contract = deploy_try_catch(
-        nre, "ZkPadIDOFactory", [ido_class_hash, signer.address], "factory_contract")
+        nre, "AstralyIDOFactory", [ido_class_hash, signer.address], "factory_contract")
 
     # Deploy Lottery token
-    lottery_token = deploy_try_catch(nre, "ZkPadLotteryToken", [
+    lottery_token = deploy_try_catch(nre, "AstralyLotteryToken", [
         str(len(lottery_uri)), *lottery_uri, signer.address, factory_contract
     ], "lottery_token")
 
     # Deploy IDO Task
-    task_contract = deploy_try_catch(nre, "ZkPadTask", [
+    task_contract = deploy_try_catch(nre, "AstralyTask", [
         factory_contract
     ], "task_contract")
 

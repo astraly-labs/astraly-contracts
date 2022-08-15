@@ -267,6 +267,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 127.0.0.1.deployments.txt
+127.0.0.1.declarations.txt
 node.json
 .idea/
 .vscode

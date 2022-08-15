@@ -1,3 +1,4 @@
+from utils import run_tx
 import os
 import sys
 import subprocess
@@ -8,7 +9,6 @@ import time
 from nile.nre import NileRuntimeEnvironment
 
 sys.path.append(os.path.dirname(__file__))
-from utils import run_tx
 
 
 def to_uint(a):
@@ -37,7 +37,7 @@ def parse_ether(value: int):
     return int(value * 1e18)
 
 
-XZKP_NAME = str_to_felt("xZkPad")
+XZKP_NAME = str_to_felt("xAstraly")
 XZKP_SYMBOL = str_to_felt("xZKP")
 
 REWARDS_PER_BLOCK = to_uint(parse_ether(10))

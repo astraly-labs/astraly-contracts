@@ -16,23 +16,23 @@ PROXY_ADDRESS=0x005ef67d8c38b82ba699f206bf0db59f1828087a710bad48cc4d51a2b0da4c29
 cd ../
 # mkdir -p artifacts
 # echo "Compile contracts"
-# starknet-compile ./contracts/ZkPadStaking.cairo --output ./artifacts/ZkPadStaking.json --abi ./artifacts/ZkPadStaking_abi.json
+# starknet-compile ./contracts/AstralyStaking.cairo --output ./artifacts/AstralyStaking.json --abi ./artifacts/AstralyStaking_abi.json
 
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
-echo "Declare ZkPadStaking class"
-ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../build/ZkPadStaking.json)
+echo "Declare AstralyStaking class"
+ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../build/AstralyStaking.json)
 echo "${ZK_PAD_STAKING_DECLARATION_OUTPUT}"
 ZK_PAD_STAKING_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_STAKING_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
-# echo "Deploy ZkPadStaking"
-# starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT}
+# echo "Deploy AstralyStaking"
+# starknet deploy --contract ../artifacts/AstralyStaking.json --salt ${SALT}
 
 
 echo "Upgrade Implementation"
 starknet invoke --address "${PROXY_ADDRESS}" \
-    --abi ../build/ZkPadStaking_abi.json \
+    --abi ../build/AstralyStaking_abi.json \
     --function upgrade \
     --inputs ${ZK_PAD_STAKING_CLASS_HASH} \
     --max_fee ${MAX_FEE} \
