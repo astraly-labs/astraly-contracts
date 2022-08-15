@@ -11,9 +11,9 @@ from starkware.cairo.common.small_merkle_tree import MerkleTree
 
 signer = MockSigner(123456789987654321)
 account_path = 'openzeppelin/account/presets/Account.cairo'
-erc1155_path = 'ZkPadLotteryToken.cairo'
-ido_path = 'ZkPadIDOContract.cairo'
-factory_path = 'ZkPadIDOFactory.cairo'
+erc1155_path = 'AstralyLotteryToken.cairo'
+ido_path = 'AstralyIDOContract.cairo'
+factory_path = 'AstralyIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 
@@ -95,9 +95,9 @@ def contract_defs():
     receiver_def = get_contract_def(receiver_path)
     ido_def = get_contract_def(ido_path)
     factory_def = get_contract_def(factory_path)
-    zk_pad_token_def = get_contract_def('ZkPadToken.cairo')
-    zk_pad_stake_def = get_contract_def('ZkPadStaking.cairo')
-    task_def = get_contract_def('ZkPadTask.cairo')
+    zk_pad_token_def = get_contract_def('AstralyToken.cairo')
+    zk_pad_stake_def = get_contract_def('AstralyStaking.cairo')
+    task_def = get_contract_def('AstralyTask.cairo')
     return account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def
 
 
@@ -135,7 +135,7 @@ async def erc1155_init(contract_defs):
     zk_pad_token = await starknet.deploy(
         contract_class=zk_pad_token_def,
         constructor_calldata=[
-            str_to_felt("ZkPad"),
+            str_to_felt("Astraly"),
             str_to_felt("ZKP"),
             DECIMALS,
             *INIT_SUPPLY,
@@ -159,7 +159,7 @@ async def erc1155_init(contract_defs):
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])
     await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
-        str_to_felt("xZkPad"),
+        str_to_felt("xAstraly"),
         str_to_felt("xZKP"),
         zk_pad_token.contract_address,
         account1.contract_address,
@@ -1378,7 +1378,7 @@ async def test_safe_batch_transfer_from_to_unsafe_contract(erc1155_minted_factor
 #             *amount,
 #             0  # data
 #         ]
-#     ), "ZkPadLotteryToken::Standby Phase is over")
+#     ), "AstralyLotteryToken::Standby Phase is over")
 
 
 #
@@ -1419,7 +1419,7 @@ async def test_claim_twice_fail(full_factory):
 
     # Attempt to claim again
     await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
+        *IDO_ID, 0]), "AstralyLotteryToken::Tickets already claimed")
 
 
 @pytest.mark.asyncio
@@ -1461,7 +1461,7 @@ async def test_claim_no_tickets(full_factory):
 
     # Try to claim with a user with no xZKP tokens
     await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
+        *IDO_ID, 0]), "AstralyLotteryToken::No tickets to claim")
 
 
 @pytest.mark.asyncio

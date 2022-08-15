@@ -28,7 +28,7 @@ def run(nre: NileRuntimeEnvironment):
     xzkp_token_implementation = None
     try:
         xzkp_token_implementation, abi = nre.deploy(
-            "ZkPadStaking", alias="xzkp_token_implementation")
+            "AstralyStaking", alias="xzkp_token_implementation")
     except Exception as error:
         if "already exists" in str(error):
             xzkp_token_implementation, _ = nre.get_deployment(

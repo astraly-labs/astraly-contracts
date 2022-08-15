@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul
+from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul, ALL_ONES
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.bool import TRUE, FALSE
@@ -13,6 +13,10 @@ from openzeppelin.security.safemath.library import SafeUint256
 func uint256_is_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):
     let (yesno : felt) = uint256_eq(v, Uint256(0, 0))
     return (yesno)
+end
+
+func uint256_max() -> (res : Uint256):
+    return (Uint256(low=ALL_ONES, high=ALL_ONES))
 end
 
 func uint256_is_not_zero{range_check_ptr}(v : Uint256) -> (yesno : felt):

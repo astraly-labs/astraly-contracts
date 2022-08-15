@@ -8,7 +8,7 @@ from openzeppelin.access.accesscontrol.library import AccessControl
 
 const OWNER_ROLE = 'OWNER'
 
-namespace ZkPadAccessControl:
+namespace AstralyAccessControl:
     func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         owner : felt
     ):

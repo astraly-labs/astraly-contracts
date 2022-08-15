@@ -27,7 +27,7 @@ INITIAL_SUPPLY=10000000000000000000000000
 RECIPIENT=${OWNER_ADDRESS}
 MAX_SUPPLY=100000000000000000000000000  # TODO: check value before deploy
 
-XZKP_NAME=0x7841737472616c79 # hex(str_to_felt("xZkPad"))
+XZKP_NAME=0x7841737472616c79 # hex(str_to_felt("xAstraly"))
 XZKP_SYMBOL=0x7841535452 # hex(str_to_felt("xZKP"))
 REWARD_PER_BLOCK=10000000000000000000 # 10 ether
 
@@ -35,85 +35,85 @@ REWARD_PER_BLOCK=10000000000000000000 # 10 ether
 cd ../
 mkdir -p artifacts
 echo "Compile contracts"
-starknet-compile ./contracts/ZkPadStaking.cairo --output ./artifacts/ZkPadStaking.json --abi ./artifacts/ZkPadStaking_abi.json
-starknet-compile ./contracts/ZkPadVaultHarvestTask.cairo --output ./artifacts/ZkPadVaultHarvestTask.json --abi ./artifacts/ZkPadVaultHarvestTask_abi.json
+starknet-compile ./contracts/AstralyStaking.cairo --output ./artifacts/AstralyStaking.json --abi ./artifacts/AstralyStaking_abi.json
+starknet-compile ./contracts/AstralyVaultHarvestTask.cairo --output ./artifacts/AstralyVaultHarvestTask.json --abi ./artifacts/AstralyVaultHarvestTask_abi.json
 starknet-compile ./contracts/openzeppelin/upgrades/OZProxy.cairo --output ./artifacts/OZProxy.json --abi ./artifacts/OZProxy_abi.json
-starknet-compile ./contracts/ZkPadToken.cairo --output ./artifacts/ZkPadToken.json --abi ./artifacts/ZkPadToken_abi.json
-starknet-compile ./contracts/ZkPadAdmin.cairo --output ./artifacts/ZkPadAdmin.json --abi ./artifacts/ZkPadAdmin_abi.json
-starknet-compile ./contracts/ZkPadLotteryToken.cairo --output ./artifacts/ZkPadLotteryToken.json --abi ./artifacts/ZkPadLotteryToken_abi.json
-starknet-compile ./contracts/ZkPadIDOFactory.cairo --output ./artifacts/ZkPadIDOFactory.json --abi ./artifacts/ZkPadIDOFactory_abi.json
-starknet-compile ./contracts/ZkPadINOContract.cairo --output ./artifacts/ZkPadINOContract.json --abi ./artifacts/ZkPadINOContract_abi.json
+starknet-compile ./contracts/AstralyToken.cairo --output ./artifacts/AstralyToken.json --abi ./artifacts/AstralyToken_abi.json
+starknet-compile ./contracts/AstralyAdmin.cairo --output ./artifacts/AstralyAdmin.json --abi ./artifacts/AstralyAdmin_abi.json
+starknet-compile ./contracts/AstralyLotteryToken.cairo --output ./artifacts/AstralyLotteryToken.json --abi ./artifacts/AstralyLotteryToken_abi.json
+starknet-compile ./contracts/AstralyIDOFactory.cairo --output ./artifacts/AstralyIDOFactory.json --abi ./artifacts/AstralyIDOFactory_abi.json
+starknet-compile ./contracts/AstralyINOContract.cairo --output ./artifacts/AstralyINOContract.json --abi ./artifacts/AstralyINOContract_abi.json
 starknet-compile ./contracts/utils/xoroshiro128_starstar.cairo --output ./artifacts/xoroshiro128_starstar.json --abi ./artifacts/xoroshiro128_starstar_abi.json
 printf "Contract compile successfully\n"
 
 ################################################################################## DECLARE ##########################################################################################
 cd ./contracts
-echo "Declare ZkPadStaking class"
-ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadStaking.json)
+echo "Declare AstralyStaking class"
+ZK_PAD_STAKING_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/AstralyStaking.json)
 echo "${ZK_PAD_STAKING_DECLARATION_OUTPUT}"
 ZK_PAD_STAKING_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_STAKING_DECLARATION_OUTPUT}")
 
 echo "Declare OZProxy class"
 starknet declare --contract ../artifacts/OZProxy.json 
 
-echo "Declare ZkPadVaultHarvestTask"
-starknet declare --contract ../artifacts/ZkPadVaultHarvestTask.json
+echo "Declare AstralyVaultHarvestTask"
+starknet declare --contract ../artifacts/AstralyVaultHarvestTask.json
 
-echo "Declare ZkPadAdmin"
-# starknet declare --contract ../artifacts/ZkPadAdmin.json
+echo "Declare AstralyAdmin"
+# starknet declare --contract ../artifacts/AstralyAdmin.json
 
-echo "Declare ZkPadToken"
-# starknet declare --contract ../artifacts/ZkPadToken.json
+echo "Declare AstralyToken"
+# starknet declare --contract ../artifacts/AstralyToken.json
 
-echo "Declare ZkPadLotteryToken"
-# starknet declare --contract ../artifacts/ZkPadLotteryToken.json
+echo "Declare AstralyLotteryToken"
+# starknet declare --contract ../artifacts/AstralyLotteryToken.json
 
-echo "Declare ZkPadIDOFactory"
-# starknet declare --contract ../artifacts/ZkPadIDOFactory.json
+echo "Declare AstralyIDOFactory"
+# starknet declare --contract ../artifacts/AstralyIDOFactory.json
 
 echo "Declare xoroshiro128_starstar"
 # starknet declare --contract ../artifacts/xoroshiro128_starstar.json
 printf "Declare successfully\n"
 
-echo "Declare ZkPadIDO class"
-ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadIDOContract.json)
+echo "Declare AstralyIDO class"
+ZK_PAD_IDO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/AstralyIDOContract.json)
 echo "${ZK_PAD_IDO_DECLARATION_OUTPUT}"
 ZK_PAD_IDO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_IDO_DECLARATION_OUTPUT}")
-echo "Declare ZkPadINO class"
-ZK_PAD_INO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/ZkPadINOContract.json)
+echo "Declare AstralyINO class"
+ZK_PAD_INO_DECLARATION_OUTPUT=$(starknet declare --contract ../artifacts/AstralyINOContract.json)
 echo "${ZK_PAD_INO_DECLARATION_OUTPUT}"
 ZK_PAD_INO_CLASS_HASH=$(awk 'NR==2 {print $4}' <<< "${ZK_PAD_INO_DECLARATION_OUTPUT}")
 
 ################################################################################## DEPLOY ##########################################################################################
-# echo "Deploy ZkPadStaking"
-# starknet deploy --contract ../artifacts/ZkPadStaking.json --salt ${SALT} 
+# echo "Deploy AstralyStaking"
+# starknet deploy --contract ../artifacts/AstralyStaking.json --salt ${SALT} 
 
 # echo "Deploy OZProxy"
 # ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/OZProxy.json --salt ${SALT} --inputs "${ZK_PAD_STAKING_CLASS_HASH}")
 # echo "${ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT}"
 # ZK_PAD_STAKING_PROXY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_STAKING_PROXY_DEPLOY_RECEIPT}")
 
-# echo "Deploy ZkPadVaultHarvestTask"
-# starknet deploy --contract ../artifacts/ZkPadVaultHarvestTask.json --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" --salt ${SALT}
+# echo "Deploy AstralyVaultHarvestTask"
+# starknet deploy --contract ../artifacts/AstralyVaultHarvestTask.json --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" --salt ${SALT}
 
-# echo "Deploy ZkPadAdmin"
-# starknet deploy --contract ../artifacts/ZkPadAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT}
+# echo "Deploy AstralyAdmin"
+# starknet deploy --contract ../artifacts/AstralyAdmin.json --inputs "${NUMBER_OF_ADMINS}" ${ADMINS_ADDRESSES} --salt ${SALT}
 
-# echo "Deploy ZkPadIDOFactory"
-# ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH}" ${OWNER_ADDRESS} --salt ${SALT})
+# echo "Deploy AstralyIDOFactory"
+# ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/AstralyIDOFactory.json --inputs "${ZK_PAD_IDO_CLASS_HASH}" ${OWNER_ADDRESS} --salt ${SALT})
 # echo "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}"
 # ZK_PAD_IDO_FACTORY_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_IDO_FACTORY_DEPLOY_RECEIPT}")
 
-# echo "Deploy ZkPadLotteryToken"
-# ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadLotteryToken.json --inputs ${LOTTERY_URI_LEN} "${LOTTERY_URI_0}" "${LOTTERY_URI_1}" ${OWNER_ADDRESS} "${ZK_PAD_IDO_FACTORY_ADDRESS}" --salt ${SALT})
+# echo "Deploy AstralyLotteryToken"
+# ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT=$(starknet deploy --contract ../artifacts/AstralyLotteryToken.json --inputs ${LOTTERY_URI_LEN} "${LOTTERY_URI_0}" "${LOTTERY_URI_1}" ${OWNER_ADDRESS} "${ZK_PAD_IDO_FACTORY_ADDRESS}" --salt ${SALT})
 # echo "${ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT}"
 # ZK_PAD_LOTTERY_TOKEN_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_LOTTERY_TOKEN_DEPLOY_RECEIPT}")
 
 # echo "Deploy xoroshiro128_starstar"
 # starknet deploy --contract ../artifacts/xoroshiro128_starstar.json --inputs "${XOROSHIRO_RNG_SEED}" --salt ${SALT}
 
-# echo "Deploy ZkPadToken"
-# ZK_PAD_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/ZkPadToken.json --salt ${SALT} \
+# echo "Deploy AstralyToken"
+# ZK_PAD_DEPLOYMENT_RECEIPT=$(starknet deploy --contract ../artifacts/AstralyToken.json --salt ${SALT} \
 #     --inputs ${ZKP_NAME} ${ZKP_SYMBOL} ${DECIMALS} ${INITIAL_SUPPLY} 0 ${RECIPIENT} ${OWNER_ADDRESS} ${MAX_SUPPLY} 0)
 # echo "${ZK_PAD_DEPLOYMENT_RECEIPT}"
 # ZKP_TOKEN_ADDRESS=$(awk 'NR==2 {print $3}' <<< "${ZK_PAD_DEPLOYMENT_RECEIPT}")
@@ -128,7 +128,7 @@ echo "CONTRACTS DEPLOYMENT DONE 🚀"
 
 # echo "Initialize the vault"
 # starknet invoke --address "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
-#     --abi ../artifacts/ZkPadStaking_abi.json \
+#     --abi ../artifacts/AstralyStaking_abi.json \
 #     --function initializer \
 #     --inputs ${XZKP_NAME} ${XZKP_SYMBOL} "${ZKP_TOKEN_ADDRESS}" ${OWNER_ADDRESS} ${REWARD_PER_BLOCK} 0 "${START_BLOCK}" "${END_BLOCK}" \
 #     --max_fee ${MAX_FEE} \
@@ -141,7 +141,7 @@ echo "Initialize successfully"
 
 echo "Set xZKP contract address for lottery token"
 starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
-    --abi ../artifacts/ZkPadLotteryToken_abi.json \
+    --abi ../artifacts/AstralyLotteryToken_abi.json \
     --function set_xzkp_contract_address \
     --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
@@ -152,7 +152,7 @@ echo "xZKP address set successfully"
 
 echo "Set xZKP contract address for token"
 starknet invoke --address "${ZKP_TOKEN_ADDRESS}" \
-    --abi ../artifacts/ZkPadToken_abi.json \
+    --abi ../artifacts/AstralyToken_abi.json \
     --function set_vault_address \
     --inputs "${ZK_PAD_STAKING_PROXY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
@@ -163,7 +163,7 @@ echo "xZKP address set successfully"
 
 echo "Set IDO factory address"
 starknet invoke --address "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
-    --abi ../artifacts/ZkPadLotteryToken_abi.json \
+    --abi ../artifacts/AstralyLotteryToken_abi.json \
     --function set_ido_factory_address \
     --inputs "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
     --max_fee ${MAX_FEE} \
@@ -174,7 +174,7 @@ echo "IDO factory address set"
 
 echo "Set lottery ticket contract address"
 starknet invoke --address "${ZK_PAD_IDO_FACTORY_ADDRESS}" \
-    --abi ../artifacts/ZkPadIDOFactory_abi.json \
+    --abi ../artifacts/AstralyIDOFactory_abi.json \
     --function set_lottery_ticket_contract_address \
     --inputs "${ZK_PAD_LOTTERY_TOKEN_ADDRESS}" \
     --max_fee ${MAX_FEE} \
