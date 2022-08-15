@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 
+import pytest_asyncio
 from starkware.starknet.testing.starknet import Starknet
 
 from signers import MockSigner
@@ -36,7 +37,7 @@ def contract_defs():
     return account_def, zk_pad_token_def
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def contracts_init(contract_defs):
     account_def, zk_pad_token_def = contract_defs
     starknet = await Starknet.empty()
@@ -70,7 +71,7 @@ async def contracts_init(contract_defs):
     )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def contracts_factory(contract_defs, contracts_init):
     account_def, zk_pad_token_def = contract_defs
     state, account1, account2, erc20 = contracts_init

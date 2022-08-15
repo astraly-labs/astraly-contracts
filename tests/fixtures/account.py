@@ -1,4 +1,4 @@
-import pytest
+import pytest_asyncio
 from starkware.starknet.testing.starknet import Starknet
 
 # Create signers that use a private key to sign transaction objects.
@@ -6,7 +6,8 @@ from tests.signers import MockSigner
 
 DUMMY_PRIVATE = 123456789987654321
 
-@pytest.fixture(scope='module')
+
+@pytest_asyncio.fixture(scope='module')
 async def account_factory(request):
     num_signers = request.param.get("num_signers", "1")
     starknet = await Starknet.empty()

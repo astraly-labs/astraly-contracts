@@ -13,9 +13,9 @@ from starkware.cairo.common.math import (
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 
-from openzeppelin.token.erc20.interfaces.IERC20 import IERC20
+from openzeppelin.token.erc20.IERC20 import IERC20
 from contracts.AstralyAccessControl import AstralyAccessControl
-from openzeppelin.security.safemath import SafeUint256
+from openzeppelin.security.safemath.library import SafeUint256
 
 from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.utils.AstralyConstants import DAYS_30

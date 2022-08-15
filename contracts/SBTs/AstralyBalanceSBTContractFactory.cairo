@@ -8,7 +8,7 @@ from starkware.starknet.common.syscalls import get_contract_address
 
 from openzeppelin.security.initializable.library import Initializable
 
-from contracts.ZkPadAccessControl import ZkPadAccessControl
+from contracts.AstralyAccessControl import AstralyAccessControl
 
 
 @storage_var
@@ -37,14 +37,14 @@ func initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     end
 
     Initializable.initialize()
-    ZkPadAccessControl.initializer(admin_address)
+    AstralyAccessControl.initializer(admin_address)
     SBT_badge_class_hash.write(_SBT_badge_class_hash)
     return ()
 end
 
 @external
 func setSBTBadgeClassHash{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(new_class_hash : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
 
     with_attr error_message("Invalid new class hash"):
         assert_not_zero(new_class_hash)
@@ -59,7 +59,7 @@ end
 @external
 func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     block_number : felt, balance : Uint256, token_address : felt):
-    ZkPadAccessControl.assert_only_owner()
+    AstralyAccessControl.assert_only_owner()
 
     assert_not_zero(block_number)
     let (class_hash : felt) = SBT_badge_class_hash.read()

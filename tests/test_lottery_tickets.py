@@ -1,14 +1,15 @@
 # https://github.com/dewi-tim/cairo-contracts/blob/feature-erc1155/tests/token/erc1155/test_ERC1155_Mintable_Burnable.py
 import pytest
+import pytest_asyncio
 
 from signers import MockSigner
 from utils import *
 
 mock_signer = MockSigner(123456789987654321)
 account_path = 'openzeppelin/account/presets/Account.cairo'
-erc1155_path = 'ZkPadLotteryToken.cairo'
-ido_path = 'ZkPadIDOContract.cairo'
-factory_path = 'ZkPadIDOFactory.cairo'
+erc1155_path = 'AstralyLotteryToken.cairo'
+ido_path = 'AstralyIDOContract.cairo'
+factory_path = 'AstralyIDOFactory.cairo'
 receiver_path = 'mocks/ERC1155_receiver_mock.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 
@@ -96,18 +97,18 @@ def contract_defs():
     return account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def erc1155_init(contract_defs):
     account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, task_def = contract_defs
     starknet = await Starknet.empty()
     await starknet.declare(contract_class=account_def)
     account1 = await starknet.deploy(
         contract_class=account_def,
-        constructor_calldata=[signer.public_key]
+        constructor_calldata=[mock_signer.public_key]
     )
     account2 = await starknet.deploy(
         contract_class=account_def,
-        constructor_calldata=[signer.public_key]
+        constructor_calldata=[mock_signer.public_key]
     )
     ido_class = await starknet.declare(contract_class=ido_def)
     ido = await starknet.deploy(contract_class=ido_def, constructor_calldata=[account1.contract_address])
@@ -153,8 +154,8 @@ async def erc1155_init(contract_defs):
     await starknet.declare(contract_class=proxy_def)
     zk_pad_stake_proxy = await starknet.deploy(contract_class=proxy_def,
                                                constructor_calldata=[zk_pad_stake_class.class_hash])
-    await signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
-        str_to_felt("xZkPad"),
+    await mock_signer.send_transaction(account1, zk_pad_stake_proxy.contract_address, "initializer", [
+        str_to_felt("xAstraly"),
         str_to_felt("xZKP"),
         zk_pad_token.contract_address,
         account1.contract_address,
@@ -165,12 +166,12 @@ async def erc1155_init(contract_defs):
     MERKLE_INFO = get_leaves(
         [account1.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
 
-    await signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
+    await mock_signer.send_transaction(account1, factory.contract_address, "set_task_address", [task.contract_address])
     root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
     await mock_signer.send_transaction(account1, factory.contract_address, "set_merkle_root", [root, 0])
 
-    await signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
-    await signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [rnd_nbr_gen.contract_address])
+    await mock_signer.send_transaction(account1, factory.contract_address, 'set_lottery_ticket_contract_address', [erc1155.contract_address])
+    await mock_signer.send_transaction(account1, factory.contract_address, 'set_random_number_generator_address', [rnd_nbr_gen.contract_address])
 
     return (
         starknet.state,
@@ -199,7 +200,7 @@ def erc1155_factory(contract_defs, erc1155_init):
     return erc1155, account1, account2, receiver, ido
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def erc1155_minted_init(contract_defs, erc1155_init):
     account_def, erc1155_def, receiver_def, ido_def, _, _, factory_def, _ = contract_defs
     state, owner, account, erc1155, receiver, ido, _, _, factory, _ = erc1155_init
@@ -210,7 +211,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
     receiver = cached_contract(_state, receiver_def, receiver)
     ido = cached_contract(_state, ido_def, ido)
     factory = cached_contract(_state, factory_def, factory)
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mintBatch',
         [
             account.contract_address,  # to
@@ -221,7 +222,7 @@ async def erc1155_minted_init(contract_defs, erc1155_init):
     )
 
     # Create mock IDO
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
+    await mock_signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
 
     return _state, erc1155, owner, account, receiver, ido
 
@@ -240,7 +241,7 @@ def erc1155_minted_factory(contract_defs, erc1155_minted_init):
     return erc1155, owner, account, receiver, ido
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def full_init(contract_defs, erc1155_init):
     account_def, erc1155_def, receiver_def, ido_def, zk_pad_token_def, zk_pad_stake_def, factory_def, _ = contract_defs
     state, owner, account, erc1155, receiver, ido, zk_pad_token, zk_pad_stake, factory, ido2 = erc1155_init
@@ -254,7 +255,7 @@ async def full_init(contract_defs, erc1155_init):
     factory = cached_contract(_state, factory_def, factory)
     zk_pad_token = cached_contract(_state, zk_pad_token_def, zk_pad_token)
     zk_pad_stake = cached_contract(_state, zk_pad_stake_def, zk_pad_stake)
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mintBatch',
         [
             owner.contract_address,  # to
@@ -265,7 +266,7 @@ async def full_init(contract_defs, erc1155_init):
     )
     # Deposit ZKP in the vault
     # max approve
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner,
         zk_pad_token.contract_address,
         "approve",
@@ -275,7 +276,7 @@ async def full_init(contract_defs, erc1155_init):
     amount = to_uint(10000000000000000000000)  # 10000
 
     # deposit asset tokens to the vault, get shares
-    tx = await signer.send_transaction(
+    tx = await mock_signer.send_transaction(
         owner,
         zk_pad_stake.contract_address,
         "deposit",
@@ -283,7 +284,7 @@ async def full_init(contract_defs, erc1155_init):
     )
 
     # set xzkp address
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner,
         erc1155.contract_address,
         "set_xzkp_contract_address",
@@ -291,13 +292,13 @@ async def full_init(contract_defs, erc1155_init):
     )
 
     # create 2 mock IDOs
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
-    await signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
+    await mock_signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
+    await mock_signer.send_transaction(owner, factory.contract_address, "create_ido", [owner.contract_address])
     MERKLE_INFO = get_leaves(
         [owner.contract_address, receiver.contract_address], [NB_QUEST, NB_QUEST])
 
     root = generate_merkle_root(list(map(lambda x: x[0], MERKLE_INFO)))
-    await signer.send_transaction(owner, factory.contract_address, "set_merkle_root", [root, 0])
+    await mock_signer.send_transaction(owner, factory.contract_address, "set_merkle_root", [root, 0])
     # print("ROOT", root)
     # print("INFO", MERKLE_INFO)
 
@@ -366,7 +367,7 @@ async def test_set_approval_for_all(erc1155_factory):
     operator = ACCOUNT
     approval = TRUE
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account, erc1155.contract_address, 'setApprovalForAll',
         [operator, approval]
     )
@@ -381,7 +382,7 @@ async def test_set_approval_for_all(erc1155_factory):
     operator = ACCOUNT
     approval = FALSE
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account, erc1155.contract_address, 'setApprovalForAll',
         [operator, approval]
     )
@@ -401,7 +402,7 @@ async def test_set_approval_for_all_non_boolean(erc1155_factory):
     operator = ACCOUNT
     approval = NON_BOOLEAN
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'setApprovalForAll',
         [operator, approval]
     ))
@@ -473,7 +474,7 @@ async def test_mint(erc1155_factory):
     token_id = TOKEN_ID
     amount = MINT_AMOUNT
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mint',
         [
             recipient,
@@ -497,7 +498,7 @@ async def test_mint_to_zero_address(erc1155_factory):
 
     # minting to 0 address should fail
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -519,7 +520,7 @@ async def test_mint_overflow(erc1155_factory):
 
     # Bring recipient's balance to max possible, should pass (recipient's balance is 0)
     amount = MAX_UINT256
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mint',
         [
             recipient,  # to
@@ -532,7 +533,7 @@ async def test_mint_overflow(erc1155_factory):
     # Issuing recipient any more should revert due to overflow
     amount = uint(1)
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -561,7 +562,7 @@ async def test_mint_invalid_uint(erc1155_factory):
 
     # issuing an invalid uint256 (i.e. either the low or high felts >= 2**128) should revert
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -573,7 +574,7 @@ async def test_mint_invalid_uint(erc1155_factory):
         "ERC1155: invalid uint256 in calldata"
     )
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -602,7 +603,7 @@ async def test_burn(erc1155_minted_factory):
     token_id = TOKEN_ID
     burn_amount = BURN_AMOUNT
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account, erc1155.contract_address, 'burn',
         [subject, *token_id, *burn_amount]
     )
@@ -621,7 +622,7 @@ async def test_burn_insufficient_balance(erc1155_factory):
 
     # Burn non-0 amount w/ 0 balance
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             account, erc1155.contract_address, 'burn',
             [subject, *token_id, *burn_amount]
         ))
@@ -642,7 +643,7 @@ async def test_burn_with_quest(full_factory):
     # print("PROOF", proof)
     print("valid", verif)
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'burn_with_quest',
         [subject, *token_id, *burn_amount, NB_QUEST, len(proof), *proof])
 
@@ -659,7 +660,7 @@ async def test_mint_batch(erc1155_factory):
     amounts = MINT_AMOUNTS
 
     # mint amount[i] of token_id[i] to recipient
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mintBatch',
         [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0])
 
@@ -677,7 +678,7 @@ async def test_mint_batch_to_zero_address(erc1155_factory):
 
     # mint amount[i] of token_id[i] to recipient
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
         "ERC1155: mint to the zero address"
@@ -693,14 +694,14 @@ async def test_mint_batch_overflow(erc1155_factory):
     amounts = MAX_UINT_AMOUNTS
 
     # Bring 1 recipient's balance to max possible, should pass (recipient's balance is 0)
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mintBatch',
         [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0])
 
     # Issuing recipient any more on just 1 token_id should revert due to overflow
     amounts = uint_array([0, 1, 0])
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
         "SafeUint256: addition overflow"
@@ -719,7 +720,7 @@ async def test_mint_batch_invalid_uint(erc1155_factory):
 
     # attempt passing an invalid amount in batch
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(invalid_amounts), 0]),
         "ERC1155: invalid uint256 in calldata"
@@ -727,7 +728,7 @@ async def test_mint_batch_invalid_uint(erc1155_factory):
 
     # attempt passing an invalid id in batch
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(invalid_ids), *uarr2cd(amounts), 0]),
         "ERC1155: invalid uint256 in calldata"
@@ -744,14 +745,14 @@ async def test_mint_batch_uneven_arrays(erc1155_factory):
 
     # uneven token_ids vs amounts
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts[:2]), 0]),
         "ERC1155: ids and amounts length mismatch"
     )
 
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids[:2]), *uarr2cd(amounts), 0]),
         "ERC1155: ids and amounts length mismatch"
@@ -770,7 +771,7 @@ async def test_mint_batch_uneven_arrays(erc1155_factory):
 #     token_ids = TOKEN_IDS
 #     burn_amounts = BURN_AMOUNTS
 
-#     await signer.send_transaction(
+#     await mock_signer.send_transaction(
 #         account, erc1155.contract_address, 'burnBatch',
 #         [burner, *uarr2cd(token_ids), *uarr2cd(burn_amounts)])
 
@@ -804,7 +805,7 @@ async def test_mint_batch_uneven_arrays(erc1155_factory):
 #         MINT_AMOUNTS[1], uint(1)), MINT_AMOUNTS[2]]
 
 #     await assert_revert(
-#         signer.send_transaction(
+#         mock_signer.send_transaction(
 #             account, erc1155.contract_address, 'burnBatch',
 #             [burner, *uarr2cd(token_ids), *uarr2cd(amounts)]),
 #         "ERC1155: burn amount exceeds balance"
@@ -822,13 +823,13 @@ async def test_mint_batch_uneven_arrays(erc1155_factory):
 #     burn_amounts = INVALID_AMOUNTS
 
 #     # mint max possible to avoid insufficient balance
-#     await signer.send_transaction(
+#     await mock_signer.send_transaction(
 #         owner, erc1155.contract_address, 'mintBatch',
 #         [burner, *uarr2cd(token_ids), *uarr2cd(mint_amounts), 0])
 
 #     # attempt passing an invalid uint in batch
 #     await assert_revert(
-#         signer.send_transaction(
+#         mock_signer.send_transaction(
 #             account, erc1155.contract_address, 'burnBatch',
 #             [burner, *uarr2cd(token_ids), *uarr2cd(burn_amounts)]),
 #         "ERC1155: invalid uint in calldata"
@@ -845,13 +846,13 @@ async def test_mint_batch_uneven_arrays(erc1155_factory):
 
 #     # uneven token_ids vs amounts
 #     await assert_revert(
-#         signer.send_transaction(
+#         mock_signer.send_transaction(
 #             account, erc1155.contract_address, 'burnBatch',
 #             [burner, *uarr2cd(token_ids), *uarr2cd(amounts[:2])]),
 #         "ERC1155: ids and amounts length mismatch"
 #     )
 #     await assert_revert(
-#         signer.send_transaction(
+#         mock_signer.send_transaction(
 #             account, erc1155.contract_address, 'burnBatch',
 #             [burner, *uarr2cd(token_ids[:2]), *uarr2cd(amounts)]),
 #         "ERC1155: ids and amounts length mismatch"
@@ -871,7 +872,7 @@ async def test_safe_transfer_from(erc1155_minted_factory):
     token_id = TOKEN_ID
     transfer_amount = TRANSFER_AMOUNT
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0])
 
@@ -894,12 +895,12 @@ async def test_safe_transfer_from_approved(erc1155_minted_factory):
     approval = TRUE
 
     # account2 approves account
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account2, erc1155.contract_address, 'setApprovalForAll',
         [operator, approval])
 
     # account sends transaction
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account1, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0])
 
@@ -923,19 +924,19 @@ async def test_safe_transfer_from_invalid_uint(erc1155_factory):
     invalid_amount = INVALID_UINT
 
     # mint max uint to avoid possible insufficient balance error
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mint',
         [sender, *token_id, *mint_amount, 0])
 
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             account, erc1155.contract_address, 'safeTransferFrom',
             [sender, recipient, *token_id, *invalid_amount, 0]),
         "ERC1155: invalid uint in calldata"
     )
     # transfer 0 amount
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             account, erc1155.contract_address, 'safeTransferFrom',
             [sender, recipient, *invalid_id, *transfer_amount, 0]),
         "ERC1155: invalid uint in calldata"
@@ -952,7 +953,7 @@ async def test_safe_transfer_from_insufficient_balance(erc1155_minted_factory):
     transfer_amount = add_uint(MINT_AMOUNTS[0], uint(1))
 
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             account2, erc1155.contract_address, 'safeTransferFrom',
             [sender, recipient, *token_id, *transfer_amount, 0]),
         "ERC1155: insufficient balance for transfer"
@@ -969,7 +970,7 @@ async def test_safe_transfer_from_unapproved(erc1155_minted_factory):
     transfer_amount = TRANSFER_AMOUNT
 
     # unapproved account sends transaction, should fail
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account1, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0]))
 
@@ -983,7 +984,7 @@ async def test_safe_transfer_from_to_zero_address(erc1155_minted_factory):
     token_id = TOKEN_ID
     transfer_amount = TRANSFER_AMOUNT
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0]))
 
@@ -1000,12 +1001,12 @@ async def test_safe_transfer_from_overflow(erc1155_minted_factory):
     max_amount = MAX_UINT256
 
     # Bring recipient's balance to max possible, should pass (recipient's balance is 0)
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mint',
         [recipient, *token_id, *max_amount, 0])
 
     # Issuing recipient any more should revert due to overflow
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0]
     ))
@@ -1021,7 +1022,7 @@ async def test_safe_batch_transfer_from(erc1155_minted_factory):
     transfer_amounts = TRANSFER_AMOUNTS
     difference = TRANSFER_DIFFERENCE
 
-    execution_info = await signer.send_transaction(
+    execution_info = await mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0])
 
@@ -1043,11 +1044,11 @@ async def test_safe_batch_transfer_from_approved(erc1155_minted_factory):
     approval = TRUE
 
     # account approves account2
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account2, erc1155.contract_address, 'setApprovalForAll',
         [operator, approval])
 
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account1, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0])
 
@@ -1069,7 +1070,7 @@ async def test_safe_batch_transfer_from_invalid_uint(erc1155_factory):
     transfer_amounts = TRANSFER_AMOUNTS
 
     # mint amount[i] of token_id[i] to sender
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mintBatch',
         [sender, *uarr2cd(token_ids), *uarr2cd(mint_amounts), 0])
 
@@ -1077,7 +1078,7 @@ async def test_safe_batch_transfer_from_invalid_uint(erc1155_factory):
         account, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(invalid_amounts), 0]))
     # attempt transfer 0 due to insufficient balance error
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(invalid_ids), *uarr2cd(transfer_amounts), 0]))
 
@@ -1091,7 +1092,7 @@ async def test_safe_batch_transfer_from_insufficient_balance(erc1155_minted_fact
     transfer_amounts = [MINT_AMOUNTS[0], add_uint(
         MINT_AMOUNTS[1], uint(1)), MINT_AMOUNTS[2]]
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]))
 
@@ -1106,7 +1107,7 @@ async def test_safe_batch_transfer_from_unapproved(erc1155_minted_factory):
     token_ids = TOKEN_IDS
     transfer_amounts = TRANSFER_AMOUNTS
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account1, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]))
 
@@ -1121,7 +1122,7 @@ async def test_safe_batch_transfer_from_to_zero_address(erc1155_minted_factory):
     mint_amounts = MINT_AMOUNTS
     transfer_amounts = TRANSFER_AMOUNTS
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account,
         erc1155.contract_address,
         'safeBatchTransferFrom', [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]))
@@ -1137,12 +1138,12 @@ async def test_safe_batch_transfer_from_uneven_arrays(erc1155_minted_factory):
     token_ids = TOKEN_IDS
 
     # uneven token_ids vs amounts
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids),
          *uarr2cd(transfer_amounts[:2]), 0]
     ))
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids[:2]),
          *uarr2cd(transfer_amounts), 0]
@@ -1160,13 +1161,13 @@ async def test_safe_batch_transfer_from_overflow(erc1155_minted_factory):
     transfer_amounts = uint_array([0, 1, 0])
 
     # Bring 1 recipient's balance to max possible, should pass (recipient's balance is 0)
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account1, erc1155.contract_address, 'mintBatch',
         [recipient, *uarr2cd(token_ids), *uarr2cd(max_amounts), 0]
     )
 
     # Issuing recipient any more on just 1 token_id should revert due to overflow
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account2, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]
     ))
@@ -1185,7 +1186,7 @@ async def test_safe_transfer_from_to_uninstantiated_contract(erc1155_minted_fact
     token_id = TOKEN_ID
     transfer_amount = TRANSFER_AMOUNT
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0]))
 
@@ -1199,7 +1200,7 @@ async def test_safe_transfer_from_to_unsafe_contract(erc1155_minted_factory):
     token_id = TOKEN_ID
     transfer_amount = TRANSFER_AMOUNT
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, 0]),
         "ERC1155: transfer to non ERC1155Receiver implementer")
@@ -1215,7 +1216,7 @@ async def test_safe_transfer_from_receiver(erc1155_minted_factory):
     token_id = TOKEN_ID
     transfer_amount = TRANSFER_AMOUNT
     data_cd = [0]
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, *data_cd])
 
@@ -1231,7 +1232,7 @@ async def test_safe_transfer_from_receiver_rejection(erc1155_minted_factory):
     transfer_amount = TRANSFER_AMOUNT
     data_cd = [1, 0]
     # data = [0], mock receiver should reject
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeTransferFrom',
         [sender, recipient, *token_id, *transfer_amount, *data_cd]),
         "ERC1155: ERC1155Receiver rejected tokens"
@@ -1248,7 +1249,7 @@ async def test_mint_to_unsafe_contract(erc1155_factory):
 
     # minting to 0 address should fail
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -1271,7 +1272,7 @@ async def test_mint_receiver_rejection(erc1155_factory):
 
     # minting to 0 address should fail
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mint',
             [
                 recipient,  # to
@@ -1292,7 +1293,7 @@ async def test_mint_receiver(erc1155_factory):
     amount = MINT_AMOUNT
 
     # minting to 0 address should fail
-    await signer.send_transaction(
+    await mock_signer.send_transaction(
         owner, erc1155.contract_address, 'mint',
         [
             recipient,  # to
@@ -1313,7 +1314,7 @@ async def test_mint_batch_to_unsafe_contract(erc1155_factory):
 
     # mint amount[i] of token_id[i] to recipient
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
         "ERC1155: transfer to non ERC1155Receiver implementer"
@@ -1330,7 +1331,7 @@ async def test_mint_batch_receiver(erc1155_factory):
 
     # mint amount[i] of token_id[i] to recipient
     await assert_revert(
-        signer.send_transaction(
+        mock_signer.send_transaction(
             owner, erc1155.contract_address, 'mintBatch',
             [recipient, *uarr2cd(token_ids), *uarr2cd(amounts), 0]),
         "ERC1155: transfer to non ERC1155Receiver implementer"
@@ -1347,7 +1348,7 @@ async def test_safe_batch_transfer_from_to_unsafe_contract(erc1155_minted_factor
     mint_amounts = MINT_AMOUNTS
     transfer_amounts = TRANSFER_AMOUNTS
 
-    await assert_revert(signer.send_transaction(
+    await assert_revert(mock_signer.send_transaction(
         account, erc1155.contract_address, 'safeBatchTransferFrom',
         [sender, recipient, *uarr2cd(token_ids), *uarr2cd(transfer_amounts), 0]),
         "ERC1155: transfer to non ERC1155Receiver implementer")
@@ -1363,9 +1364,9 @@ async def test_safe_batch_transfer_from_to_unsafe_contract(erc1155_minted_factor
 #     amount = MINT_AMOUNT
 
 #     # Update ido_launch_date to be in the past
-#     await signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
+#     await mock_signer.send_transaction(owner, ido.contract_address, 'set_ido_launch_date', [])
 
-#     await assert_revert(signer.send_transaction(
+#     await assert_revert(mock_signer.send_transaction(
 #         owner, erc1155.contract_address, 'mint',
 #         [
 #             recipient,  # to
@@ -1392,7 +1393,7 @@ async def test_claim_success(full_factory):
     assert execution_info.result.balance == uint(1000)
 
     # Claim tickets
-    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
+    await mock_signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
 
     # Checks user balances match
     stake_info = await zk_pad_stake.balanceOf(user).invoke()
@@ -1410,11 +1411,11 @@ async def test_claim_twice_fail(full_factory):
     user = owner.contract_address
 
     # Claim tickets
-    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
+    await mock_signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID, 0])
 
     # Attempt to claim again
-    await assert_revert(signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::Tickets already claimed")
+    await assert_revert(mock_signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+        *IDO_ID, 0]), "AstralyLotteryToken::Tickets already claimed")
 
 
 @pytest.mark.asyncio
@@ -1427,10 +1428,10 @@ async def test_claim_twice_success(full_factory):
     user = owner.contract_address
 
     # Claim tickets for IDO 0
-    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID1, 0])
+    await mock_signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [*IDO_ID1, 0])
 
     # Attempt to claim again for IDO 1
-    await signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
+    await mock_signer.send_transaction(owner, erc1155.contract_address, 'claimLotteryTickets', [
         *IDO_ID2, 0])
 
 # @pytest.mark.asyncio
@@ -1455,14 +1456,14 @@ async def test_claim_no_tickets(full_factory):
     assert stake_info.result.balance == UINT_ZERO
 
     # Try to claim with a user with no xZKP tokens
-    await assert_revert(signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
-        *IDO_ID, 0]), "ZkPadLotteryToken::No tickets to claim")
+    await assert_revert(mock_signer.send_transaction(user, erc1155.contract_address, 'claimLotteryTickets', [
+        *IDO_ID, 0]), "AstralyLotteryToken::No tickets to claim")
 
 
 @pytest.mark.asyncio
 async def test_kyc(erc1155_factory):
     erc1155, owner, account, _, _ = erc1155_factory
     message = pedersen_hash(owner.contract_address, 0)
-    sig = signer.sign(message)
+    sig = mock_signer.signer.sign(message)
     print(sig)
-    await signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig), *sig])
+    await mock_signer.send_transaction(owner, erc1155.contract_address, 'checkKYCSignature', [len(sig), *sig])

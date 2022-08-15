@@ -38,8 +38,8 @@ AstralyVaultHarvestTask = [
 JediSwapWrapper = [
     "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
 ]
-ZkPadAccessControl = [
-    "contracts/ZkPadAccessControl.cairo",
+AstralyAccessControl = [
+    "contracts/AstralyAccessControl.cairo",
 ]
 AstralyBalanceProofBadge = [
     "contracts/SBTs/AstralyBalanceProofBadge.cairo",

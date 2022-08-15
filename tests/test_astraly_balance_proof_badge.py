@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+import pytest_asyncio
 
 from signers import MockSigner
 from utils import *
@@ -22,7 +23,7 @@ def event_loop():
     return asyncio.new_event_loop()
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()
     set_block_timestamp(starknet.state, int(
@@ -37,7 +38,7 @@ def contract_defs():
     return account_def, balance_proof_badge
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, balance_proof_badge_def = contract_defs
