@@ -12,7 +12,7 @@ func block_number() -> (res : felt):
 end
 
 @storage_var
-func min_balance() -> (res : Uint256):
+func min_balance() -> (res : felt):
 end
 
 @storage_var
@@ -26,7 +26,7 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _block_number : felt, _balance : Uint256, _token_address : felt
+    _block_number : felt, _balance : felt, _token_address : felt
 ):
     Initializable.initialize()
     block_number.write(_block_number)
@@ -127,9 +127,11 @@ func mint{
     let (msg_hash) = hash_eip191_message(message)
     let (ethereum_address) = recover_address(msg_hash, R_x, R_y, s, v)
 
+    let (caller : felt) = get_caller_address()
+
     # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root 
     # and storage_hash so that they too can be verified from the signed message)
-    verify_storage_proof(proof, starknet_account, ethereum_address, Uint256(0,token_balance_min))
+    verify_storage_proof(proof, caller, ethereum_address, Uint256(token_balance_min,0))
     verify_account_proof(proof)
 
     # Write new badge entry in map
@@ -144,9 +146,7 @@ func mint{
     let storage_hash_lo = storage_hash_[2] * 2**86 + 
                           storage_hash_[3]
 
-    let (caller : felt) = get_caller_address()
-    assert starknet_account = caller
-    BadgeMinted.emit(caller, 0)
+    BadgeMinted.emit(starknet_account, 0)
 
     return ()
 end

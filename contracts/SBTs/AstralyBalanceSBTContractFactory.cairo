@@ -17,7 +17,7 @@ end
 
 @event
 func SBTContractCreated(contract_address : felt,
-    lock_number : felt, balance : Uint256, token_address : felt):
+    lock_number : felt, balance : felt, token_address : felt):
 end
 
 @event
@@ -25,7 +25,7 @@ func SBTClassHashChanged(new_class_hash : felt):
 end
 
 @external
-func initialize{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _SBT_badge_class_hash : felt, admin_address : felt
 ):
     with_attr error_message("Class hash cannot be zero"):
@@ -58,7 +58,7 @@ end
 # token_address can be 0 in case of eth
 @external
 func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    block_number : felt, balance : Uint256, token_address : felt):
+    block_number : felt, balance : felt, token_address : felt) -> (new_SBT_badge_contract_address : felt):
     AstralyAccessControl.assert_only_owner()
 
     assert_not_zero(block_number)
@@ -68,10 +68,10 @@ func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     let (new_SBT_badge_contract_address : felt) = deploy(
         class_hash=class_hash,
         contract_address_salt=salt,
-        constructor_calldata_size=4,
+        constructor_calldata_size=3,
         constructor_calldata=cast(new (block_number, balance, token_address), felt*),
         deploy_from_zero=0
     )
     SBTContractCreated.emit(new_SBT_badge_contract_address, block_number, balance, token_address)
-    return ()
+    return (new_SBT_badge_contract_address)
 end
