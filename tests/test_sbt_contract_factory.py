@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import ceil
 
 import pytest
 import pytest_asyncio
@@ -97,13 +98,15 @@ async def test_proof(contracts_factory, contract_defs):
     ethereum_pk = "eb5a6c2a9e46618a92b40f384dd9e076480f1b171eb21726aae34dc8f22fe83f"
     LINK_token_address = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
     rpc_node = "https://eth-goerli.g.alchemy.com/v2/uXpxHR8fJBH3fjLJpulhY__jXbTGNjN7"
-    storage_slot = hex(9)
+    storage_slot = hex(1)
     proof = generate_proof(ethereum_address, ethereum_pk, hex(prover_account.contract_address), rpc_node, storage_slot,
                            LINK_token_address, block_number)
 
     args = list()
     args.append(prover_account.contract_address)
+    args.append(proof['storage_value']) # token balance
     args.append(proof['balance'])
+    args.append(proof['nonce'])
     args.append(starknet_state.general_config.chain_id.value)
     args.append(starknet_state.state.block_info.block_number)
     args.append(len(proof['accountProof']))
@@ -129,8 +132,9 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(storage_hash_))  # storage_hash__len
     args += storage_hash_
 
-    args.append(1)  # message__len
-    args.append(int(proof['signature']['message'], 16))
+    message_ = pack_intarray(proof['signature']['message'])
+    args.append(len(message_))  # message__len
+    args += message_
     args.append(len(proof['signature']['message'][2:]))
 
     R_x_ = pack_intarray(hex(proof['signature']['R_x']))
@@ -154,7 +158,14 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(storage_value_))  # storage_value__len
     args += storage_value_
 
-    args.append(len(proof['accountProof']))  # account_proofs_concat_len
+    # calculate
+    args.append(0)
+    args.append(0)
+    args.append(0)
+    args.append(0)
+    args.append(0)
+    args.append(0)
+
 
     receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
                                             [*args])

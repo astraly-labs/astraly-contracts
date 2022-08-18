@@ -2,9 +2,17 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.math import assert_le
 from starkware.starknet.common.syscalls import get_caller_address
 
-from verify_proof import Proof, encode_proof, verify_account_proof, verify_storage_proof, hash_eip191_message, recover_address
+from verify_proof import (
+    Proof,
+    encode_proof,
+    verify_account_proof,
+    verify_storage_proof,
+    hash_eip191_message,
+    recover_address,
+)
 from openzeppelin.security.initializable.library import Initializable
 
 @storage_var
@@ -19,7 +27,7 @@ end
 func token_address() -> (res : felt):
 end
 
- # TODO: Emit
+# TODO: Emit
 @event
 func BadgeMinted(owner : felt, l1_address : felt):
 end
@@ -37,12 +45,12 @@ end
 
 @external
 func mint{
-        syscall_ptr : felt*,
-        range_check_ptr,
-        pedersen_ptr: HashBuiltin*,
-        bitwise_ptr: BitwiseBuiltin*}(
+    syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
+}(
     starknet_account : felt,
-    token_balance_min : felt,
+    token_balance : felt,
+    account_eth_balance :felt,
+    nonce : felt,
     chain_id : felt,
     block_number : felt,
     account_proof_len : felt,
@@ -86,9 +94,16 @@ func mint{
 ):
     alloc_locals
 
-    let (local proof: Proof*) = encode_proof(
-        0, # balance,
-        1, # nonce,
+    # TODO: check block number and state root on fossil
+
+    with_attr error_message("Balance is too low"):
+        let (_min_balance : felt) = min_balance.read()
+        assert_le(_min_balance, token_balance)
+    end
+
+    let (local proof : Proof*) = encode_proof(
+        account_eth_balance,
+        nonce,
         account_proof_len,
         storage_proof_len,
         address_,
@@ -116,7 +131,8 @@ func mint{
         storage_proof_sizes_words,
         storage_proof_sizes_words_len,
         storage_proof_sizes_bytes,
-        storage_proof_sizes_bytes_len) 
+        storage_proof_sizes_bytes_len,
+    )
 
     # Extract Ethereum account address from signed message hash and signature
     let message = proof.signature.message
@@ -129,24 +145,24 @@ func mint{
 
     let (caller : felt) = get_caller_address()
 
-    # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root 
+    # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root
     # and storage_hash so that they too can be verified from the signed message)
-    verify_storage_proof(proof, caller, ethereum_address, Uint256(token_balance_min,0))
+    verify_storage_proof(proof, caller, ethereum_address, Uint256(token_balance, 0))
     verify_account_proof(proof)
 
     # Write new badge entry in map
-    let token = address_[1] * 2**(86*2) + 
-                address_[2] * 2**86 + 
-                address_[3]
-    let eth_account = ethereum_address.elements[1] * 2**(86*2) + 
-                      ethereum_address.elements[2] * 2**86 + 
-                      ethereum_address.elements[3]
-    let state_root_lo = state_root_[2] * 2**86 + 
-                        state_root_[3]
-    let storage_hash_lo = storage_hash_[2] * 2**86 + 
-                          storage_hash_[3]
+    let token = address_[1] * 2 ** (86 * 2) +
+        address_[2] * 2 ** 86 +
+        address_[3]
+    let eth_account = ethereum_address.elements[1] * 2 ** (86 * 2) +
+        ethereum_address.elements[2] * 2 ** 86 +
+        ethereum_address.elements[3]
+    let state_root_lo = state_root_[2] * 2 ** 86 +
+        state_root_[3]
+    let storage_hash_lo = storage_hash_[2] * 2 ** 86 +
+        storage_hash_[3]
 
-    BadgeMinted.emit(starknet_account, 0)
+    BadgeMinted.emit(starknet_account, eth_account)
 
     return ()
 end
