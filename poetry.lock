@@ -30,18 +30,6 @@ python-versions = ">=3.6"
 frozenlist = ">=1.1.0"
 
 [[package]]
-name = "amarna"
-version = "0.1.2"
-description = "Amarna is a static-analyzer for the Cairo programming language."
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-lark = ">=1.1.2"
-pydot = ">=1.4.2"
-
-[[package]]
 name = "async-timeout"
 version = "4.0.2"
 description = "Timeout context manager for asyncio programs"
@@ -500,19 +488,6 @@ format-nongpl = ["webcolors (>=1.11)", "uri-template", "rfc3986-validator (>0.1.
 format = ["webcolors (>=1.11)", "uri-template", "rfc3987", "rfc3339-validator", "jsonpointer (>1.13)", "isoduration", "idna", "fqdn"]
 
 [[package]]
-name = "lark"
-version = "1.1.2"
-description = "a modern parsing library"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.extras]
-atomic_cache = ["atomicwrites"]
-nearley = ["js2py"]
-regex = ["regex"]
-
-[[package]]
 name = "lark-parser"
 version = "0.12.0"
 description = "a modern parsing library"
@@ -753,17 +728,6 @@ description = "Cryptographic library for Python"
 category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
-
-[[package]]
-name = "pydot"
-version = "1.4.2"
-description = "Python interface to Graphviz's Dot"
-category = "main"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-
-[package.dependencies]
-pyparsing = ">=2.1.4"
 
 [[package]]
 name = "pyparsing"
@@ -1085,7 +1049,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "3.8.13"
-content-hash = "fb4d226fc6c798f9d813cc6cba51242a86ea8bbfe784883a53714baa788b883f"
+content-hash = "cd89622f556cb47703e4caa582d3ef1643fd385854456ba15687facff03e72cd"
 
 [metadata.files]
 aiohttp = [
@@ -1166,7 +1130,6 @@ aiosignal = [
     {file = "aiosignal-1.2.0-py3-none-any.whl", hash = "sha256:26e62109036cd181df6e6ad646f91f0dcfd05fe16d0cb924138ff2ab75d64e3a"},
     {file = "aiosignal-1.2.0.tar.gz", hash = "sha256:78ed67db6c7b7ced4f98e495e572106d5c432a93e1ddd1bf475e1dc05f5b7df2"},
 ]
-amarna = []
 async-timeout = [
     {file = "async-timeout-4.0.2.tar.gz", hash = "sha256:2163e1640ddb52b7a8c80d0a67a08587e5d245cc9c553a74a847056bc2976b15"},
     {file = "async_timeout-4.0.2-py3-none-any.whl", hash = "sha256:8ca1e4fcf50d07413d66d1a5e416e42cfdf5851c981d679a09851a6853383b3c"},
@@ -1278,10 +1241,6 @@ ipfshttpclient = [
 jsonschema = [
     {file = "jsonschema-4.14.0-py3-none-any.whl", hash = "sha256:9892b8d630a82990521a9ca630d3446bd316b5ad54dbe981338802787f3e0d2d"},
     {file = "jsonschema-4.14.0.tar.gz", hash = "sha256:15062f4cc6f591400cd528d2c355f2cfa6a57e44c820dc783aee5e23d36a831f"},
-]
-lark = [
-    {file = "lark-1.1.2-py2.py3-none-any.whl", hash = "sha256:c1ab213fc5e2d273fe2d91da218ccc8b5b92d065b17faa5e743499cb16594b7d"},
-    {file = "lark-1.1.2.tar.gz", hash = "sha256:7a8d0c07d663da9391d7faee1bf1d7df4998c47ca43a593cbef5c7566acd057a"},
 ]
 lark-parser = [
     {file = "lark-parser-0.12.0.tar.gz", hash = "sha256:15967db1f1214013dca65b1180745047b9be457d73da224fcda3d9dd4e96a138"},
@@ -1493,10 +1452,6 @@ pycryptodome = [
     {file = "pycryptodome-3.15.0-pp36-pypy36_pp73-manylinux2010_x86_64.whl", hash = "sha256:d2a39a66057ab191e5c27211a7daf8f0737f23acbf6b3562b25a62df65ffcb7b"},
     {file = "pycryptodome-3.15.0-pp36-pypy36_pp73-win32.whl", hash = "sha256:9c772c485b27967514d0df1458b56875f4b6d025566bf27399d0c239ff1b369f"},
     {file = "pycryptodome-3.15.0.tar.gz", hash = "sha256:9135dddad504592bcc18b0d2d95ce86c3a5ea87ec6447ef25cfedea12d6018b8"},
-]
-pydot = [
-    {file = "pydot-1.4.2-py2.py3-none-any.whl", hash = "sha256:66c98190c65b8d2e2382a441b4c0edfdb4f4c025ef9cb9874de478fb0793a451"},
-    {file = "pydot-1.4.2.tar.gz", hash = "sha256:248081a39bcb56784deb018977e428605c1c758f10897a339fce1dd728ff007d"},
 ]
 pyparsing = [
     {file = "pyparsing-3.0.9-py3-none-any.whl", hash = "sha256:5026bae9a10eeaefb61dab2f09052b9f4307d44aee4eda64b309723d8d206bbc"},

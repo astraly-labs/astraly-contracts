@@ -12,7 +12,6 @@ cairo-lang = "0.9.1"
 cairo-nile = "0.8.0"
 pytest-xdist = "2.5.0"
 pytest-order = "1.0.1"
-amarna = "0.1.2"
 python-dotenv = "0.20.0"
 web3 = "5.30.0"
 
