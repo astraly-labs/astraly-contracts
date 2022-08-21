@@ -1,18 +1,17 @@
 import time
 import asyncio
 from decimal import Decimal
-
 import pytest
+import pytest_asyncio
 from starkware.starknet.public.abi import get_selector_from_name
-from starkware.starkware_utils.error_handling import StarkException
+from starkware.starknet.definitions.error_codes import StarknetErrorCode
+from starkware.starknet.testing.starknet import Starknet
 
 from signers import MockSigner
 from utils import (
     to_uint, from_uint, str_to_felt, MAX_UINT256, get_contract_def, cached_contract, assert_revert,
     assert_event_emitted, get_block_timestamp, set_block_timestamp, get_block_number, set_block_number, assert_approx_eq
 )
-from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starknet.testing.starknet import Starknet
 
 
 def parse_ether(value: int):
@@ -64,7 +63,7 @@ def event_loop():
     return asyncio.new_event_loop()
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()
     set_block_timestamp(starknet.state, int(time.time()))
@@ -82,7 +81,7 @@ def contract_defs():
     return account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
@@ -138,7 +137,7 @@ async def contacts_init(contract_defs, get_starknet):
     )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def contracts_factory(contract_defs, contacts_init, get_starknet):
     account_def, proxy_def, zk_pad_token_def, zk_pad_stake_def = contract_defs
     owner_account, zk_pad_token, zk_pad_stake = contacts_init
@@ -170,7 +169,6 @@ async def contracts_factory(contract_defs, contacts_init, get_starknet):
 
 
 @pytest.mark.asyncio
-@pytest.mark.order(1)
 async def test_init(contracts_factory):
     zk_pad_token, zk_pad_staking, _, _, _, _ = contracts_factory
     assert (await zk_pad_staking.name().invoke()).result.name == NAME
@@ -188,7 +186,8 @@ async def cache_on_state(state, contract_def, deployment_func):
 @pytest.mark.asyncio
 async def test_proxy_upgrade(contract_defs):
     account_def, proxy_def, _, zk_pad_stake_def = contract_defs
-    erc20_def = get_contract_def('openzeppelin/token/erc20/presets/ERC20.cairo')
+    erc20_def = get_contract_def(
+        'openzeppelin/token/erc20/presets/ERC20.cairo')
     starknet = await Starknet.empty()
     user = MockSigner(123)
     owner_account = await cache_on_state(starknet.state, account_def, starknet.deploy(

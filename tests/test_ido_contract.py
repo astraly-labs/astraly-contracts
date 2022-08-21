@@ -1,14 +1,11 @@
-from tracemalloc import start
 import pytest
+import pytest_asyncio
 
 from signers import MockSigner
 from utils import *
 import asyncio
-from starkware.starknet.definitions.error_codes import StarknetErrorCode
-from starkware.starkware_utils.error_handling import StarkException
-from starkware.starknet.testing.starknet import Starknet
-from starkware.starknet.public.abi import get_selector_from_name
-from datetime import datetime, date, timedelta
+
+from datetime import datetime, timedelta
 from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 
@@ -69,7 +66,7 @@ def event_loop():
     return asyncio.new_event_loop()
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()
     set_block_timestamp(starknet.state, int(
@@ -91,7 +88,7 @@ def contract_defs():
     return account_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def
 
 
-@pytest.fixture(scope='module')
+@pytest_asyncio.fixture(scope='module')
 async def contacts_init(contract_defs, get_starknet):
     starknet = get_starknet
     account_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
