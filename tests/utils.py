@@ -130,13 +130,15 @@ async def assert_revert(fun, reverted_with=None, error_code=None):
             assert error['code'] == error_code
 
 
-def get_contract_def(path):
+def get_contract_def(path, disable_hint_validation: bool = False):
     """Returns the contract definition from the contract path"""
     path = contract_path(path)
     contract_def = compile_starknet_files(
         files=[path],
         debug_info=True,
-        cairo_path=[str(_root / "lib/cairo_contracts/src"), str(_root / "lib/starknet_attestations")]
+        disable_hint_validation=disable_hint_validation,
+        cairo_path=[str(_root / "lib/cairo_contracts/src"),
+                    str(_root / "lib/starknet_attestations")]
     )
     return contract_def
 

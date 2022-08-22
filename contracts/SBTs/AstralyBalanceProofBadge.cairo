@@ -43,13 +43,28 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
+@view
+func minBalance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    min : felt
+):
+    let (_min_balance : felt) = min_balance.read()
+    return (_min_balance)
+end
+
+@view
+func tokenAddress{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    address : felt
+):
+    let (address : felt) = token_address.read()
+    return (address)
+end
+
 @external
 func mint{
     syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
 }(
     starknet_account : felt,
-    token_balance : felt,
-    account_eth_balance :felt,
+    account_eth_balance : felt,
     nonce : felt,
     chain_id : felt,
     block_number : felt,
@@ -96,11 +111,6 @@ func mint{
 
     # TODO: check block number and state root on fossil
 
-    with_attr error_message("Balance is too low"):
-        let (_min_balance : felt) = min_balance.read()
-        assert_le(_min_balance, token_balance)
-    end
-
     let (local proof : Proof*) = encode_proof(
         account_eth_balance,
         nonce,
@@ -144,10 +154,11 @@ func mint{
     let (ethereum_address) = recover_address(msg_hash, R_x, R_y, s, v)
 
     let (caller : felt) = get_caller_address()
+    let (_min_balance : felt) = min_balance.read()
 
     # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root
     # and storage_hash so that they too can be verified from the signed message)
-    verify_storage_proof(proof, caller, ethereum_address, Uint256(token_balance, 0))
+    verify_storage_proof(proof, starknet_account, ethereum_address, Uint256(_min_balance, 0))
     verify_account_proof(proof)
 
     # Write new badge entry in map
