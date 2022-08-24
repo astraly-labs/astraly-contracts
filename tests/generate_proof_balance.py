@@ -23,11 +23,20 @@ def generate_proof(address, private_key, starknet_attestation_wallet, rpc_http, 
     slot = storage_slot[2:].rjust(64, '0')
     key = address[2:].rjust(64, '0').lower()
     position = w3.keccak(hexstr=key + slot)
-    print(Web3.toHex(position))
-    block = w3.eth.get_block(block_number)
-    proof = w3.eth.get_proof(erc20_token, [position], block_number)
-    balance = w3.eth.get_storage_at(erc20_token, position)
-    print("Generating proof of balance", Web3.toInt(balance))
+
+    try:
+        block = json.loads(open(f'block_{block_number}_{block_number}.json'))
+    except:
+        block = w3.eth.get_block(block_number)
+        json.dump(Web3.toJSON(block), open(f'block_{block_number}_{block_number}.json', "w"), indent=4)
+
+    try:
+        proof = json.loads(open(f'proof_{erc20_token}_{block_number}_{Web3.toHex(position)}.json'))
+    except:
+        proof = w3.eth.get_proof(erc20_token, [position], block_number)
+        json.dump(Web3.toJSON(proof), open(f'proof_{erc20_token}_{block_number}_{Web3.toHex(position)}.json', "w"), indent=4)
+    balance = Web3.toInt(w3.eth.get_storage_at(erc20_token, position))
+    print("Generating proof of balance", balance)
 
     # Sign a message demonstrating control over the storage slot
     state_root = block.stateRoot.hex()
@@ -43,16 +52,11 @@ def generate_proof(address, private_key, starknet_attestation_wallet, rpc_http, 
     R_x = signed_message.r
     R_y = min(sympy.ntheory.residue_ntheory.sqrt_mod(R_x ** 3 + 7, P, all_roots=True))
 
-    # Debug: split message into 64bit uints
-    print(pack_intarray(message.body.hex()[6:]))
-    print(pack_intarray(eip191_message.hex()[:])[4:])  # Skip the first 4 words
-    print(message.body.hex()[6:])
-    print(eip191_message.hex())
-
     # Serialize proof to disk
     proof_dict = json.loads(Web3.toJSON(proof))
+    proof_dict['position'] = Web3.toHex(position)
     proof_dict['storage_key'] = proof['storageProof'][0]['key'].hex()
-    proof_dict['storage_value'] = Web3.toInt(balance)
+    proof_dict['storage_value'] = balance
     proof_dict['blockNumber'] = block.number
     proof_dict['stateRoot'] = state_root
     proof_dict['storageSlot'] = slot

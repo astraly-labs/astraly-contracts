@@ -50,7 +50,8 @@ async def contacts_init(contract_defs, get_starknet):
     prover_account = await starknet.deploy(
         contract_class=account_def,
         constructor_calldata=[prover.public_key],
-        disable_hint_validation=True
+        disable_hint_validation=True,
+        contract_address_salt=prover.public_key
     )
 
     await starknet.declare(contract_class=sbt_contract_factory_def)
@@ -83,6 +84,25 @@ def contracts_factory(contract_defs, contacts_init, get_starknet):
 
 
 @pytest.mark.asyncio
+async def test_create_sbt_contract_function(contracts_factory, contract_defs):
+    prover_account, sbt_contract_factory, starknet_state = contracts_factory
+    _, _, balance_proof_badge_def = contract_defs
+    erc20_token = "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
+    block_number = 7415645
+    min_balance = 1
+    create_sbt_transaction_receipt = await prover.send_transaction(prover_account,
+                                                                   sbt_contract_factory.contract_address,
+                                                                   "createSBTContract",
+                                                                   [block_number, min_balance, int(erc20_token, 16)])
+
+    balance_proof_badge_contract = StarknetContract(starknet_state, balance_proof_badge_def.abi,
+                                                    create_sbt_transaction_receipt.result.response[0], None)
+
+    assert min_balance == (await balance_proof_badge_contract.minBalance().call()).result.min
+    assert int(erc20_token, 16) == (await balance_proof_badge_contract.tokenAddress().call()).result.address
+
+
+@pytest.mark.asyncio
 async def test_proof(contracts_factory, contract_defs):
     prover_account, sbt_contract_factory, starknet_state = contracts_factory
     _, _, balance_proof_badge_def = contract_defs
@@ -95,7 +115,7 @@ async def test_proof(contracts_factory, contract_defs):
                                                                    "createSBTContract",
                                                                    [block_number, min_balance, int(erc20_token, 16)])
 
-    balance_proof_badge_contract = StarknetContract(starknet_state, sbt_contract_factory.abi,
+    balance_proof_badge_contract = StarknetContract(starknet_state, balance_proof_badge_def.abi,
                                                     create_sbt_transaction_receipt.result.response[0], None)
 
     ethereum_address = "0x4Db4bB41758F10D97beC54155Fdb59b879207F92"
@@ -139,7 +159,7 @@ async def test_proof(contracts_factory, contract_defs):
     message_ = pack_intarray(proof['signature']['message'])
     args.append(len(message_))  # message__len
     args += message_
-    args.append(len(proof['signature']['message'][2:]))
+    args.append(32)
 
     R_x_ = pack_intarray(hex(proof['signature']['R_x']))
     args.append(len(R_x_))  # R_x__len
@@ -152,9 +172,11 @@ async def test_proof(contracts_factory, contract_defs):
     s_ = pack_intarray(hex(proof['signature']['s']))
     args.append(len(s_))  # s__len
     args += s_
+
     args.append(proof['signature']['v'])
 
-    storage_key_ = pack_intarray(proof['storage_key'])
+    storage_key_ = pack_intarray(proof['storageProof'][0]['key'][2:])
+    # storage_key_ = pack_intarray(proof['position'])
     args.append(len(storage_key_))  # storage_key__len
     args += storage_key_
 
@@ -170,5 +192,36 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(0)
     args.append(0)
 
-    receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
-                                            [*args])
+    # receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
+    #                                         [*args])
+    ethRecoveredAddress = (await balance_proof_badge_contract.recover(
+        prover_account.contract_address,
+        proof['balance'],
+        proof['nonce'],
+        starknet_state.general_config.chain_id.value,
+        starknet_state.state.block_info.block_number,
+        len(proof['accountProof']),
+        len(proof['storageProof'][0]['proof']),
+        address_,
+        state_root,
+        code_hash_,
+        storage_slot_,
+        storage_hash_,
+        message_,
+        32, #32
+        R_x_,
+        R_y_,
+        s_,
+        proof['signature']['v'],
+        storage_key_,
+        storage_value_,
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    ).call()).result.address
+
+    print(f"Recovered Address {hex(ethRecoveredAddress)}")
+    print(f"Ethereum Address {ethereum_address}")
