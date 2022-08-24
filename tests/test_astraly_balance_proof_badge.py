@@ -132,7 +132,7 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(proof['balance'])
     args.append(proof['nonce'])
     args.append(starknet_state.general_config.chain_id.value)
-    args.append(starknet_state.state.block_info.block_number)
+    # args.append(starknet_state.state.block_info.block_number)
     args.append(len(proof['accountProof']))
     args.append(len(proof['storageProof'][0]['proof']))
 
@@ -196,15 +196,10 @@ async def test_proof(contracts_factory, contract_defs):
     #                                         [*args])
     ethRecoveredAddress = (await balance_proof_badge_contract.recover(
         prover_account.contract_address,
-        proof['balance'],
-        proof['nonce'],
         starknet_state.general_config.chain_id.value,
-        starknet_state.state.block_info.block_number,
-        len(proof['accountProof']),
         len(proof['storageProof'][0]['proof']),
         address_,
         state_root,
-        code_hash_,
         storage_slot_,
         storage_hash_,
         message_,
@@ -212,15 +207,9 @@ async def test_proof(contracts_factory, contract_defs):
         R_x_,
         R_y_,
         s_,
-        proof['signature']['v'],
+        28,
         storage_key_,
-        storage_value_,
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
+        storage_value_
     ).call()).result.address
 
     print(f"Recovered Address {hex(ethRecoveredAddress)}")
