@@ -5,7 +5,15 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math_cmp import is_le, is_not_zero
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.math import (
-    assert_le, assert_lt, sqrt, sign, abs_value, signed_div_rem, unsigned_div_rem, assert_not_zero)
+    assert_le,
+    assert_lt,
+    sqrt,
+    sign,
+    abs_value,
+    signed_div_rem,
+    unsigned_div_rem,
+    assert_not_zero,
+)
 
 const Math64x61_INT_PART = 2 ** 64
 const Math64x61_FRACT_PART = 2 ** 61

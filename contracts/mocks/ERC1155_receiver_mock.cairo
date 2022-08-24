@@ -8,8 +8,8 @@ const ON_BATCH_ERC1155_RECEIVED_SELECTOR = 0xbc197c81
 
 @external
 func onERC1155Received(
-            operator : felt, _from : felt, id : Uint256, value : Uint256,
-            data_len : felt, data : felt*) -> (selector : felt):
+    operator : felt, _from : felt, id : Uint256, value : Uint256, data_len : felt, data : felt*
+) -> (selector : felt):
     if data_len == 0:
         return (ON_ERC1155_RECEIVED_SELECTOR)
     else:
@@ -19,9 +19,15 @@ end
 
 @external
 func onERC1155BatchReceived(
-        operator : felt, _from : felt, ids_len : felt, ids : Uint256*, 
-        values_len : felt, values : Uint256*, data_len : felt, data : felt*)
-        -> (selector : felt):
+    operator : felt,
+    _from : felt,
+    ids_len : felt,
+    ids : Uint256*,
+    values_len : felt,
+    values : Uint256*,
+    data_len : felt,
+    data : felt*,
+) -> (selector : felt):
     if data_len == 0:
         return (ON_ERC1155_RECEIVED_SELECTOR)
     else:

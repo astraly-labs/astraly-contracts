@@ -5,7 +5,13 @@ from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.cairo.common.math import assert_le, split_felt, unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.registers import get_label_location
-from starkware.cairo.common.uint256 import (Uint256, uint256_add, uint256_mul, uint256_xor, uint256_shr)
+from starkware.cairo.common.uint256 import (
+    Uint256,
+    uint256_add,
+    uint256_mul,
+    uint256_xor,
+    uint256_shr,
+)
 
 struct State:
     member s0 : felt
@@ -18,8 +24,8 @@ end
 
 @constructor
 func constructor{
-        syscall_ptr : felt*, bitwise_ptr : BitwiseBuiltin*, pedersen_ptr : HashBuiltin*,
-        range_check_ptr}(seed : felt):
+    syscall_ptr : felt*, bitwise_ptr : BitwiseBuiltin*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(seed : felt):
     alloc_locals
     let (s0) = splitmix64(seed)
     let (s1) = splitmix64(s0)
@@ -31,8 +37,8 @@ end
 
 @external
 func next{
-        syscall_ptr : felt*, bitwise_ptr : BitwiseBuiltin*, pedersen_ptr : HashBuiltin*,
-        range_check_ptr}() -> (rnd : felt):
+    syscall_ptr : felt*, bitwise_ptr : BitwiseBuiltin*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}() -> (rnd : felt):
     alloc_locals
 
     let (s) = state.read()
@@ -62,14 +68,13 @@ end
 
 @view
 func get_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _burnt_tickets : felt,
-    _random_number : felt
+    _burnt_tickets : felt, _random_number : felt
 ) -> (res : felt):
     alloc_locals
-    const max_denominator = 18446744073709551615 #0xffffffffffffffff
+    const max_denominator = 18446744073709551615  # 0xffffffffffffffff
     let num = _burnt_tickets * _random_number
-    let (winning, _) = unsigned_div_rem(num, max_denominator) 
-    return (res = winning)
+    let (winning, _) = unsigned_div_rem(num, max_denominator)
+    return (res=winning)
 end
 
 # calculates (x << k) | (x >> (64 - k))
