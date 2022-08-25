@@ -210,6 +210,12 @@ func recover{
     storage_key_ : felt*,
     storage_value__len : felt,
     storage_value_ : felt*,
+    storage_proofs_concat_len : felt,
+    storage_proofs_concat : felt*,
+    storage_proof_sizes_words_len : felt,
+    storage_proof_sizes_words : felt*,
+    storage_proof_sizes_bytes_len : felt,
+    storage_proof_sizes_bytes : felt*,
 ) -> (address : felt):
     alloc_locals
 
