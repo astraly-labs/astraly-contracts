@@ -1,3 +1,3 @@
 # Build and test
-build :; protostar build
+build :; nile compile
 test  :; pytest tests/

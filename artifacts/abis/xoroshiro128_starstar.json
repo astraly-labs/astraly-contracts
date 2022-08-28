@@ -1,0 +1,45 @@
+[
+    {
+        "inputs": [
+            {
+                "name": "seed",
+                "type": "felt"
+            }
+        ],
+        "name": "constructor",
+        "outputs": [],
+        "type": "constructor"
+    },
+    {
+        "inputs": [],
+        "name": "next",
+        "outputs": [
+            {
+                "name": "rnd",
+                "type": "felt"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_burnt_tickets",
+                "type": "felt"
+            },
+            {
+                "name": "_random_number",
+                "type": "felt"
+            }
+        ],
+        "name": "get_winning_tickets",
+        "outputs": [
+            {
+                "name": "res",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]

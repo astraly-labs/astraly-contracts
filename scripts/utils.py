@@ -18,7 +18,6 @@ from nile.core.account import Account
 import re
 import subprocess
 
-
 def deploy_try_catch(nre: NileRuntimeEnvironment, name: str, params, alias: str):
     contract = None
     try:
@@ -369,3 +368,4 @@ def get_leaves(recipients, amounts):
         values.append(last_value)
 
     return values
+

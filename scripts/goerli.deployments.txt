@@ -1,0 +1,1 @@
+0x019549576612a21a3e037fe5a7f5cb8a9e689ee0f77a490b4fbf5ab8bdb12d44:/Users/arnaudberger/miniconda3/envs/starknet-dev-env/lib/python3.8/site-packages/nile/artifacts/abis/Account.json:account-0

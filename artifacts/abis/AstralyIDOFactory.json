@@ -1,0 +1,274 @@
+[
+    {
+        "data": [
+            {
+                "name": "role",
+                "type": "felt"
+            },
+            {
+                "name": "account",
+                "type": "felt"
+            },
+            {
+                "name": "sender",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "RoleGranted",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "role",
+                "type": "felt"
+            },
+            {
+                "name": "account",
+                "type": "felt"
+            },
+            {
+                "name": "sender",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "RoleRevoked",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "role",
+                "type": "felt"
+            },
+            {
+                "name": "previousAdminRole",
+                "type": "felt"
+            },
+            {
+                "name": "newAdminRole",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "RoleAdminChanged",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "id",
+                "type": "felt"
+            },
+            {
+                "name": "address",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "IDO_Created",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "name": "id",
+                "type": "felt"
+            }
+        ],
+        "name": "get_ido_launch_date",
+        "outputs": [
+            {
+                "name": "launch_date",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "id",
+                "type": "felt"
+            }
+        ],
+        "name": "get_ido_address",
+        "outputs": [
+            {
+                "name": "address",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "get_random_number_generator_address",
+        "outputs": [
+            {
+                "name": "res",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "get_lottery_ticket_contract_address",
+        "outputs": [
+            {
+                "name": "res",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "get_payment_token_address",
+        "outputs": [
+            {
+                "name": "payment_token_address",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "id",
+                "type": "felt"
+            }
+        ],
+        "name": "get_merkle_root",
+        "outputs": [
+            {
+                "name": "merkle_root",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "get_ido_contract_class_hash",
+        "outputs": [
+            {
+                "name": "class_hash",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_ido_contract_class_hash",
+                "type": "felt"
+            },
+            {
+                "name": "owner_",
+                "type": "felt"
+            }
+        ],
+        "name": "constructor",
+        "outputs": [],
+        "type": "constructor"
+    },
+    {
+        "inputs": [
+            {
+                "name": "ido_admin",
+                "type": "felt"
+            }
+        ],
+        "name": "create_ido",
+        "outputs": [
+            {
+                "name": "new_ido_contract_address",
+                "type": "felt"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "rnd_nbr_gen_adr",
+                "type": "felt"
+            }
+        ],
+        "name": "set_random_number_generator_address",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "task_addr",
+                "type": "felt"
+            }
+        ],
+        "name": "set_task_address",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_lottery_ticket_contract_address",
+                "type": "felt"
+            }
+        ],
+        "name": "set_lottery_ticket_contract_address",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_pmt_tkn_addr",
+                "type": "felt"
+            }
+        ],
+        "name": "set_payment_token_address",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_merkle_root",
+                "type": "felt"
+            },
+            {
+                "name": "_id",
+                "type": "felt"
+            }
+        ],
+        "name": "set_merkle_root",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_class_hash",
+                "type": "felt"
+            }
+        ],
+        "name": "set_ido_contract_class_hash",
+        "outputs": [],
+        "type": "function"
+    }
+]
