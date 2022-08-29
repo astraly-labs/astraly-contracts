@@ -151,7 +151,7 @@ def autoBurn(moderator_ID):
 
             #add call to the calls list (function burn because no quest done)
                 if (nb_Quest == 0):
-                    calls.append(lottery_contract.functions["burn"].prepare(address, IDO_ID, 1))
+                    calls.append(lottery_contract.functions["burn"].prepare(address, IDO_ID, amount))
 
                 if (nb_Quest > 0):
                     calls.append(lottery_contract.functions["burn_with_quest"].prepare(address, IDO_ID, amount, nb_Quest, merkle_proof[address]))
