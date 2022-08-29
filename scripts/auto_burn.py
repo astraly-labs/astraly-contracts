@@ -135,27 +135,29 @@ for address in auto_burn_accounts:
 
     amount = lottery_contract.functions["balanceOf"].call_sync(address, IDO_ID).balance
 
+    #check if the amount is  greater than 0
+    if amount>0:
+        
     #add call to the calls list (function burn because no quest done)
-    if (nb_Quest == 0):
-        calls.append(lottery_contract.functions["burn"].prepare(address, IDO_ID, amount))
+        if (nb_Quest == 0):
+            calls.append(lottery_contract.functions["burn"].prepare(address, IDO_ID, amount))
 
-    if (nb_Quest > 0):
-        calls.append(lottery_contract.functions["burn_with_quest"].prepare(address, IDO_ID, amount, nb_Quest, merkle_proof))
+        if (nb_Quest > 0):
+            calls.append(lottery_contract.functions["burn_with_quest"].prepare(address, IDO_ID, amount, nb_Quest, merkle_proof))
 
     #execute a multicall after iterator reachs the number_calls_per_multicall's value
 
-    if ((number_multicalls > 0) and ((iterator % number_calls_per_multicall) == 0)):
-        burn_tickets = account_client_testnet.execute_sync(calls=calls, max_fee=int(1e16))
-        account_client_testnet.wait_for_tx_sync(burn_tickets.transaction_hash)
-        print(burn_tickets)
-        calls.clear()
+        if ((number_multicalls > 0) and ((iterator % number_calls_per_multicall) == 0)):
+            burn_tickets = account_client_testnet.execute_sync(calls=calls, max_fee=int(1e16))
+            account_client_testnet.wait_for_tx_sync(burn_tickets.transaction_hash)
+            print(burn_tickets)
+            calls.clear()
 
     #last multicall
-
-    if (iterator == number_auto_burn_users):
-        burn_tickets = account_client_testnet.execute_sync(calls=calls, max_fee=int(1e16))
-        account_client_testnet.wait_for_tx_sync(burn_tickets.transaction_hash)
-        print(burn_tickets)
+        if (iterator == number_auto_burn_users):
+            burn_tickets = account_client_testnet.execute_sync(calls=calls, max_fee=int(1e16))
+            account_client_testnet.wait_for_tx_sync(burn_tickets.transaction_hash)
+            print(burn_tickets)
 
 
 
