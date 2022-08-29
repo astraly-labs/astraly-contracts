@@ -121,7 +121,7 @@ def autoBurn(moderator_ID):
     calls = []
 
     #get the number of multicalls (depends on the number of transactions you want)
-    number_calls_per_multicall = 3
+    number_calls_per_multicall = 55
     number_auto_burn_users = len(auto_burn_accounts_selected)
 
     #number of multicalls -1
