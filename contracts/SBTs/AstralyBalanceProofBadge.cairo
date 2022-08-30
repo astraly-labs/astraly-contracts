@@ -16,6 +16,7 @@ from verify_proof import (
     verify_storage_proof,
     hash_eip191_message,
     recover_address,
+    reconstruct_big_int3,
 )
 from openzeppelin.security.initializable.library import Initializable
 
@@ -97,12 +98,6 @@ func mint{
     storage_key_ : felt*,
     storage_value__len : felt,
     storage_value_ : felt*,
-    account_proofs_concat_len : felt,
-    account_proofs_concat : felt*,
-    account_proof_sizes_words_len : felt,
-    account_proof_sizes_words : felt*,
-    account_proof_sizes_bytes_len : felt,
-    account_proof_sizes_bytes : felt*,
     storage_proofs_concat_len : felt,
     storage_proofs_concat : felt*,
     storage_proof_sizes_words_len : felt,
@@ -112,8 +107,18 @@ func mint{
 ):
     alloc_locals
 
+    let token = address_[1] * 2 ** (86 * 2) +
+        address_[2] * 2 ** 86 +
+        address_[3]
+
+    with_attr token_address("Token address don't match"):
+        let (_token_address : felt) = token_address.read()
+        assert _token_address = token
+    end
+
     # TODO: check block number and state root on fossil
     # let (_block_number : felt) = block_number.read()
+    let (empty_arr : felt*) = alloc()
 
     let (local proof : Proof*) = encode_proof(
         account_eth_balance,
@@ -134,12 +139,12 @@ func mint{
         v,
         storage_key_,
         storage_value_,
-        account_proofs_concat,
-        account_proofs_concat_len,
-        account_proof_sizes_words,
-        account_proof_sizes_words_len,
-        account_proof_sizes_bytes,
-        account_proof_sizes_bytes_len,
+        empty_arr,
+        0,
+        empty_arr,
+        0,
+        empty_arr,
+        0,
         storage_proofs_concat,
         storage_proofs_concat_len,
         storage_proof_sizes_words,
@@ -165,9 +170,6 @@ func mint{
     # verify_account_proof(proof)
 
     # Write new badge entry in map
-    let token = address_[1] * 2 ** (86 * 2) +
-        address_[2] * 2 ** 86 +
-        address_[3]
     let eth_account = ethereum_address.elements[1] * 2 ** (86 * 2) +
         ethereum_address.elements[2] * 2 ** 86 +
         ethereum_address.elements[3]
@@ -185,17 +187,6 @@ end
 func recover{
     syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
 }(
-    starknet_account : felt,
-    chain_id : felt,
-    storage_proof_len : felt,
-    address__len : felt,
-    address_ : felt*,
-    state_root__len : felt,
-    state_root_ : felt*,
-    storage_slot__len : felt,
-    storage_slot_ : felt*,
-    storage_hash__len : felt,
-    storage_hash_ : felt*,
     message__len : felt,
     message_ : felt*,
     message_byte_len : felt,
@@ -206,59 +197,14 @@ func recover{
     s__len : felt,
     s_ : felt*,
     v : felt,
-    storage_key__len : felt,
-    storage_key_ : felt*,
-    storage_value__len : felt,
-    storage_value_ : felt*,
-    storage_proofs_concat_len : felt,
-    storage_proofs_concat : felt*,
-    storage_proof_sizes_words_len : felt,
-    storage_proof_sizes_words : felt*,
-    storage_proof_sizes_bytes_len : felt,
-    storage_proof_sizes_bytes : felt*,
 ) -> (address : felt):
     alloc_locals
 
-    let (empty_arr : felt*) = alloc()
+    tempvar message = IntArray(message_, message__len, message_byte_len)
+    let (R_x : BigInt3) = reconstruct_big_int3(R_x_)
+    let (R_y : BigInt3) = reconstruct_big_int3(R_y_)
+    let (s : BigInt3) = reconstruct_big_int3(s_)
 
-    let (local proof : Proof*) = encode_proof(
-        0,
-        0,
-        0,
-        storage_proof_len,
-        address_,
-        state_root_,
-        empty_arr,
-        storage_slot_,
-        storage_hash_,
-        message_,
-        message__len,
-        message_byte_len,
-        R_x_,
-        R_y_,
-        s_,
-        v,
-        storage_key_,
-        storage_value_,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-    )
-
-    let message = proof.signature.message
-    let R_x = proof.signature.R_x
-    let R_y = proof.signature.R_y
-    let s = proof.signature.s
-    let v = proof.signature.v
     let (msg_hash : BigInt3) = hash_eip191_message(message)
     let (ethereum_address : IntArray) = recover_address(msg_hash, R_x, R_y, s, v)
 
