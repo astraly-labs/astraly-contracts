@@ -69,8 +69,6 @@ func mint{
     syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
 }(
     starknet_account : felt,
-    account_eth_balance : felt,
-    nonce : felt,
     chain_id : felt,
     account_proof_len : felt,
     storage_proof_len : felt,
@@ -111,18 +109,18 @@ func mint{
         address_[2] * 2 ** 86 +
         address_[3]
 
-    with_attr token_address("Token address don't match"):
-        let (_token_address : felt) = token_address.read()
-        assert _token_address = token
-    end
+    # with_attr error_message("Token address don't match"):
+    #     let (_token_address : felt) = token_address.read()
+    #     assert _token_address = token
+    # end
 
     # TODO: check block number and state root on fossil
     # let (_block_number : felt) = block_number.read()
     let (empty_arr : felt*) = alloc()
 
     let (local proof : Proof*) = encode_proof(
-        account_eth_balance,
-        nonce,
+        0,
+        0,
         account_proof_len,
         storage_proof_len,
         address_,
@@ -181,35 +179,4 @@ func mint{
     BadgeMinted.emit(starknet_account, eth_account)
 
     return ()
-end
-
-@view
-func recover{
-    syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
-}(
-    message__len : felt,
-    message_ : felt*,
-    message_byte_len : felt,
-    R_x__len : felt,
-    R_x_ : felt*,
-    R_y__len : felt,
-    R_y_ : felt*,
-    s__len : felt,
-    s_ : felt*,
-    v : felt,
-) -> (address : felt):
-    alloc_locals
-
-    tempvar message = IntArray(message_, message__len, message_byte_len)
-    let (R_x : BigInt3) = reconstruct_big_int3(R_x_)
-    let (R_y : BigInt3) = reconstruct_big_int3(R_y_)
-    let (s : BigInt3) = reconstruct_big_int3(s_)
-
-    let (msg_hash : BigInt3) = hash_eip191_message(message)
-    let (ethereum_address : IntArray) = recover_address(msg_hash, R_x, R_y, s, v)
-
-    let eth_account = ethereum_address.elements[1] * 2 ** (86 * 2) +
-        ethereum_address.elements[2] * 2 ** 86 +
-        ethereum_address.elements[3]
-    return (eth_account)
 end

@@ -83,7 +83,8 @@ async def test_proof(contracts_factory, contract_defs):
     prover_account, sbt_contract_factory, starknet_state = contracts_factory
     _, _, balance_proof_badge_def = contract_defs
 
-    erc20_token = "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
+    erc20_token = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+
     block_number = 7415645
     min_balance = 1
     create_sbt_transaction_receipt = await prover.send_transaction(prover_account,

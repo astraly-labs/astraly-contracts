@@ -1,7 +1,11 @@
 import json
+from math import ceil
+
 import sympy
 from web3 import Web3
 from eth_account.messages import encode_defunct
+
+from tests.pubkey_recovery import recover
 
 
 def pack_intarray(hex_input: str):
@@ -34,7 +38,8 @@ def generate_proof(address, private_key, starknet_attestation_wallet, rpc_http, 
         proof = json.loads(open(f'proof_{erc20_token}_{block_number}_{Web3.toHex(position)}.json'))
     except:
         proof = w3.eth.get_proof(erc20_token, [position], block_number)
-        json.dump(Web3.toJSON(proof), open(f'proof_{erc20_token}_{block_number}_{Web3.toHex(position)}.json', "w"), indent=4)
+        json.dump(Web3.toJSON(proof), open(f'proof_{erc20_token}_{block_number}_{Web3.toHex(position)}.json', "w"),
+                  indent=4)
     balance = Web3.toInt(w3.eth.get_storage_at(erc20_token, position))
     print("Generating proof of balance", balance)
 
@@ -63,9 +68,11 @@ def generate_proof(address, private_key, starknet_attestation_wallet, rpc_http, 
     proof_dict["signature"] = {
         "message": "0x" + eip191_message.hex(),
         "messageHash": signed_message.messageHash.hex(),
-        "R_x": signed_message.r,
+        "R_x": R_x,
         "R_y": R_y,
         "s": signed_message.s,
         "v": signed_message.v,
     }
+    recovered_address = recover(proof_dict)
+    assert Web3.toChecksumAddress(recovered_address) == address
     return proof_dict

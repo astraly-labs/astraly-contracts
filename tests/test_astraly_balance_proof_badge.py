@@ -1,16 +1,17 @@
 from datetime import datetime
-from math import ceil
 
 import pytest
 import pytest_asyncio
 
 from signers import MockSigner
+from tests.types import Data
 from utils import *
 import asyncio
 from generate_proof_balance import generate_proof, pack_intarray
 
 from starkware.starknet.testing.starknet import Starknet
 from starkware.cairo.common.cairo_secp.secp_utils import split
+from starkware.starknet.public.abi import get_selector_from_name
 
 account_path = 'openzeppelin/account/presets/Account.cairo'
 sbt_contract_factory_path = 'SBTs/AstralyBalanceSBTContractFactory.cairo'
@@ -108,20 +109,20 @@ async def test_proof(contracts_factory, contract_defs):
     prover_account, sbt_contract_factory, starknet_state = contracts_factory
     _, _, balance_proof_badge_def = contract_defs
 
-    erc20_token = "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
-    block_number = 7415645
+    LINK_token_address = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+    block_number = 7486880
     min_balance = 1
     create_sbt_transaction_receipt = await prover.send_transaction(prover_account,
                                                                    sbt_contract_factory.contract_address,
                                                                    "createSBTContract",
-                                                                   [block_number, min_balance, int(erc20_token, 16)])
+                                                                   [block_number, min_balance,
+                                                                    int(LINK_token_address, 16)])
 
     balance_proof_badge_contract = StarknetContract(starknet_state, balance_proof_badge_def.abi,
                                                     create_sbt_transaction_receipt.result.response[0], None)
 
     ethereum_address = "0x4Db4bB41758F10D97beC54155Fdb59b879207F92"
     ethereum_pk = "eb5a6c2a9e46618a92b40f384dd9e076480f1b171eb21726aae34dc8f22fe83f"
-    LINK_token_address = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
     rpc_node = "https://eth-goerli.g.alchemy.com/v2/uXpxHR8fJBH3fjLJpulhY__jXbTGNjN7"
     storage_slot = hex(1)
     proof = generate_proof(ethereum_address, ethereum_pk, hex(prover_account.contract_address), rpc_node, storage_slot,
@@ -129,8 +130,6 @@ async def test_proof(contracts_factory, contract_defs):
 
     args = list()
     args.append(prover_account.contract_address)
-    args.append(proof['balance'])
-    args.append(proof['nonce'])
     args.append(starknet_state.general_config.chain_id.value)
     args.append(len(proof['accountProof']))
     args.append(len(proof['storageProof'][0]['proof']))
@@ -158,7 +157,7 @@ async def test_proof(contracts_factory, contract_defs):
     message_ = pack_intarray(proof['signature']['message'])
     args.append(len(message_))  # message__len
     args += message_
-    args.append(32)
+    args.append(len(proof['signature']['message'][2:]) // 2)
 
     R_x_ = split(proof['signature']['R_x'])
     args.append(len(R_x_))  # R_x__len
@@ -182,34 +181,27 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(storage_value_))  # storage_value__len
     args += storage_value_
 
-    # calculate
-    args.append(0)
-    args.append(0)
-    args.append(0)
+    storage_proof = list(map(lambda element: Data.from_hex(element).to_ints(), proof['storageProof'][0]['proof']))
+    flat_storage_proof = []
+    flat_storage_proof_sizes_bytes = []
+    flat_storage_proof_sizes_words = []
+    for proof_element in storage_proof:
+        flat_storage_proof += proof_element.values
+        flat_storage_proof_sizes_bytes += [proof_element.length]
+        flat_storage_proof_sizes_words += [len(proof_element.values)]
 
-    # receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
-    #                                         [*args])
+    args.append(len(flat_storage_proof))
+    args += flat_storage_proof
 
-    eth_recovered_address = (await balance_proof_badge_contract.recover(
-        prover_account.contract_address,
-        starknet_state.general_config.chain_id.value,
-        len(proof['storageProof'][0]['proof']),
-        address_,
-        state_root,
-        storage_slot_,
-        storage_hash_,
-        message_,
-        32, #32
-        R_x_,
-        R_y_,
-        s_,
-        proof['signature']['v'],
-        storage_key_,
-        storage_value_,
-        [0],
-        [0],
-        [0]
-    ).call()).result.address
+    args.append(len(flat_storage_proof_sizes_words))
+    args += flat_storage_proof_sizes_words
 
-    print(f"Recovered Address {hex(eth_recovered_address)}")
-    print(f"Ethereum Address {ethereum_address}")
+    args.append(len(flat_storage_proof_sizes_bytes))
+    args += flat_storage_proof_sizes_bytes
+
+    receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
+                                            [*args])
+
+    event_signature = get_selector_from_name("BadgeMinted")
+    assert next(
+        (x for x in receipt.raw_events if event_signature in x.keys), None) is not None
