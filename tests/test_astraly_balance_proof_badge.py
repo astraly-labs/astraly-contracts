@@ -142,10 +142,6 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(state_root))  # state_root__len
     args += state_root
 
-    code_hash_ = pack_intarray(proof['codeHash'])
-    args.append(len(code_hash_))  # code_hash__len
-    args += code_hash_
-
     storage_slot_ = pack_intarray(proof['storageSlot'])
     args.append(len(storage_slot_))  # storage_slot__len
     args += storage_slot_
@@ -181,7 +177,8 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(storage_value_))  # storage_value__len
     args += storage_value_
 
-    storage_proof = list(map(lambda element: Data.from_hex(element).to_ints(), proof['storageProof'][0]['proof']))
+    storage_proof = list(map(lambda element: Data.from_hex(
+        element).to_ints(), proof['storageProof'][0]['proof']))
     flat_storage_proof = []
     flat_storage_proof_sizes_bytes = []
     flat_storage_proof_sizes_words = []

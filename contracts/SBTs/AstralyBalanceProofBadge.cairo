@@ -76,8 +76,6 @@ func mint{
     address_ : felt*,
     state_root__len : felt,
     state_root_ : felt*,
-    code_hash__len : felt,
-    code_hash_ : felt*,
     storage_slot__len : felt,
     storage_slot_ : felt*,
     storage_hash__len : felt,
@@ -125,7 +123,7 @@ func mint{
         storage_proof_len,
         address_,
         state_root_,
-        code_hash_,
+        empty_arr,
         storage_slot_,
         storage_hash_,
         message_,
@@ -165,7 +163,6 @@ func mint{
     # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root
     # and storage_hash so that they too can be verified from the signed message)
     verify_storage_proof(proof, starknet_account, ethereum_address, Uint256(_min_balance, 0))
-    # verify_account_proof(proof)
 
     # Write new badge entry in map
     let eth_account = ethereum_address.elements[1] * 2 ** (86 * 2) +
