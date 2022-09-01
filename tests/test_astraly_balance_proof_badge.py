@@ -134,10 +134,6 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(proof['accountProof']))
     args.append(len(proof['storageProof'][0]['proof']))
 
-    address_ = pack_intarray(proof['address'])
-    args.append(len(address_))  # address__len
-    args += address_
-
     state_root = pack_intarray(proof['stateRoot'])
     args.append(len(state_root))  # state_root__len
     args += state_root

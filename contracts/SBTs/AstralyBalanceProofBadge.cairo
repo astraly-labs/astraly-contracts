@@ -4,6 +4,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_le
 from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.bool import FALSE
 from starkware.starknet.common.syscalls import get_caller_address
 
 from lib.secp.bigint import BigInt3
@@ -12,7 +13,6 @@ from lib.bytes_utils import IntArray
 from verify_proof import (
     Proof,
     encode_proof,
-    verify_account_proof,
     verify_storage_proof,
     hash_eip191_message,
     recover_address,
@@ -30,6 +30,10 @@ end
 
 @storage_var
 func token_address() -> (res : felt):
+end
+
+@storage_var
+func proofs(msg_hash : BigInt3) -> (minted : felt):
 end
 
 # TODO: Emit
@@ -72,8 +76,6 @@ func mint{
     chain_id : felt,
     account_proof_len : felt,
     storage_proof_len : felt,
-    address__len : felt,
-    address_ : felt*,
     state_root__len : felt,
     state_root_ : felt*,
     storage_slot__len : felt,
@@ -103,15 +105,6 @@ func mint{
 ):
     alloc_locals
 
-    let token = address_[1] * 2 ** (86 * 2) +
-        address_[2] * 2 ** 86 +
-        address_[3]
-
-    # with_attr error_message("Token address don't match"):
-    #     let (_token_address : felt) = token_address.read()
-    #     assert _token_address = token
-    # end
-
     # TODO: check block number and state root on fossil
     # let (_block_number : felt) = block_number.read()
     let (empty_arr : felt*) = alloc()
@@ -121,7 +114,7 @@ func mint{
         0,
         account_proof_len,
         storage_proof_len,
-        address_,
+        empty_arr,
         state_root_,
         empty_arr,
         storage_slot_,
@@ -149,6 +142,7 @@ func mint{
         storage_proof_sizes_bytes_len,
     )
 
+
     # Extract Ethereum account address from signed message hash and signature
     let message = proof.signature.message
     let R_x = proof.signature.R_x
@@ -156,6 +150,7 @@ func mint{
     let s = proof.signature.s
     let v = proof.signature.v
     let (msg_hash : BigInt3) = hash_eip191_message(message)
+    assert_uniq_hash_msg(msg_hash)
     let (ethereum_address : IntArray) = recover_address(msg_hash, R_x, R_y, s, v)
 
     let (_min_balance : felt) = min_balance.read()
@@ -165,15 +160,35 @@ func mint{
     verify_storage_proof(proof, starknet_account, ethereum_address, Uint256(_min_balance, 0))
 
     # Write new badge entry in map
-    let eth_account = ethereum_address.elements[1] * 2 ** (86 * 2) +
-        ethereum_address.elements[2] * 2 ** 86 +
-        ethereum_address.elements[3]
-    let state_root_lo = state_root_[2] * 2 ** 86 +
-        state_root_[3]
-    let storage_hash_lo = storage_hash_[2] * 2 ** 86 +
-        storage_hash_[3]
+    let (eth_account) = int_array_to_felt(ethereum_address.elements, 4)
 
     BadgeMinted.emit(starknet_account, eth_account)
 
     return ()
+end
+
+func assert_uniq_hash_msg{syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*}(
+    msg_hash : BigInt3
+):
+    let (minted : felt) = proofs.read(msg_hash)
+    assert minted = FALSE
+
+    return ()
+end
+
+
+func int_array_to_felt(a: felt*, word_len: felt) -> (res: felt):
+    if word_len == 1:
+        return (a[0])
+    end
+    if word_len == 2:
+        return (a[1] + a[0]*2**64)
+    end
+    if word_len == 3:
+        return (a[2] + a[1]*2**64 + a[0]*2**128)
+    end
+    if word_len == 4:
+        return (a[3] + a[2]*2**64 + a[1]*2**128 + a[0]*2**192)
+    end
+    return (0)
 end

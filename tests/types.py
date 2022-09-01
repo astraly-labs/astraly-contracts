@@ -3,9 +3,10 @@ from typing import List, NamedTuple, Callable
 from enum import Enum, IntEnum
 from functools import reduce
 
-chunk_bytes_input: Callable[[bytes], List[bytes]] = lambda input: [input[i+0:i+8] for i in range(0, len(input), 8)]
+chunk_bytes_input: Callable[[bytes], List[bytes]] = lambda input: [input[i + 0:i + 8] for i in range(0, len(input), 8)]
 
 concat_arr: Callable[[List[str]], str] = lambda arr: reduce(lambda a, b: a + b, arr)
+
 
 def ints_array_to_bytes(input: IntsSequence) -> bytes:
     full_words, remainder = divmod(input.length, 8)
@@ -103,22 +104,3 @@ class Data:
 
     def __eq__(self, __o: Data) -> bool:
         return __o.raw_bytes == self.raw_bytes
-
-
-class BlockHeaderIndexes(IntEnum):
-    PARENT_HASH: int = 0
-    OMMERS_HASH: int = 1
-    BENEFICIARY: int = 2
-    STATE_ROOT: int = 3
-    TRANSACTION_ROOT: int = 4
-    RECEIPTS_ROOT: int = 5
-    LOGS_BLOOM: int = 6
-    DIFFICULTY: int = 7
-    BLOCK_NUMBER: int = 8
-    GAS_LIMIT: int = 9
-    GAS_USED: int = 10
-    TIMESTAMP: int = 11
-    EXTRA_DATA: int = 12
-    MIX_HASH: int = 13
-    NONCE: int = 14
-    BASE_FEE: int = 15
