@@ -5,14 +5,12 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE
+from starkware.cairo.common.math import assert_not_zero
 from starkware.starknet.common.syscalls import get_caller_address
 
 from lib.secp.bigint import BigInt3
 from lib.bytes_utils import IntArray
-from fossil.contracts.starknet.FactsRegistry import IL1HeadersStore
-
-from contracts.SBTs.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
-
+from fossil.contracts.starknet.FactsRegistry import IL1HeadersStore, Keccak256Hash
 from verify_proof import (
     Proof,
     encode_proof,
@@ -21,7 +19,8 @@ from verify_proof import (
     recover_address,
     reconstruct_big_int3,
 )
-from openzeppelin.security.initializable.library import Initializable
+
+from contracts.SBTs.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
 
 @storage_var
 func block_number() -> (res : felt):
@@ -40,7 +39,7 @@ func proofs(msg_hash : BigInt3) -> (minted : felt):
 end
 
 @storage_var
-func sbt_contract_factory_address() -> (address : felt):
+func _state_root() -> (keccak : Keccak256Hash):
 end
 
 # TODO: Emit
@@ -52,12 +51,25 @@ end
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _block_number : felt, _balance : felt, _token_address : felt
 ):
-    Initializable.initialize()
+    let (contract_factory_address : felt) = get_caller_address()
+    let (
+        fossil_fact_registry_address : felt
+    ) = IAstralySBTContractFactory.getFossilFactsRegistryAddress(contract_factory_address)
+    let (fossil_stored_state_root : Keccak256Hash) = IL1HeadersStore.get_state_root(
+        fossil_fact_registry_address, _block_number
+    )
+
+    with_attr error_message("No state root hash available for this block number"):
+        tempvar sum = fossil_stored_state_root.word_1 + 
+                fossil_stored_state_root.word_2 +
+                fossil_stored_state_root.word_3 +
+                fossil_stored_state_root.word_4
+        assert_not_zero(sum)
+    end
+
     block_number.write(_block_number)
     min_balance.write(_balance)
     token_address.write(_token_address)
-    let (contract_factory_address : felt) = get_caller_address()
-    sbt_contract_factory_address.write(contract_factory_address)
     return ()
 end
 
@@ -77,16 +89,21 @@ func tokenAddress{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_
     return (address)
 end
 
+@view
+func blockNumber{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
+    block : felt
+):
+    let (block_no : felt) = block_number.read()
+    return (block_no)
+end
+
 @external
 func mint{
     syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
 }(
     starknet_account : felt,
-    chain_id : felt,
     account_proof_len : felt,
     storage_proof_len : felt,
-    state_root__len : felt,
-    state_root_ : felt*,
     storage_slot__len : felt,
     storage_slot_ : felt*,
     storage_hash__len : felt,
@@ -117,13 +134,12 @@ func mint{
     # TODO: check block number and state root on fossil
     let (_block_number : felt) = block_number.read()
 
-    let (contract_factory_address : felt) = sbt_contract_factory_address.read()
-    let (
-        fossil_fact_registry_address : felt
-    ) = IAstralySBTContractFactory.getFossilFactsRegistryAddress(contract_factory_address)
-    let (fossil_stored_state_root) = IL1HeadersStore.get_state_root(
-        fossil_fact_registry_address, _block_number
-    )
+    let (state_root : Keccak256Hash) = _state_root.read()
+    let state_root_arr : felt* = alloc()
+    assert state_root_arr[0] = state_root.word_1
+    assert state_root_arr[1] = state_root.word_2
+    assert state_root_arr[2] = state_root.word_3
+    assert state_root_arr[3] = state_root.word_4
 
     let (empty_arr : felt*) = alloc()
 
@@ -133,7 +149,7 @@ func mint{
         account_proof_len,
         storage_proof_len,
         empty_arr,
-        state_root_,
+        state_root_arr,
         empty_arr,
         storage_slot_,
         storage_hash_,
