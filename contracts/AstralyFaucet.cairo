@@ -16,7 +16,7 @@ from contracts.AstralyAccessControl import AstralyAccessControl
 from openzeppelin.token.erc20.IERC20 import IERC20
 
 #
-# Sorage
+# Storage
 #
 @storage_var
 func faucet_unlock_time(user : felt) -> (unlock_time : felt):

@@ -9,6 +9,9 @@ from starkware.starknet.common.syscalls import get_caller_address
 
 from lib.secp.bigint import BigInt3
 from lib.bytes_utils import IntArray
+from fossil.contracts.starknet.FactsRegistry import IL1HeadersStore
+
+from contracts.SBTs.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
 
 from verify_proof import (
     Proof,
@@ -36,6 +39,10 @@ end
 func proofs(msg_hash : BigInt3) -> (minted : felt):
 end
 
+@storage_var
+func sbt_contract_factory_address() -> (address : felt):
+end
+
 # TODO: Emit
 @event
 func BadgeMinted(owner : felt, l1_address : felt):
@@ -49,6 +56,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     block_number.write(_block_number)
     min_balance.write(_balance)
     token_address.write(_token_address)
+    let (contract_factory_address : felt) = get_caller_address()
+    sbt_contract_factory_address.write(contract_factory_address)
     return ()
 end
 
@@ -106,7 +115,16 @@ func mint{
     alloc_locals
 
     # TODO: check block number and state root on fossil
-    # let (_block_number : felt) = block_number.read()
+    let (_block_number : felt) = block_number.read()
+
+    let (contract_factory_address : felt) = sbt_contract_factory_address.read()
+    let (
+        fossil_fact_registry_address : felt
+    ) = IAstralySBTContractFactory.getFossilFactsRegistryAddress(contract_factory_address)
+    let (fossil_stored_state_root) = IL1HeadersStore.get_state_root(
+        fossil_fact_registry_address, _block_number
+    )
+
     let (empty_arr : felt*) = alloc()
 
     let (local proof : Proof*) = encode_proof(
@@ -142,7 +160,6 @@ func mint{
         storage_proof_sizes_bytes_len,
     )
 
-
     # Extract Ethereum account address from signed message hash and signature
     let message = proof.signature.message
     let R_x = proof.signature.R_x
@@ -176,19 +193,18 @@ func assert_uniq_hash_msg{syscall_ptr : felt*, range_check_ptr, pedersen_ptr : H
     return ()
 end
 
-
-func int_array_to_felt(a: felt*, word_len: felt) -> (res: felt):
+func int_array_to_felt(a : felt*, word_len : felt) -> (res : felt):
     if word_len == 1:
         return (a[0])
     end
     if word_len == 2:
-        return (a[1] + a[0]*2**64)
+        return (a[1] + a[0] * 2 ** 64)
     end
     if word_len == 3:
-        return (a[2] + a[1]*2**64 + a[0]*2**128)
+        return (a[2] + a[1] * 2 ** 64 + a[0] * 2 ** 128)
     end
     if word_len == 4:
-        return (a[3] + a[2]*2**64 + a[1]*2**128 + a[0]*2**192)
+        return (a[3] + a[2] * 2 ** 64 + a[1] * 2 ** 128 + a[0] * 2 ** 192)
     end
     return (0)
 end

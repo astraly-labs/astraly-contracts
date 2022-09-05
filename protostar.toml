@@ -5,7 +5,7 @@ protostar_version = "0.3.2"
 libs_path = "./lib"
 
 ["protostar.build"]
-cairo-path = ["./lib/cairo_contracts/src", "./lib/starknet_attestations"]
+cairo-path = ["./lib/cairo_contracts/src", "./lib/starknet_attestations", "./lib/fossil/contracts"]
 
 ["protostar.contracts"]
 AstralyFaucet = [

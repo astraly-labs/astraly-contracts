@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 from signers import MockSigner
-from tests.types import Data
+from types import Data
 from utils import *
 import asyncio
 from generate_proof_balance import generate_proof, pack_intarray
@@ -26,7 +26,7 @@ def event_loop():
 
 
 @pytest_asyncio.fixture(scope='module')
-async def get_starknet():
+async def get_starknet() -> Starknet:
     starknet = await Starknet.empty()
     set_block_timestamp(starknet.state, int(
         datetime.today().timestamp()))  # time.time()
@@ -45,7 +45,7 @@ def contract_defs():
 
 
 @pytest_asyncio.fixture(scope='module')
-async def contacts_init(contract_defs, get_starknet):
+async def contacts_init(contract_defs, get_starknet: Starknet):
     starknet = get_starknet
     account_def, sbt_contract_factory_def, balance_proof_badge_def = contract_defs
     await starknet.declare(contract_class=account_def)
@@ -72,7 +72,7 @@ async def contacts_init(contract_defs, get_starknet):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contacts_init, get_starknet):
+def contracts_factory(contract_defs, contacts_init, get_starknet: Starknet):
     account_def, sbt_contract_factory_def, _ = contract_defs
     prover_account, sbt_contract_factory = contacts_init
     _state = get_starknet.state.copy()
