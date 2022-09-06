@@ -63,18 +63,11 @@ func initializer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     return ()
 end
 
-@view
-func getFossilFactsRegistryAddress{
-    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
-}() -> (address : felt):
-    let (address : felt) = fossil_facts_registry_address.read()
-    return (address)
-end
-
 @external
 func setFossilFactsRegistryAddress{
     syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
 }(new_address : felt):
+    AstralyAccessControl.assert_only_owner()
     with_attr error_message("Invalid Facts Registry address"):
         assert_not_zero(new_address)
     end
@@ -114,12 +107,13 @@ func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     assert_not_zero(block_number)
     let (class_hash : felt) = SBT_badge_class_hash.read()
     let (salt : felt) = get_contract_address()
+    let (facts_registry_address : felt) = fossil_facts_registry_address.read()
 
     let (new_SBT_badge_contract_address : felt) = deploy(
         class_hash=class_hash,
         contract_address_salt=salt,
-        constructor_calldata_size=3,
-        constructor_calldata=cast(new (block_number, balance, token_address), felt*),
+        constructor_calldata_size=4,
+        constructor_calldata=cast(new (block_number, balance, token_address, facts_registry_address), felt*),
         deploy_from_zero=0,
     )
     deployed_badge_contracts.write(

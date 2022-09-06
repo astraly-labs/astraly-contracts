@@ -49,12 +49,8 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _block_number : felt, _balance : felt, _token_address : felt
+    _block_number : felt, _balance : felt, _token_address : felt, fossil_fact_registry_address : felt
 ):
-    let (contract_factory_address : felt) = get_caller_address()
-    let (
-        fossil_fact_registry_address : felt
-    ) = IAstralySBTContractFactory.getFossilFactsRegistryAddress(contract_factory_address)
     let (fossil_stored_state_root : Keccak256Hash) = IL1HeadersStore.get_state_root(
         fossil_fact_registry_address, _block_number
     )

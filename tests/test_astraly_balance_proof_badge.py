@@ -1,11 +1,15 @@
-import os
+from typing import NamedTuple, List, Callable, Tuple
+
 import pytest
 import pytest_asyncio
 
 from dotenv import load_dotenv
 from datetime import datetime
+
+from starkware.starknet.services.api.contract_class import ContractClass
+from starkware.starknet.testing.state import StarknetState
+
 from signers import MockSigner
-from tests.types import Data
 from utils import *
 from generate_proof_balance import generate_proof, pack_intarray
 
@@ -41,7 +45,7 @@ async def get_starknet() -> Starknet:
 
 
 @pytest.fixture(scope='module')
-def contract_defs():
+def contract_defs() -> Tuple[ContractClass, ContractClass, ContractClass, ContractClass]:
     account_def = get_contract_def(account_path)
     sbt_contract_factory_def = get_contract_def(
         sbt_contract_factory_path, disable_hint_validation=True)
@@ -53,7 +57,8 @@ def contract_defs():
 
 
 @pytest_asyncio.fixture(scope='module')
-async def contacts_init(contract_defs, get_starknet: Starknet):
+async def contacts_init(contract_defs, get_starknet: Starknet) -> Tuple[
+    StarknetContract, StarknetContract, StarknetContract]:
     starknet = get_starknet
     account_def, sbt_contract_factory_def, balance_proof_badge_def, mock_L1_headers_store_def = contract_defs
     await starknet.declare(contract_class=account_def)
@@ -88,7 +93,8 @@ async def contacts_init(contract_defs, get_starknet: Starknet):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contacts_init, get_starknet: Starknet):
+def contracts_factory(contract_defs, contacts_init, get_starknet: Starknet) -> Tuple[
+    StarknetContract, StarknetContract, StarknetContract, StarknetState]:
     account_def, sbt_contract_factory_def, _, mock_L1_headers_store_def = contract_defs
     prover_account, sbt_contract_factory, mock_L1_headers_store = contacts_init
     _state = get_starknet.state.copy()
@@ -178,8 +184,23 @@ async def test_proof(contracts_factory, contract_defs):
     args.append(len(storage_value_))  # storage_value__len
     args += storage_value_
 
-    storage_proof = list(map(lambda element: Data.from_hex(
-        element).to_ints(), proof['storageProof'][0]['proof']))
+    class IntsSequence(NamedTuple):
+        values: List[int]
+        length: int
+
+    chunk_bytes_input: Callable[[bytes], List[bytes]] = lambda input: [
+        input[i + 0:i + 8] for i in range(0, len(input), 8)]
+
+    def to_ints(input: str) -> IntsSequence:
+        bytes_input = bytes.fromhex(input[2:])
+        chunked = chunk_bytes_input(bytes_input)
+        ints_array = list(
+            map(lambda chunk: int.from_bytes(chunk, 'big'), chunked))
+        return IntsSequence(values=ints_array, length=len(bytes_input))
+
+    storage_proof = list(map(lambda element: to_ints(
+        element), proof['storageProof'][0]['proof']))
+
     flat_storage_proof = []
     flat_storage_proof_sizes_bytes = []
     flat_storage_proof_sizes_words = []

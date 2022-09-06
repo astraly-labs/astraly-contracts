@@ -138,7 +138,9 @@ def get_contract_def(path, disable_hint_validation: bool = False):
         debug_info=True,
         disable_hint_validation=disable_hint_validation,
         cairo_path=[str(_root / "lib/cairo_contracts/src"),
-                    str(_root / "lib/starknet_attestations")]
+                    str(_root / "lib/starknet_attestations"),
+                    str(_root / "lib/fossil/contracts"),
+                    str(_root / "lib")]
     )
     return contract_def
 
