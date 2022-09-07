@@ -18,11 +18,6 @@ balance_proof_badge_path = 'SBTs/AstralyBalanceProofBadge.cairo'
 prover = MockSigner(1234321)
 
 
-@pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
 @pytest_asyncio.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()

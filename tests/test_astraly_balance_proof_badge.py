@@ -30,11 +30,6 @@ def load_env():
     load_dotenv()
 
 
-@pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
 @pytest_asyncio.fixture(scope='module')
 async def get_starknet() -> Starknet:
     starknet = await Starknet.empty()

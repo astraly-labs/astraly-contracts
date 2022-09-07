@@ -25,11 +25,6 @@ DECIMALS = 18
 
 
 @pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
-@pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def(
         'openzeppelin/account/presets/Account.cairo')

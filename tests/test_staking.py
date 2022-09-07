@@ -58,11 +58,6 @@ def days_to_seconds(days: int):
     return days * 24 * 60 * 60
 
 
-@pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
 @pytest_asyncio.fixture(scope='module')
 async def get_starknet():
     starknet = await Starknet.empty()

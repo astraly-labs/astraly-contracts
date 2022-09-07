@@ -80,11 +80,6 @@ TOKEN_URI = [1862946994419801281893806961034143748618288271254499549582295376332
 # Fixtures
 
 @pytest.fixture(scope='module')
-def event_loop():
-    return asyncio.new_event_loop()
-
-
-@pytest.fixture(scope='module')
 def contract_defs():
     account_def = get_contract_def(account_path)
     erc1155_def = get_contract_def(erc1155_path)

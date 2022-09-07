@@ -5,7 +5,7 @@ import sympy
 from web3 import Web3
 from eth_account.messages import encode_defunct
 
-from tests.pubkey_recovery import recover
+from pubkey_recovery import recover
 
 
 def pack_intarray(hex_input: str):
