@@ -1,11 +1,11 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.uint256 import Uint256, split_64
 from starkware.cairo.common.math import assert_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE
-from starkware.cairo.common.math import assert_not_zero
+from starkware.cairo.common.math import assert_not_zero, split_felt
 from starkware.starknet.common.syscalls import get_caller_address
 
 from lib.secp.bigint import BigInt3
@@ -15,9 +15,9 @@ from verify_proof import (
     Proof,
     encode_proof,
     verify_storage_proof,
+    verify_account_proof,
     hash_eip191_message,
     recover_address,
-    reconstruct_big_int3,
 )
 
 from contracts.SBTs.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
@@ -49,17 +49,20 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _block_number : felt, _balance : felt, _token_address : felt, fossil_fact_registry_address : felt
+    _block_number : felt,
+    _balance : felt,
+    _token_address : felt,
+    _fossil_fact_registry_address : felt,
 ):
     let (fossil_stored_state_root : Keccak256Hash) = IL1HeadersStore.get_state_root(
-        fossil_fact_registry_address, _block_number
+        _fossil_fact_registry_address, _block_number
     )
 
     with_attr error_message("No state root hash available for this block number"):
-        tempvar sum = fossil_stored_state_root.word_1 + 
-                fossil_stored_state_root.word_2 +
-                fossil_stored_state_root.word_3 +
-                fossil_stored_state_root.word_4
+        tempvar sum = fossil_stored_state_root.word_1 +
+            fossil_stored_state_root.word_2 +
+            fossil_stored_state_root.word_3 +
+            fossil_stored_state_root.word_4
         assert_not_zero(sum)
     end
 
@@ -98,8 +101,12 @@ func mint{
     syscall_ptr : felt*, range_check_ptr, pedersen_ptr : HashBuiltin*, bitwise_ptr : BitwiseBuiltin*
 }(
     starknet_account : felt,
+    token_balance : felt,
+    token_contract_nonce : felt,
     account_proof_len : felt,
     storage_proof_len : felt,
+    code_hash__len : felt,
+    code_hash_ : felt*,
     storage_slot__len : felt,
     storage_slot_ : felt*,
     storage_hash__len : felt,
@@ -118,6 +125,12 @@ func mint{
     storage_key_ : felt*,
     storage_value__len : felt,
     storage_value_ : felt*,
+    account_proofs_concat_len : felt,
+    account_proofs_concat : felt*,
+    account_proof_sizes_words_len : felt,
+    account_proof_sizes_words : felt*,
+    account_proof_sizes_bytes_len : felt,
+    account_proof_sizes_bytes : felt*,
     storage_proofs_concat_len : felt,
     storage_proofs_concat : felt*,
     storage_proof_sizes_words_len : felt,
@@ -128,7 +141,7 @@ func mint{
     alloc_locals
 
     # TODO: check block number and state root on fossil
-    let (_block_number : felt) = block_number.read()
+    let (_block_number : felt) = blockNumber()
 
     let (state_root : Keccak256Hash) = _state_root.read()
     let state_root_arr : felt* = alloc()
@@ -137,16 +150,17 @@ func mint{
     assert state_root_arr[2] = state_root.word_3
     assert state_root_arr[3] = state_root.word_4
 
-    let (empty_arr : felt*) = alloc()
+    let (_token_address : felt) = tokenAddress()
+    let (address : felt*) = felt_to_int_array(_token_address)
 
     let (local proof : Proof*) = encode_proof(
-        0,
-        0,
+        token_balance,
+        token_contract_nonce,
         account_proof_len,
         storage_proof_len,
-        empty_arr,
+        address,
         state_root_arr,
-        empty_arr,
+        code_hash_,
         storage_slot_,
         storage_hash_,
         message_,
@@ -158,12 +172,12 @@ func mint{
         v,
         storage_key_,
         storage_value_,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
-        empty_arr,
-        0,
+        account_proofs_concat,
+        account_proofs_concat_len,
+        account_proof_sizes_words,
+        account_proof_sizes_words_len,
+        account_proof_sizes_bytes,
+        account_proof_sizes_bytes_len,
         storage_proofs_concat,
         storage_proofs_concat_len,
         storage_proof_sizes_words,
@@ -187,6 +201,7 @@ func mint{
     # Verify proofs, starknet and ethereum address, and min balance (TODO: Pass state_root
     # and storage_hash so that they too can be verified from the signed message)
     verify_storage_proof(proof, starknet_account, ethereum_address, Uint256(_min_balance, 0))
+    # verify_account_proof(proof)
 
     # Write new badge entry in map
     let (eth_account) = int_array_to_felt(ethereum_address.elements, 4)
@@ -219,4 +234,17 @@ func int_array_to_felt(a : felt*, word_len : felt) -> (res : felt):
         return (a[3] + a[2] * 2 ** 64 + a[1] * 2 ** 128 + a[0] * 2 ** 192)
     end
     return (0)
+end
+
+func felt_to_int_array{range_check_ptr}(a : felt) -> (res : felt*):
+    alloc_locals
+    let (hi, lo) = split_felt(a)
+    let (local res : felt*) = alloc()
+    let (r0, r1) = split_64(lo)
+    let (r2, r3) = split_64(hi)
+    assert res[0] = r3
+    assert res[1] = r2
+    assert res[2] = r1
+    assert res[3] = r0
+    return (res)
 end

@@ -146,8 +146,14 @@ async def test_proof(contracts_factory, contract_defs):
 
     args = list()
     args.append(prover_account.contract_address)
+    args.append(proof['balance'])
+    args.append(proof['nonce'])
     args.append(len(proof['accountProof']))
     args.append(len(proof['storageProof'][0]['proof']))
+
+    code_hash_ = pack_intarray(proof['codeHash'])
+    args.append(len(code_hash_))  # code_hash__len
+    args += code_hash_
 
     storage_slot_ = pack_intarray(proof['storageSlot'])
     args.append(len(storage_slot_))  # storage_slot__len
@@ -198,6 +204,26 @@ async def test_proof(contracts_factory, contract_defs):
             map(lambda chunk: int.from_bytes(chunk, 'big'), chunked))
         return IntsSequence(values=ints_array, length=len(bytes_input))
 
+    account_proof = list(map(lambda element: to_ints(
+        element), proof['accountProof']))
+
+    flat_account_proof = []
+    flat_account_proof_sizes_bytes = []
+    flat_account_proof_sizes_words = []
+    for proof_element in account_proof:
+        flat_account_proof += proof_element.values
+        flat_account_proof_sizes_bytes += [proof_element.length]
+        flat_account_proof_sizes_words += [len(proof_element.values)]
+
+    args.append(len(flat_account_proof))
+    args += flat_account_proof
+
+    args.append(len(flat_account_proof_sizes_words))
+    args += flat_account_proof_sizes_words
+
+    args.append(len(flat_account_proof_sizes_bytes))
+    args += flat_account_proof_sizes_bytes
+
     storage_proof = list(map(lambda element: to_ints(
         element), proof['storageProof'][0]['proof']))
 
@@ -221,6 +247,7 @@ async def test_proof(contracts_factory, contract_defs):
     state_root = pack_intarray(proof['stateRoot'])
     await prover.send_transaction(prover_account, mock_L1_headers_store_cached.contract_address, "set_state_root",
                                   [len(state_root), *state_root, block_number])
+
     create_sbt_transaction_receipt = await prover.send_transaction(prover_account,
                                                                    sbt_contract_factory.contract_address,
                                                                    "createSBTContract",
