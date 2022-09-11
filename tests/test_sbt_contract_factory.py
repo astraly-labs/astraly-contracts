@@ -12,8 +12,8 @@ from generate_proof_balance import generate_proof, pack_intarray
 from starkware.starknet.testing.starknet import Starknet
 
 account_path = 'openzeppelin/account/presets/Account.cairo'
-sbt_contract_factory_path = 'SBTs/AstralyBalanceSBTContractFactory.cairo'
-balance_proof_badge_path = 'SBTs/AstralyBalanceProofBadge.cairo'
+sbt_contract_factory_path = 'SBT/AstralyBalanceSBTContractFactory.cairo'
+balance_proof_badge_path = 'SBT/AstralyBalanceProofBadge.cairo'
 
 prover = MockSigner(1234321)
 

@@ -6,7 +6,8 @@ from starkware.cairo.common.math import assert_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE
 from starkware.cairo.common.math import assert_not_zero, split_felt
-from starkware.starknet.common.syscalls import get_caller_address
+from starkware.starknet.common.syscalls import get_caller_address, get_tx_info, TxInfo
+from starkware.starknet.common.eth_utils import assert_valid_eth_address
 
 from lib.secp.bigint import BigInt3
 from lib.bytes_utils import IntArray
@@ -20,7 +21,15 @@ from verify_proof import (
     recover_address,
 )
 
-from contracts.SBTs.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
+from contracts.SBT.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
+from contracts.SBT.erc4973.ERC4973 import supportsInterface, name, symbol, balanceOf, ownerOf, unequip, give, take
+
+
+struct StarkNet_Domain:
+    member name: felt
+    member version: felt
+    member chain_id: felt
+end
 
 @storage_var
 func block_number() -> (res : felt):
@@ -41,6 +50,11 @@ end
 @storage_var
 func _state_root() -> (keccak : Keccak256Hash):
 end
+
+@storage_var
+func signature_domain_separator() -> (domain_separator: StarkNet_Domain):
+end
+
 
 # TODO: Emit
 @event
@@ -68,7 +82,11 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     block_number.write(_block_number)
     min_balance.write(_balance)
+    assert_valid_eth_address(_token_address)
     token_address.write(_token_address)
+
+    let (tx_inf : TxInfo*) = get_tx_info()
+    signature_domain_separator.write(StarkNet_Domain('AstralyBalanceProofBadge', 1, tx_inf.chain_id))
     return ()
 end
 
@@ -205,7 +223,7 @@ func mint{
 
     # Write new badge entry in map
     let (eth_account) = int_array_to_felt(ethereum_address.elements, 4)
-
+    assert_valid_eth_address(eth_account)
     BadgeMinted.emit(starknet_account, eth_account)
 
     return ()

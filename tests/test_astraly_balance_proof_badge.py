@@ -18,8 +18,8 @@ from starkware.cairo.common.cairo_secp.secp_utils import split
 from starkware.starknet.public.abi import get_selector_from_name
 
 account_path = 'openzeppelin/account/presets/Account.cairo'
-sbt_contract_factory_path = 'SBTs/AstralyBalanceSBTContractFactory.cairo'
-balance_proof_badge_path = 'SBTs/AstralyBalanceProofBadge.cairo'
+sbt_contract_factory_path = 'SBT/AstralyBalanceSBTContractFactory.cairo'
+balance_proof_badge_path = 'SBT/AstralyBalanceProofBadge.cairo'
 mock_L1_headers_store_path = 'mocks/mock_L1_Headers_Store.cairo'
 
 prover = MockSigner(1234321)
