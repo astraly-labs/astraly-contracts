@@ -9,7 +9,7 @@ from starkware.cairo.common.math import (
     assert_lt,
     unsigned_div_rem,
 )
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.math_cmp import is_le, is_not_zero
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (
@@ -19,6 +19,8 @@ from starkware.cairo.common.uint256 import (
     uint256_lt,
     uint256_check,
 )
+from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.invoke import invoke
 from starkware.starknet.common.syscalls import (
     get_caller_address,
     get_contract_address,
@@ -31,7 +33,7 @@ from openzeppelin.security.safemath.library import SafeUint256
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_is_zero, get_is_equal, uint256_max
+from contracts.utils import uint256_is_zero, get_is_equal, uint256_max, write_to_array
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -179,6 +181,22 @@ end
 func ido_allocation() -> (res : Uint256):
 end
 
+@storage_var
+func bonus_sbt_addresses(index : felt) -> (address : felt):
+end
+
+@storage_var
+func bonus_sbt_addresses_len() -> (length : felt):
+end
+
+@storage_var
+func bonus_sbt_value(address : felt) -> (value : felt):
+end
+
+#
+# Events
+#
+
 @event
 func tokens_sold(user_address : felt, amount : Uint256):
 end
@@ -225,8 +243,13 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _admin_address : felt
+    _admin_address : felt,
+    sbt_tokens_bonus_address_len : felt,
+    sbt_tokens_bonus_address : felt*,
+    bonus_value_arr_len : felt,
+    bonus_value_arr : felt*,
 ):
+    alloc_locals
     assert_not_zero(_admin_address)
     AstralyAccessControl.initializer(_admin_address)
 
@@ -235,7 +258,37 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     let (address_this : felt) = get_contract_address()
     IDO_Created.emit(address_this)
+
+    let (have_bonus : felt) = is_not_zero(sbt_tokens_bonus_address_len)
+
+    if have_bonus == FALSE:
+        return ()
+    end
+
+    let (mapping_ref : felt*) = get_label_location(bonus_sbt_addresses.write)
+    write_to_array(sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, mapping_ref)
+    bonus_sbt_addresses_len.write(sbt_tokens_bonus_address_len)
+
+    write_bonus_values(0, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, bonus_value_arr)
+
     return ()
+end
+
+func write_bonus_values{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt,
+    sbt_tokens_bonus_address_len : felt,
+    sbt_tokens_bonus_address : felt*,
+    bonus_value_arr : felt*,
+):
+    if index == sbt_tokens_bonus_address_len:
+        return ()
+    end
+
+    tempvar bonus : felt = bonus_value_arr[index]
+    tempvar sbt_address : felt = sbt_tokens_bonus_address[index]
+    bonus_sbt_value.write(sbt_address, bonus)
+
+    return write_bonus_values(index + 1, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, bonus_value_arr)
 end
 
 #############################################

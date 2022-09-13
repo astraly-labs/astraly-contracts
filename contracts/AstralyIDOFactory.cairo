@@ -115,10 +115,19 @@ end
 
 @external
 func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    ido_admin : felt
+    ido_admin : felt,
+    sbt_tokens_bonus_address_len : felt,
+    sbt_tokens_bonus_address : felt*,
+    bonus_value_arr_len : felt,
+    bonus_value_arr : felt*,
 ) -> (new_ido_contract_address : felt):
     alloc_locals
     AstralyAccessControl.assert_only_owner()
+
+    with_attr error_mesage("Invalid SBT bonus array len"):
+        assert sbt_tokens_bonus_address_len = bonus_value_arr_len
+    end
+
     let (_id) = current_id.read()
     let (ido_contract_class : felt) = get_ido_contract_class_hash()
     with_attr error_message("IDO contract class hash is not set"):
@@ -127,8 +136,8 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     let (new_ido_contract_address : felt) = deploy(
         class_hash=ido_contract_class,
         contract_address_salt=_id,
-        constructor_calldata_size=1,
-        constructor_calldata=cast(new (ido_admin), felt*),
+        constructor_calldata_size=5,
+        constructor_calldata=cast(new (ido_admin, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, bonus_value_arr_len, bonus_value_arr), felt*),
         deploy_from_zero=0,
     )
     ido_contract_addresses.write(_id, new_ido_contract_address)

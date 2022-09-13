@@ -177,7 +177,7 @@ async def contacts_init(contract_defs, get_starknet):
                                     [task.contract_address])
 
     ido_address = (await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "create_ido",
-                                                   [admin1_account.contract_address])).result.response[0]
+                                                   [admin1_account.contract_address, 0, 0])).result.response[0]
 
     ido = StarknetContract(starknet, zk_pad_ido_def.abi, ido_address, None)
 
