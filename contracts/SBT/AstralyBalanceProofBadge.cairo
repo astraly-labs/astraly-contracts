@@ -20,16 +20,10 @@ from verify_proof import (
     hash_eip191_message,
     recover_address,
 )
+from openzeppelin.token.erc721.library import ERC721
 
 from contracts.SBT.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
-from contracts.SBT.erc4973.ERC4973 import supportsInterface, name, symbol, balanceOf, ownerOf, unequip, give, take
-
-
-struct StarkNet_Domain:
-    member name: felt
-    member version: felt
-    member chain_id: felt
-end
+from contracts.SBT.base_SBT import name, symbol, balanceOf, ownerOf, unequip
 
 @storage_var
 func block_number() -> (res : felt):
@@ -49,16 +43,6 @@ end
 
 @storage_var
 func _state_root() -> (keccak : Keccak256Hash):
-end
-
-@storage_var
-func signature_domain_separator() -> (domain_separator: StarkNet_Domain):
-end
-
-
-# TODO: Emit
-@event
-func BadgeMinted(owner : felt, l1_address : felt):
 end
 
 @constructor
@@ -85,8 +69,7 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     assert_valid_eth_address(_token_address)
     token_address.write(_token_address)
 
-    let (tx_inf : TxInfo*) = get_tx_info()
-    signature_domain_separator.write(StarkNet_Domain('AstralyBalanceProofBadge', 1, tx_inf.chain_id))
+    ERC721.initializer('AstralyBalanceProofBadge', 'A-BPB')
     return ()
 end
 
@@ -224,8 +207,12 @@ func mint{
     # Write new badge entry in map
     let (eth_account) = int_array_to_felt(ethereum_address.elements, 4)
     assert_valid_eth_address(eth_account)
-    BadgeMinted.emit(starknet_account, eth_account)
 
+    let (caller : felt) = get_caller_address()
+
+    ERC721._mint(
+        caller, Uint256(storage_key_[0] + storage_key_[1], storage_key_[2] + storage_key_[3])
+    )
     return ()
 end
 

@@ -42,8 +42,8 @@ AstralyAccessControl = [
     "contracts/AstralyAccessControl.cairo",
 ]
 AstralyBalanceProofBadge = [
-    "contracts/SBTs/AstralyBalanceProofBadge.cairo",
+    "contracts/SBT/AstralyBalanceProofBadge.cairo",
 ]
 AstralyBalanceSBTContractFactory = [
-    "contracts/SBTs/AstralyBalanceSBTContractFactory.cairo",
+    "contracts/SBT/AstralyBalanceSBTContractFactory.cairo",
 ]

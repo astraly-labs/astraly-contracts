@@ -3,7 +3,7 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.uint256 import Uint256
-from starkware.cairo.common.bool import FALSE
+from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import deploy, get_contract_address
 
 from openzeppelin.security.initializable.library import Initializable
@@ -21,9 +21,12 @@ func SBT_badge_class_hash() -> (hash : felt):
 end
 
 @storage_var
-func deployed_badge_contracts(token_address : felt, block_number : felt, balance : felt) -> (
+func deployed_badge_contracts_address(token_address : felt, block_number : felt, balance : felt) -> (
     address : felt
 ):
+end
+@storage_var
+func badge_contracts(address : felt) -> (deployed : felt):
 end
 
 @storage_var
@@ -38,6 +41,12 @@ end
 
 @event
 func SBTClassHashChanged(new_class_hash : felt):
+end
+
+@view
+func isDeployed{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(badge_address : felt) -> (yes_no : felt):
+    let (deployed : felt) = badge_contracts.read(badge_address)
+    return (deployed)
 end
 
 @external
@@ -97,7 +106,7 @@ func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
 ) -> (new_SBT_badge_contract_address : felt):
     AstralyAccessControl.assert_only_owner()
 
-    let (already_deployed : felt) = deployed_badge_contracts.read(
+    let (already_deployed : felt) = deployed_badge_contracts_address.read(
         token_address, block_number, balance
     )
     with_attr error_message("Already deployed"):
@@ -116,9 +125,10 @@ func createSBTContract{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
         constructor_calldata=cast(new (block_number, balance, token_address, facts_registry_address), felt*),
         deploy_from_zero=0,
     )
-    deployed_badge_contracts.write(
+    deployed_badge_contracts_address.write(
         token_address, block_number, balance, new_SBT_badge_contract_address
     )
+    badge_contracts.write(new_SBT_badge_contract_address, TRUE)
     SBTContractCreated.emit(new_SBT_badge_contract_address, block_number, balance, token_address)
     return (new_SBT_badge_contract_address)
 end

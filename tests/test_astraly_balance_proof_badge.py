@@ -255,6 +255,6 @@ async def test_proof(contracts_factory, contract_defs):
     receipt = await prover.send_transaction(prover_account, balance_proof_badge_contract.contract_address, "mint",
                                             [*args])
 
-    event_signature = get_selector_from_name("BadgeMinted")
+    event_signature = get_selector_from_name("Transfer")
     assert next(
         (x for x in receipt.raw_events if event_signature in x.keys), None) is not None
