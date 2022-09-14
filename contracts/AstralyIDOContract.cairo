@@ -780,25 +780,29 @@ func apply_sbt_badge_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, ran
         return (winning_tickets)
     end
 
-    let (total : Uint256) = apply_sbt_badge_bonus_rec(0, _bonus_sbt_addresses_len, winning_tickets, caller)
+    let (bonus : Uint256) = get_sbt_badge_bonus_rec(0, _bonus_sbt_addresses_len, winning_tickets, Uint256(0,0), caller)
+    let (total : Uint256) = SafeUint256.add(winning_tickets, bonus)
     return (total)
 end
 
-func apply_sbt_badge_bonus_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    index : felt, length : felt, winning_tickets : Uint256, caller : felt
+func get_sbt_badge_bonus_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt, length : felt, winning_tickets : Uint256, bonus : Uint256, caller : felt
 ) -> (total : Uint256):
+    alloc_locals
     if index == length:
-        return (winning_tickets)
+        return (bonus)
     end
     let (sbt_address : felt) = bonus_sbt_addresses.read(index)
     let (bonus_value : felt) = bonus_sbt_value.read(sbt_address)
     if bonus_value == 0:
-        return (winning_tickets)
+        return (bonus)
     end
-    let (mul : Uint256) = SafeUint256.mul(winning_tickets, Uint256(bonus_value, 0))
-    let (new_winning_tickets : Uint256, _) = SafeUint256.div_rem(mul, Uint256(10, 0))
+    let (mul : Uint256) = SafeUint256.mul(Uint256(bonus_value, 0), winning_tickets)
+    let (div : Uint256, _) = SafeUint256.div_rem(mul, Uint256(1000, 0)) # bonus is multiplied by 10
 
-    return apply_sbt_badge_bonus_rec(index +1, length, new_winning_tickets, caller)
+    let (new_bonus : Uint256) = SafeUint256.add(div, bonus)
+
+    return get_sbt_badge_bonus_rec(index +1, length, winning_tickets, new_bonus, caller)
 end
 
 func get_adjusted_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
