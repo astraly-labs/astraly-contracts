@@ -14,6 +14,9 @@ from contracts.AstralyAccessControl import AstralyAccessControl
 namespace IAstralySBTContractFactory:
     func getFossilFactsRegistryAddress() -> (address : felt):
     end
+
+    func isDeployed(address : felt) -> (yes_no : felt):
+    end
 end
 
 @storage_var

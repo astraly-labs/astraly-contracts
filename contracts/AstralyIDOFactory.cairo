@@ -7,6 +7,7 @@ from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, deploy
 
 from contracts.AstralyAccessControl import AstralyAccessControl
+from contracts.SBT.AstralyBalanceSBTContractFactory import IAstralySBTContractFactory
 
 from InterfaceAll import IAstralyIDOContract, ITask
 
@@ -41,6 +42,14 @@ end
 @storage_var
 func ido_contract_class_hash() -> (class_hash : felt):
 end
+
+@storage_var
+func astraly_balance_SBT_contract_factory_address() -> (address : felt):
+end
+
+#
+# Events
+#
 
 @event
 func IDO_Created(id : felt, address : felt):
@@ -105,11 +114,15 @@ end
 
 @constructor
 func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _ido_contract_class_hash : felt, owner_ : felt
+    _ido_contract_class_hash : felt, owner_ : felt, _astraly_balance_SBT_contract_factory_address : felt
 ):
     AstralyAccessControl.initializer(owner_)
 
+    assert_not_zero(_ido_contract_class_hash)
     ido_contract_class_hash.write(_ido_contract_class_hash)
+
+    assert_not_zero(_astraly_balance_SBT_contract_factory_address)
+    astraly_balance_SBT_contract_factory_address.write(_astraly_balance_SBT_contract_factory_address)
     return ()
 end
 
@@ -133,6 +146,10 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     with_attr error_message("IDO contract class hash is not set"):
         assert_not_zero(ido_contract_class)
     end
+
+    let (_astraly_balance_SBT_contract_factory_address : felt) = astraly_balance_SBT_contract_factory_address.read()
+    check_badge_addresses(0, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, _astraly_balance_SBT_contract_factory_address)
+
     let (new_ido_contract_address : felt) = deploy(
         class_hash=ido_contract_class,
         contract_address_salt=_id,
@@ -146,6 +163,21 @@ func create_ido{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_pt
     current_id.write(_id + 1)
     IDO_Created.emit(_id, new_ido_contract_address)
     return (new_ido_contract_address)
+end
+
+func check_badge_addresses{
+    syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr
+}(index: felt, sbt_tokens_bonus_address_len : felt, sbt_tokens_bonus_address : felt*, _astraly_balance_SBT_contract_factory_address : felt):
+
+    if index == sbt_tokens_bonus_address_len:
+        return ()
+    end
+    let (is_deployed : felt) =  IAstralySBTContractFactory.isDeployed(_astraly_balance_SBT_contract_factory_address, sbt_tokens_bonus_address[index])
+    with_attr error_mesage("Invalid SBT badge address"):
+        assert is_deployed = TRUE
+    end
+    
+    return check_badge_addresses(index + 1, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, _astraly_balance_SBT_contract_factory_address)
 end
 
 @external

@@ -189,8 +189,9 @@ end
 func bonus_sbt_addresses_len() -> (length : felt):
 end
 
+# values should be multiplied by 10 E.g 1% = 10
 @storage_var
-func bonus_sbt_value(address : felt) -> (value : felt):
+func bonus_sbt_value(address : felt) -> (value : felt): 
 end
 
 #
@@ -285,10 +286,16 @@ func write_bonus_values{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_
     end
 
     tempvar bonus : felt = bonus_value_arr[index]
+    with_attr error_message("Bonus should be non-zero value"):
+        assert_not_zero(bonus)
+    end
+
     tempvar sbt_address : felt = sbt_tokens_bonus_address[index]
     bonus_sbt_value.write(sbt_address, bonus)
 
-    return write_bonus_values(index + 1, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, bonus_value_arr)
+    return write_bonus_values(
+        index + 1, sbt_tokens_bonus_address_len, sbt_tokens_bonus_address, bonus_value_arr
+    )
 end
 
 #############################################
@@ -373,6 +380,14 @@ func get_number_of_vesting_portions{
 }() -> (res : felt):
     let (nbr_of_portions) = number_of_vesting_portions.read()
     return (res=nbr_of_portions)
+end
+
+@view
+func get_bonus_value{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    sbt_badge : felt
+) -> (value : felt):
+    let(value : felt) = bonus_sbt_value.read(sbt_badge)
+    return (value)
 end
 
 #############################################
@@ -720,9 +735,10 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
     )
     let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(account)
-    let (new_winning : Uint256) = draw_winning_tickets(
+    let (winning_tickets : Uint256) = draw_winning_tickets(
         tickets_burnt=adjusted_amount, nb_quest=nb_quest
     )
+    let (new_winning : Uint256) = apply_sbt_badge_bonus(winning_tickets, caller)
     let (local winning_tickets_sum : Uint256) = SafeUint256.add(current_winning, new_winning)
 
     user_to_winning_lottery_tickets.write(account, winning_tickets_sum)
@@ -756,6 +772,35 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     return (res=TRUE)
 end
 
+func apply_sbt_badge_bonus{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    winning_tickets : Uint256, caller : felt
+) -> (total : Uint256):
+    let (_bonus_sbt_addresses_len : felt) = bonus_sbt_addresses_len.read()
+    if _bonus_sbt_addresses_len == 0:
+        return (winning_tickets)
+    end
+
+    let (total : Uint256) = apply_sbt_badge_bonus_rec(0, _bonus_sbt_addresses_len, winning_tickets, caller)
+    return (total)
+end
+
+func apply_sbt_badge_bonus_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt, length : felt, winning_tickets : Uint256, caller : felt
+) -> (total : Uint256):
+    if index == length:
+        return (winning_tickets)
+    end
+    let (sbt_address : felt) = bonus_sbt_addresses.read(index)
+    let (bonus_value : felt) = bonus_sbt_value.read(sbt_address)
+    if bonus_value == 0:
+        return (winning_tickets)
+    end
+    let (mul : Uint256) = SafeUint256.mul(winning_tickets, Uint256(bonus_value, 0))
+    let (new_winning_tickets : Uint256, _) = SafeUint256.div_rem(mul, Uint256(10, 0))
+
+    return apply_sbt_badge_bonus_rec(index +1, length, new_winning_tickets, caller)
+end
+
 func get_adjusted_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     _amount : Uint256, _cap : Uint256
 ) -> (res : Uint256):
@@ -765,6 +810,15 @@ func get_adjusted_amount{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range
     else:
         return (res=_cap)
     end
+end
+
+@external
+func set_bonus_value{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    sbt_badge : felt, value : felt
+):
+    AstralyAccessControl.assert_only_owner()
+    bonus_sbt_value.write(sbt_badge, value) # TODO: 0 values allowed ?
+    return ()
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
