@@ -577,6 +577,11 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
         assert allocation_check = TRUE
     end
     let (the_sale : Sale) = sale.read()
+    with_attr error_message("AstralyINOContract::calculate_allocation sale period not ended"):
+        let (current_timestamp : felt) = get_block_timestamp()
+        assert_le(current_timestamp, sale.sale_end)
+    end
+
     local to_sell : Uint256 = the_sale.amount_of_tokens_to_sell
     local total_winning_tickets : Uint256 = the_sale.total_winning_tickets
 
