@@ -90,6 +90,12 @@ struct Purchase_Round:
     member number_of_purchases : felt
 end
 
+struct UserRegistrationDetails:
+    member amount : Uint256
+    member account : felt
+    member nb_quest : felt
+end
+
 # Sale
 @storage_var
 func sale() -> (res : Sale):
@@ -469,11 +475,11 @@ func set_purchase_round_params{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*,
 end
 
 @external
-func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    amount : Uint256, account : felt, nb_quest : felt
+func register_users{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    users_registration_details_len : felt, users_registration_details : UserRegistrationDetails*
 ) -> (res : felt):
     alloc_locals
-    let (the_reg) = registration.read()
+    let (the_reg : Registration) = registration.read()
     let (block_timestamp) = get_block_timestamp()
     let (the_sale) = sale.read()
 
@@ -491,52 +497,58 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         assert caller = lottery_ticket_address
     end
 
-    with_attr error_message(
-            "AstralyINOContract::register_user account address is the zero address"):
-        assert_not_zero(account)
-    end
-    with_attr error_message(
-            "AstralyINOContract::register_user allocation claim amount not greater than 0"):
-        let (amount_check : felt) = uint256_lt(Uint256(0, 0), amount)
-        assert amount_check = TRUE
-    end
     with_attr error_message("AstralyINOContract::register_user Registration window is closed"):
         assert_le(the_reg.registration_time_starts, block_timestamp)
         assert_le(block_timestamp, the_reg.registration_time_ends)
     end
 
-    let (is_user_reg) = is_registered.read(account)
-    if is_user_reg == 0:
-        is_registered.write(account, TRUE)
-        let (local registrants_sum : Uint256) = SafeUint256.add(
-            the_reg.number_of_registrants, Uint256(low=1, high=0)
-        )
+    let (rnd : felt) = get_random_number()
 
-        let upd_reg = Registration(
-            registration_time_starts=the_reg.registration_time_starts,
-            registration_time_ends=the_reg.registration_time_ends,
-            number_of_registrants=registrants_sum,
-        )
-        registration.write(upd_reg)
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
+    let (upd_sale : Sale, upd_reg : Registration) = register_user_rec(
+        0, users_registration_details_len, users_registration_details, rnd, the_sale, the_reg
+    )
+
+    sale.write(upd_sale)
+    registration.write(upd_reg)
+    return (TRUE)
+end
+
+func register_user_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt,
+    users_registration_details_len : felt,
+    users_registration_details : UserRegistrationDetails*,
+    rand : felt,
+    the_sale : Sale,
+    the_reg : Registration,
+) -> (upd_sale : Sale, upd_reg : Registration):
+    alloc_locals
+    if index == users_registration_details_len:
+        return (the_sale, the_reg)
+    end
+
+    tempvar user_reg_details : UserRegistrationDetails = users_registration_details[index]
+
+    with_attr error_message(
+            "AstralyINOContract::register_user account address is the zero address"):
+        assert_not_zero(user_reg_details.account)
+    end
+
+    with_attr error_message(
+            "AstralyINOContract::register_user allocation claim amount not greater than 0"):
+        let (amount_check : felt) = uint256_lt(Uint256(0, 0), user_reg_details.amount)
+        assert amount_check = TRUE
     end
 
     let (adjusted_amount : Uint256) = get_adjusted_amount(
-        _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
+        user_reg_details.amount, the_sale.lottery_tickets_burn_cap
     )
-    let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(account)
+    let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(user_reg_details.account)
     let (new_winning : Uint256) = draw_winning_tickets(
-        tickets_burnt=adjusted_amount, nb_quest=nb_quest
+        adjusted_amount, user_reg_details.nb_quest, rand
     )
     let (local winning_tickets_sum : Uint256) = SafeUint256.add(current_winning, new_winning)
 
-    user_to_winning_lottery_tickets.write(account, winning_tickets_sum)
+    user_to_winning_lottery_tickets.write(user_reg_details.account, winning_tickets_sum)
 
     let (local total_winning_tickets_sum : Uint256) = SafeUint256.add(
         the_sale.total_winning_tickets, new_winning
@@ -557,12 +569,45 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=the_sale.number_of_participants,
     )
-    sale.write(upd_sale)
 
     user_registered.emit(
-        user_address=account, winning_lottery_tickets=new_winning, amount_burnt=adjusted_amount
+        user_address=user_reg_details.account,
+        winning_lottery_tickets=new_winning,
+        amount_burnt=adjusted_amount,
     )
-    return (res=TRUE)
+
+    let (is_user_reg) = is_registered.read(user_reg_details.account)
+
+    if is_user_reg == 0:
+        is_registered.write(user_reg_details.account, TRUE)
+        let (local registrants_sum : Uint256) = SafeUint256.add(
+            the_reg.number_of_registrants, Uint256(low=1, high=0)
+        )
+
+        let upd_reg = Registration(
+            registration_time_starts=the_reg.registration_time_starts,
+            registration_time_ends=the_reg.registration_time_ends,
+            number_of_registrants=registrants_sum,
+        )
+
+        return register_user_rec(
+            index + 1,
+            users_registration_details_len,
+            users_registration_details,
+            rand,
+            upd_sale,
+            upd_reg,
+        )
+    end
+
+    return register_user_rec(
+        index + 1,
+        users_registration_details_len,
+        users_registration_details,
+        rand,
+        upd_sale,
+        the_reg,
+    )
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
@@ -579,14 +624,16 @@ func calculate_allocation{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (the_sale : Sale) = sale.read()
     with_attr error_message("AstralyINOContract::calculate_allocation sale period not ended"):
         let (current_timestamp : felt) = get_block_timestamp()
-        assert_le(current_timestamp, sale.sale_end)
+        assert_le(current_timestamp, the_sale.sale_end)
     end
 
     local to_sell : Uint256 = the_sale.amount_of_tokens_to_sell
     local total_winning_tickets : Uint256 = the_sale.total_winning_tickets
 
     # Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
-    let (the_allocation : Uint256, _) = SafeUint256.div_rem(to_sell, total_winning_tickets)
+    let (the_allocation : Uint256, remaining_NFTs : Uint256) = SafeUint256.div_rem(
+        to_sell, total_winning_tickets
+    )
     # with_attr error_message("AstralyINOContract::calculate_allocation calculation error"):
     #     assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
     # end
@@ -598,26 +645,20 @@ end
 # this function will call the VRF and determine the number of winning tickets (if any)
 @view
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tickets_burnt : Uint256, nb_quest : felt
+    tickets_burnt : Uint256, nb_quest : felt, rnd : felt
 ) -> (res : Uint256):
     alloc_locals
     let (single_t : felt) = uint256_le(tickets_burnt, Uint256(1, 0))
+
     if single_t == TRUE:
         # One ticket
-        let (rnd) = get_random_number()
-        # let (f_rnd) = _uint_to_felt(rnd)
         let (q, r) = unsigned_div_rem(rnd, 9)
         let (is_won : felt) = is_le(r, 2)
         if is_won == TRUE:
-            let (res : Uint256) = _felt_to_uint(1)
-            return (res)
+            return (Uint256(1, 0))
         end
-        let (res : Uint256) = _felt_to_uint(0)
-        return (res)
+        return (Uint256(0, 0))
     end
-
-    let (rnd) = get_random_number()
-    # let (max_uint : Uint256) = uint256_max()
 
     # Tickets_burnt * 0.6
     let (a) = Math64x61_fromFelt(3)
@@ -632,12 +673,10 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (sum) = Math64x61_add(num1, num2)
 
     # Compute rand/max
-    let (fixed_rand) = Math64x61_fromFelt(rnd)
     let (rand_factor) = Math64x61_div(rnd, Math64x61_BOUND_LOCAL - 1)
 
     # Finally multiply both results
     let (fixed_winning) = Math64x61_mul(rand_factor, sum)
-
     let (winning : Uint256) = Math64x61_toUint256(fixed_winning)
 
     return (res=winning)
