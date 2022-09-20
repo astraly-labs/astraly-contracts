@@ -479,7 +479,6 @@ func register_users{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_chec
     users_registration_details_len : felt, users_registration_details : UserRegistrationDetails*
 ) -> (res : felt):
     alloc_locals
-    AstralyAccessControl.assert_only_owner()
     let (the_reg : Registration) = registration.read()
     let (block_timestamp) = get_block_timestamp()
     let (the_sale) = sale.read()
