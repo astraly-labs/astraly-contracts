@@ -93,7 +93,7 @@ end
 struct UserRegistrationDetails:
     member amount : Uint256
     member account : felt
-    member nb_quest : felt
+    member score : felt
 end
 
 # Sale
@@ -544,7 +544,7 @@ func register_user_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_c
     )
     let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(user_reg_details.account)
     let (new_winning : Uint256) = draw_winning_tickets(
-        adjusted_amount, user_reg_details.nb_quest, rand
+        adjusted_amount, user_reg_details.score, rand
     )
     let (local winning_tickets_sum : Uint256) = SafeUint256.add(current_winning, new_winning)
 
@@ -645,7 +645,7 @@ end
 # this function will call the VRF and determine the number of winning tickets (if any)
 @view
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tickets_burnt : Uint256, nb_quest : felt, rnd : felt
+    tickets_burnt : Uint256, score : felt, rnd : felt
 ) -> (res : Uint256):
     alloc_locals
     let (single_t : felt) = uint256_le(tickets_burnt, Uint256(1, 0))
@@ -666,8 +666,8 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (div) = Math64x61_div(a, b)
     let (fixed_tickets_felt) = _uint_to_felt(tickets_burnt)
     let (num1) = Math64x61_mul(fixed_tickets_felt, div)
-    # Nb_quest * 5
-    let (num2) = Math64x61_mul(nb_quest, 5)
+    # score * 5
+    let (num2) = Math64x61_mul(score, 5)
 
     # Add them
     let (sum) = Math64x61_add(num1, num2)
