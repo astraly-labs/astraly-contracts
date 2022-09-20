@@ -12,13 +12,6 @@ from starkware.cairo.common.math import (
 )
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
-
-from openzeppelin.token.erc20.IERC20 import IERC20
-from contracts.AstralyAccessControl import AstralyAccessControl
-from openzeppelin.security.safemath.library import SafeUint256
-
-from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
-from contracts.utils.AstralyConstants import DAYS_30
 from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (
@@ -28,6 +21,13 @@ from starkware.cairo.common.uint256 import (
     uint256_lt,
     uint256_check,
 )
+
+from openzeppelin.token.erc20.IERC20 import IERC20
+from openzeppelin.security.safemath.library import SafeUint256
+
+from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
+from contracts.AstralyAccessControl import AstralyAccessControl
+from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
 from contracts.utils import uint256_is_zero, get_is_equal, uint256_max
 from contracts.utils.Math64x61 import (
@@ -90,6 +90,12 @@ struct Purchase_Round:
     member number_of_purchases : felt
 end
 
+struct UserRegistrationDetails:
+    member address : felt
+    member amount : Uint256
+    member score : felt
+end
+
 # Sale
 @storage_var
 func sale() -> (res : Sale):
@@ -124,22 +130,25 @@ end
 func address_to_allocations(user_address : felt) -> (res : Uint256):
 end
 
-# mapping user to is registered or not
-@storage_var
-func is_registered(user_address : felt) -> (res : felt):
-end
-
-# mapping user to has participated or not
-@storage_var
-func has_participated(user_address : felt) -> (res : felt):
-end
-
 @storage_var
 func ido_factory_contract_address() -> (res : felt):
 end
 
 @storage_var
 func ido_allocation() -> (res : Uint256):
+end
+
+@storage_var
+func user_registrations(index : felt) -> (registration_details : UserRegistrationDetails):
+end
+
+# first position is not used
+@storage_var
+func user_registrations_len() -> (length : felt):
+end
+
+@storage_var
+func user_registration_index(address : felt) -> (index : felt):
 end
 
 func only_sale_owner{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
@@ -208,6 +217,8 @@ func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
 
     let (address_this : felt) = get_contract_address()
     IDO_Created.emit(address_this)
+
+    user_registrations_len.write(1)
     return ()
 end
 
@@ -241,18 +252,30 @@ func get_user_info{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     is_registered : felt,
     has_participated : felt,
 ):
+    alloc_locals
     let (_participation) = user_to_participation.read(account)
     let (_winning_tickets) = user_to_winning_lottery_tickets.read(account)
     let (_allocations) = address_to_allocations.read(account)
-    let (_is_registered) = is_registered.read(account)
-    let (_has_participated) = has_participated.read(account)
-    return (
-        participation=_participation,
-        tickets=_winning_tickets,
-        allocations=_allocations,
-        is_registered=_is_registered,
-        has_participated=_has_participated,
-    )
+    let (_user_registation_index) = user_registration_index.read(account)
+
+    if _user_registation_index == 0:
+        return (
+            participation=_participation,
+            tickets=_winning_tickets,
+            allocations=_allocations,
+            is_registered=FALSE,
+            has_participated=FALSE,
+        )
+    else:
+        let (participated : felt) = uint256_lt(Uint256(0, 0), _participation.amount_bought)
+        return (
+            participation=_participation,
+            tickets=_winning_tickets,
+            allocations=_allocations,
+            is_registered=TRUE,
+            has_participated=participated,
+        )
+    end
 end
 
 @view
@@ -470,7 +493,7 @@ end
 
 @external
 func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    amount : Uint256, account : felt, nb_quest : felt
+    amount : Uint256, account : felt, score : felt
 ) -> (res : felt):
     alloc_locals
     let (the_reg) = registration.read()
@@ -505,9 +528,13 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
         assert_le(block_timestamp, the_reg.registration_time_ends)
     end
 
-    let (is_user_reg) = is_registered.read(account)
-    if is_user_reg == 0:
-        is_registered.write(account, TRUE)
+    let (adjusted_amount : Uint256) = get_adjusted_amount(
+        _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
+    )
+
+    let (_user_registation_index) = user_registration_index.read(account)
+
+    if _user_registation_index == 0:
         let (local registrants_sum : Uint256) = SafeUint256.add(
             the_reg.number_of_registrants, Uint256(low=1, high=0)
         )
@@ -518,28 +545,49 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
             number_of_registrants=registrants_sum,
         )
         registration.write(upd_reg)
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
-    else:
-        tempvar syscall_ptr = syscall_ptr
-        tempvar pedersen_ptr = pedersen_ptr
-        tempvar range_check_ptr = range_check_ptr
+
+        let (_user_registrations_len : felt) = user_registrations_len.read()
+        user_registrations.write(
+            _user_registrations_len, UserRegistrationDetails(account, adjusted_amount, score)
+        )
+        user_registrations_len.write(_user_registrations_len + 1)
+
+        return (res=TRUE)
     end
 
-    let (adjusted_amount : Uint256) = get_adjusted_amount(
-        _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
+    let (_user_registration_index : felt) = user_registration_index.read(account)
+    let (current_user_registrations_details : UserRegistrationDetails) = user_registrations.read(
+        _user_registration_index
     )
-    let (current_winning : Uint256) = user_to_winning_lottery_tickets.read(account)
-    let (new_winning : Uint256) = draw_winning_tickets(
-        tickets_burnt=adjusted_amount, nb_quest=nb_quest
+    let (new_adjusted_amount : Uint256) = SafeUint256.add(
+        current_user_registrations_details.amount, adjusted_amount
     )
-    let (local winning_tickets_sum : Uint256) = SafeUint256.add(current_winning, new_winning)
+    user_registrations.write(
+        _user_registration_index, UserRegistrationDetails(account, new_adjusted_amount, score)
+    )
 
-    user_to_winning_lottery_tickets.write(account, winning_tickets_sum)
+    return (res=TRUE)
+end
 
-    let (local total_winning_tickets_sum : Uint256) = SafeUint256.add(
-        the_sale.total_winning_tickets, new_winning
+@external
+func get_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
+    AstralyAccessControl.assert_only_owner()
+
+    let (block_timestamp) = get_block_timestamp()
+    let (the_reg) = registration.read()
+    with_attr error_message(
+            "AstralyINOContract::get_winning_tickets Registration window is not closed"):
+        assert_le(the_reg.registration_time_ends, block_timestamp)
+    end
+
+    let (the_sale : Sale) = sale.read()
+    let (rnd : felt) = get_random_number()
+
+    let (_user_registrations_len : felt) = user_registrations_len.read()
+
+    let (total_winning_tickets_sum : Uint256) = get_winning_tickets_rec(
+        1, _user_registrations_len, rnd, Uint256(0, 0)
     )
 
     let upd_sale = Sale(
@@ -559,10 +607,48 @@ func register_user{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check
     )
     sale.write(upd_sale)
 
-    user_registered.emit(
-        user_address=account, winning_lottery_tickets=new_winning, amount_burnt=adjusted_amount
+    return ()
+end
+
+func get_winning_tickets_rec{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    index : felt, _user_registrations_len : felt, rand : felt, total_winning_tickets_sum : Uint256
+) -> (total_winning_tickets : Uint256):
+    alloc_locals
+    if index == _user_registrations_len + 1:
+        return (total_winning_tickets_sum)
+    end
+
+    let (user_reg_details : UserRegistrationDetails) = user_registrations.read(index)
+
+    with_attr error_message(
+            "AstralyINOContract::register_user account address is the zero address"):
+        assert_not_zero(user_reg_details.address)
+    end
+
+    with_attr error_message(
+            "AstralyINOContract::register_user allocation claim amount not greater than 0"):
+        let (amount_check : felt) = uint256_lt(Uint256(0, 0), user_reg_details.amount)
+        assert amount_check = TRUE
+    end
+
+    let (winning_tickets : Uint256) = draw_winning_tickets(
+        user_reg_details.amount, user_reg_details.score, rand
     )
-    return (res=TRUE)
+    user_to_winning_lottery_tickets.write(user_reg_details.address, winning_tickets)
+
+    let (_total_winning_tickets_sum : Uint256) = SafeUint256.add(
+        total_winning_tickets_sum, winning_tickets
+    )
+
+    user_registered.emit(
+        user_address=user_reg_details.address,
+        winning_lottery_tickets=winning_tickets,
+        amount_burnt=user_reg_details.amount,
+    )
+
+    return get_winning_tickets_rec(
+        index + 1, _user_registrations_len, rand, total_winning_tickets_sum
+    )
 end
 
 # This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
@@ -593,26 +679,20 @@ end
 # this function will call the VRF and determine the number of winning tickets (if any)
 @view
 func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    tickets_burnt : Uint256, nb_quest : felt
+    tickets_burnt : Uint256, score : felt, rnd : felt
 ) -> (res : Uint256):
     alloc_locals
     let (single_t : felt) = uint256_le(tickets_burnt, Uint256(1, 0))
+
     if single_t == TRUE:
         # One ticket
-        let (rnd) = get_random_number()
-        # let (f_rnd) = _uint_to_felt(rnd)
         let (q, r) = unsigned_div_rem(rnd, 9)
         let (is_won : felt) = is_le(r, 2)
         if is_won == TRUE:
-            let (res : Uint256) = _felt_to_uint(1)
-            return (res)
+            return (Uint256(1, 0))
         end
-        let (res : Uint256) = _felt_to_uint(0)
-        return (res)
+        return (Uint256(0, 0))
     end
-
-    let (rnd) = get_random_number()
-    # let (max_uint : Uint256) = uint256_max()
 
     # Tickets_burnt * 0.6
     let (a) = Math64x61_fromFelt(3)
@@ -620,19 +700,17 @@ func draw_winning_tickets{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, rang
     let (div) = Math64x61_div(a, b)
     let (fixed_tickets_felt) = _uint_to_felt(tickets_burnt)
     let (num1) = Math64x61_mul(fixed_tickets_felt, div)
-    # Nb_quest * 5
-    let (num2) = Math64x61_mul(nb_quest, 5)
+    # score * 5
+    let (num2) = Math64x61_mul(score, 5)
 
     # Add them
     let (sum) = Math64x61_add(num1, num2)
 
     # Compute rand/max
-    let (fixed_rand) = Math64x61_fromFelt(rnd)
     let (rand_factor) = Math64x61_div(rnd, Math64x61_BOUND_LOCAL - 1)
 
     # Finally multiply both results
     let (fixed_winning) = Math64x61_mul(rand_factor, sum)
-
     let (winning : Uint256) = Math64x61_toUint256(fixed_winning)
 
     return (res=winning)
@@ -674,7 +752,9 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
     with_attr error_message("AstralyINOContract::participate Purchase round is over"):
         assert_le(block_timestamp, the_round.time_ends)
     end
-    let (user_participated) = has_participated.read(account)
+    let (user_participation : Participation) = user_to_participation.read(account)
+    let (user_participated : felt) = uint256_lt(Uint256(0, 0), user_participation.amount_bought)
+
     with_attr error_message("AstralyINOContract::participate user participated"):
         assert user_participated = FALSE
     end
@@ -745,8 +825,6 @@ func participate{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_p
         claimed=FALSE,
     )
     user_to_participation.write(account, new_purchase)
-
-    has_participated.write(account, TRUE)
 
     let (factory_address) = ido_factory_contract_address.read()
     let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
