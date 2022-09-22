@@ -5,7 +5,7 @@ description = ""
 authors = ["astraly"]
 
 [tool.poetry.dependencies]
-python = "^3.9.0"
+python = "3.9.0"
 pytest = "7.1.2"
 pytest-asyncio = "0.19.0"
 cairo-lang = "0.10.0"

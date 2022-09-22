@@ -40,18 +40,6 @@ zkp_recipient = MockSigner(123456789987654321)
 zkp_owner = MockSigner(123456789876543210)
 
 
-def uint_array(l):
-    return list(map(uint, l))
-
-
-def uarr2cd(arr):
-    acc = [len(arr)]
-    for lo, hi in arr:
-        acc.append(lo)
-        acc.append(hi)
-    return acc
-
-
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
         starknet_state, get_block_timestamp(
