@@ -9,10 +9,10 @@ from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.AstralyToken import constructor
 
 @external
-func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt, amount : Uint256
-):
-    AstralyAccessControl.assert_only_owner()
-    ERC20._burn(account, amount)
-    return ()
-end
+func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    account: felt, amount: Uint256
+) {
+    AstralyAccessControl.assert_only_owner();
+    ERC20._burn(account, amount);
+    return ();
+}

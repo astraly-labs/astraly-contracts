@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 
 %lang starknet
 
@@ -10,113 +10,113 @@ from openzeppelin.token.erc20.library import ERC20
 from contracts.AstralyAccessControl import AstralyAccessControl
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    recipient : felt, owner : felt
-):
-    ERC20.initializer('AstralyETH', 'AstrETH', 18)
-    AstralyAccessControl.initializer(owner)
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    recipient: felt, owner: felt
+) {
+    ERC20.initializer('AstralyETH', 'AstrETH', 18);
+    AstralyAccessControl.initializer(owner);
 
-    ERC20._mint(recipient, Uint256(1000000000000000000000000, 0))
-    return ()
-end
+    ERC20._mint(recipient, Uint256(1000000000000000000000000, 0));
+    return ();
+}
 
-#
-# Getters
-#
-
-@view
-func name{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (name : felt):
-    let (name) = ERC20.name()
-    return (name)
-end
+//
+// Getters
+//
 
 @view
-func symbol{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (symbol : felt):
-    let (symbol) = ERC20.symbol()
-    return (symbol)
-end
+func name{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (name: felt) {
+    let (name) = ERC20.name();
+    return (name,);
+}
 
 @view
-func totalSupply{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    totalSupply : Uint256
-):
-    let (totalSupply) = ERC20.total_supply()
-    return (totalSupply)
-end
+func symbol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (symbol: felt) {
+    let (symbol) = ERC20.symbol();
+    return (symbol,);
+}
 
 @view
-func decimals{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    decimals : felt
-):
-    let (decimals) = ERC20.decimals()
-    return (decimals)
-end
+func totalSupply{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    totalSupply: Uint256
+) {
+    let (totalSupply) = ERC20.total_supply();
+    return (totalSupply,);
+}
 
 @view
-func balanceOf{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    account : felt
-) -> (balance : Uint256):
-    let (balance) = ERC20.balance_of(account)
-    return (balance)
-end
+func decimals{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    decimals: felt
+) {
+    let (decimals) = ERC20.decimals();
+    return (decimals,);
+}
 
 @view
-func allowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    owner : felt, spender : felt
-) -> (remaining : Uint256):
-    let (remaining) = ERC20.allowance(owner, spender)
-    return (remaining)
-end
+func balanceOf{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(account: felt) -> (
+    balance: Uint256
+) {
+    let (balance) = ERC20.balance_of(account);
+    return (balance,);
+}
 
-#
-# Externals
-#
+@view
+func allowance{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    owner: felt, spender: felt
+) -> (remaining: Uint256) {
+    let (remaining) = ERC20.allowance(owner, spender);
+    return (remaining,);
+}
 
-@external
-func transfer{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    recipient : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.transfer(recipient, amount)
-    return (TRUE)
-end
-
-@external
-func transferFrom{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    sender : felt, recipient : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.transfer_from(sender, recipient, amount)
-    return (TRUE)
-end
+//
+// Externals
+//
 
 @external
-func approve{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, amount : Uint256
-) -> (success : felt):
-    ERC20.approve(spender, amount)
-    return (TRUE)
-end
+func transfer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    recipient: felt, amount: Uint256
+) -> (success: felt) {
+    ERC20.transfer(recipient, amount);
+    return (TRUE,);
+}
 
 @external
-func increaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, added_value : Uint256
-) -> (success : felt):
-    ERC20.increase_allowance(spender, added_value)
-    return (TRUE)
-end
+func transferFrom{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    sender: felt, recipient: felt, amount: Uint256
+) -> (success: felt) {
+    ERC20.transfer_from(sender, recipient, amount);
+    return (TRUE,);
+}
 
 @external
-func decreaseAllowance{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    spender : felt, subtracted_value : Uint256
-) -> (success : felt):
-    ERC20.decrease_allowance(spender, subtracted_value)
-    return (TRUE)
-end
+func approve{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    spender: felt, amount: Uint256
+) -> (success: felt) {
+    ERC20.approve(spender, amount);
+    return (TRUE,);
+}
 
 @external
-func mint{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    to : felt, amount : Uint256
-):
-    AstralyAccessControl.assert_only_owner()
-    ERC20._mint(to, amount)
-    return ()
-end
+func increaseAllowance{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    spender: felt, added_value: Uint256
+) -> (success: felt) {
+    ERC20.increase_allowance(spender, added_value);
+    return (TRUE,);
+}
+
+@external
+func decreaseAllowance{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    spender: felt, subtracted_value: Uint256
+) -> (success: felt) {
+    ERC20.decrease_allowance(spender, subtracted_value);
+    return (TRUE,);
+}
+
+@external
+func mint{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    to: felt, amount: Uint256
+) {
+    AstralyAccessControl.assert_only_owner();
+    ERC20._mint(to, amount);
+    return ();
+}

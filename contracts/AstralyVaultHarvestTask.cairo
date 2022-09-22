@@ -10,67 +10,67 @@ from contracts.AstralyAccessControl import AstralyAccessControl
 
 from InterfaceAll import IVault
 
-# # @title Yagi Task
-# # @description
-# # @author Astraly
+// # @title Yagi Task
+// # @description
+// # @author Astraly
 
 @storage_var
-func __lastExecuted() -> (lastExecuted : felt):
-end
+func __lastExecuted() -> (lastExecuted: felt) {
+}
 
 @storage_var
-func __vaultAddress() -> (address : felt):
-end
+func __vaultAddress() -> (address: felt) {
+}
 
 @constructor
-func constructor{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    _vault_address : felt
-):
-    assert_not_zero(_vault_address)
-    __vaultAddress.write(_vault_address)
-    AstralyAccessControl.initializer(_vault_address)
-    return ()
-end
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    _vault_address: felt
+) {
+    assert_not_zero(_vault_address);
+    __vaultAddress.write(_vault_address);
+    AstralyAccessControl.initializer(_vault_address);
+    return ();
+}
 
-#############################################
-# #                 GETTERS                 ##
-#############################################
-
-@view
-func lastExecuted{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    lastExecuted : felt
-):
-    let (lastExecuted) = __lastExecuted.read()
-    return (lastExecuted)
-end
+//############################################
+// #                 GETTERS                 ##
+//############################################
 
 @view
-func probeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (
-    taskReady : felt
-):
-    alloc_locals
-    let (vault_address : felt) = __vaultAddress.read()
-    let (can_harvest : felt) = IVault.canHarvest(vault_address)
-    return (can_harvest)
-end
+func lastExecuted{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    lastExecuted: felt
+) {
+    let (lastExecuted) = __lastExecuted.read();
+    return (lastExecuted,);
+}
 
-#############################################
-# #                  TASK                   ##
-#############################################
+@view
+func probeTask{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    taskReady: felt
+) {
+    alloc_locals;
+    let (vault_address: felt) = __vaultAddress.read();
+    let (can_harvest: felt) = IVault.canHarvest(vault_address);
+    return (can_harvest,);
+}
+
+//############################################
+// #                  TASK                   ##
+//############################################
 
 @external
-func executeTask{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> ():
-    alloc_locals
-    let (taskReady : felt) = probeTask()
-    with_attr error_message("AstralyTask::Task not ready"):
-        assert taskReady = TRUE
-    end
+func executeTask{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> () {
+    alloc_locals;
+    let (taskReady: felt) = probeTask();
+    with_attr error_message("AstralyTask::Task not ready") {
+        assert taskReady = TRUE;
+    }
 
-    let (block_timestamp) = get_block_timestamp()
-    __lastExecuted.write(block_timestamp)
+    let (block_timestamp) = get_block_timestamp();
+    __lastExecuted.write(block_timestamp);
 
-    let (vault_address : felt) = __vaultAddress.read()
-    let (strategies_len : felt, strategies : felt*) = IVault.getWithdrawalStack(vault_address)
-    IVault.harvest(vault_address, strategies_len, strategies)
-    return ()
-end
+    let (vault_address: felt) = __vaultAddress.read();
+    let (strategies_len: felt, strategies: felt*) = IVault.getWithdrawalStack(vault_address);
+    IVault.harvest(vault_address, strategies_len, strategies);
+    return ();
+}
