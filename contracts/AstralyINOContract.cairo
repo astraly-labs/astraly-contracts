@@ -956,9 +956,9 @@ func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
             "AstralyINOContract::get_random_number random number generator address not set in the factory") {
         assert_not_zero(rnd_nbr_gen_addr);
     }
-    let (timestamp) = get_block_timestamp();
-    let seed = i * k * timestamp;
-    IXoroshiro.update_seed(contract_address=rnd_nbr_gen_addr, seed=seed);
+    // let (timestamp) = get_block_timestamp();
+    // let seed = i * k * timestamp;
+    // IXoroshiro.update_seed(contract_address=rnd_nbr_gen_addr, seed=seed);
     let (rnd) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
     // %{ print(ids.rnd) %}
 

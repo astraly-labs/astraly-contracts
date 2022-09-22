@@ -312,6 +312,13 @@ async def test_reservoir_sampling(contracts_factory):
     print("RESULT : ", res.result.reservoir)
     print("STEPS : ", res.call_info.execution_resources.n_steps)
 
+    arr = [k for k in range(1000)]
+    k = 200
+
+    res: StarknetCallInfo = await ido.selectKItems(arr, len(arr), k).call()
+    print("RESULT : ", res.result.reservoir)
+    print("STEPS : ", res.call_info.execution_resources.n_steps)
+
 
 @pytest.mark.asyncio
 @pytest.mark.skip
