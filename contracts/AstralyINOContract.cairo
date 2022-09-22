@@ -933,13 +933,24 @@ func selectKItems{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     let (local reservoir: felt*) = alloc();
     // memcpy(reservoir, stream, k);
 
-    replace_rec(reservoir, k, n, stream, k, 0);
+    let (ido_factory_address) = ido_factory_contract_address.read();
+    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
+        contract_address=ido_factory_address
+    );
+
+    with_attr error_message(
+            "AstralyINOContract::get_random_number random number generator address not set in the factory") {
+        assert_not_zero(rnd_nbr_gen_addr);
+    }
+    let (timestamp) = get_block_timestamp();
+
+    replace_rec(reservoir, k, n, stream, k, 0, rnd_nbr_gen_addr);
 
     return (k, reservoir);
 }
 
 func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr: felt*, i: felt, n: felt, stream: felt*, k: felt, index: felt
+    arr: felt*, i: felt, n: felt, stream: felt*, k: felt, index: felt, rnd_nbr_gen_addr: felt
 ) {
     alloc_locals;
 
@@ -947,18 +958,6 @@ func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         // parenthesis required for return statement
         return ();
     }
-
-    let (ido_factory_address) = ido_factory_contract_address.read();
-    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
-        contract_address=ido_factory_address
-    );
-    with_attr error_message(
-            "AstralyINOContract::get_random_number random number generator address not set in the factory") {
-        assert_not_zero(rnd_nbr_gen_addr);
-    }
-    // let (timestamp) = get_block_timestamp();
-    // let seed = i * k * timestamp;
-    // IXoroshiro.update_seed(contract_address=rnd_nbr_gen_addr, seed=seed);
     let (rnd) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
     // %{ print(ids.rnd) %}
 
@@ -974,5 +973,5 @@ func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         assert [arr + index] = stream[i];
     }
 
-    return replace_rec(arr=arr, i=i + 1, n=n, stream=stream, k=k, index=index + 1);
+    return replace_rec(arr, i + 1, n, stream, k, index + 1, rnd_nbr_gen_addr);
 }
