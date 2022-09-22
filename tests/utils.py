@@ -60,7 +60,8 @@ def get_contract_class(path):
     path = contract_path(path)
     contract_class = compile_starknet_files(
         files=[path],
-        debug_info=True
+        debug_info=True,
+        disable_hint_validation=True
     )
     return contract_class
 
@@ -137,7 +138,8 @@ def get_contract_def(path):
         files=[path],
         debug_info=True,
         cairo_path=[str(_root / "lib/cairo_contracts/src"),
-                    str(_root / "lib/starknet_attestations")]
+                    str(_root / "lib/starknet_attestations")],
+        disable_hint_validation=True
     )
     return contract_def
 
