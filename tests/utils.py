@@ -136,7 +136,8 @@ def get_contract_def(path):
     contract_def = compile_starknet_files(
         files=[path],
         debug_info=True,
-        cairo_path=[str(_root / "lib/cairo_contracts/src"), str(_root / "lib/starknet_attestations")]
+        cairo_path=[str(_root / "lib/cairo_contracts/src"),
+                    str(_root / "lib/starknet_attestations")]
     )
     return contract_def
 
@@ -147,7 +148,7 @@ def cached_contract(state, definition, deployed):
         state=state,
         abi=definition.abi,
         contract_address=deployed.contract_address,
-        deploy_execution_info=deployed.deploy_execution_info
+        deploy_call_info=deployed.deploy_call_info
     )
     return contract
 

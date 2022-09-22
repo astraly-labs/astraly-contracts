@@ -21,6 +21,7 @@ from starkware.cairo.common.uint256 import (
     uint256_lt,
     uint256_check,
 )
+from starkware.cairo.common.memcpy import memcpy
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.security.safemath.library import SafeUint256
@@ -29,7 +30,7 @@ from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_is_zero, get_is_equal, uint256_max
+from contracts.utils import uint256_is_zero, get_is_equal, uint256_max, is_lt
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -922,4 +923,54 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     );
     sale.write(upd_sale);
     return ();
+}
+
+@view
+func selectKItems{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    stream_len: felt, stream: felt*, n: felt, k: felt
+) -> (reservoir_len: felt, reservoir: felt*) {
+    alloc_locals;
+    local i = k;
+    let (local reservoir: felt*) = alloc();
+    memcpy(reservoir, stream, k);
+
+    replace_rec(reservoir, k, n, stream, k);
+
+    return (k, reservoir);
+}
+
+func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr: felt*, i: felt, n: felt, stream: felt*, k: felt
+) {
+    alloc_locals;
+    if (i == n) {
+        // parenthesis required for return statement
+        return ();
+    }
+
+    let (new_arr: felt*) = alloc();
+
+    let (ido_factory_address) = ido_factory_contract_address.read();
+    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
+        contract_address=ido_factory_address
+    );
+    with_attr error_message(
+            "AstralyINOContract::get_random_number random number generator address not set in the factory") {
+        assert_not_zero(rnd_nbr_gen_addr);
+    }
+    let seed = i * k;
+    IXoroshiro.update_seed(contract_address=rnd_nbr_gen_addr, seed=seed);
+    let (rnd) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
+    with_attr error_message("AstralyINOContract::get_random_number invalid random number value") {
+        assert_not_zero(rnd);
+    }
+    let (_, j) = unsigned_div_rem(rnd, i + 1);
+    let is_lower: felt = is_lt(j, k);
+    if (is_lower == TRUE) {
+        assert new_arr[j] = stream[i];
+    } else {
+        assert new_arr[j] = stream[j];
+    }
+
+    return replace_rec(arr=new_arr, i=i + 1, n=n, stream=stream, k=k);
 }

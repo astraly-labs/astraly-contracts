@@ -223,6 +223,9 @@ const XOROSHIRO_ADDR = 0x0236b6c5722c5b5e78c215d72306f642de0424a6b56f699d43c9868
 namespace IXoroshiro {
     func next() -> (rnd: felt) {
     }
+
+    func update_seed(seed: felt) {
+    }
 }
 
 @contract_interface

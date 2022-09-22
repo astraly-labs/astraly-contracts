@@ -36,6 +36,19 @@ func constructor{
 }
 
 @external
+func update_seed{
+    syscall_ptr: felt*, bitwise_ptr: BitwiseBuiltin*, pedersen_ptr: HashBuiltin*, range_check_ptr
+}(seed: felt) {
+    alloc_locals;
+    let (s0) = splitmix64(seed);
+    let (s1) = splitmix64(s0);
+    let s = State(s0=s0, s1=s1);
+
+    state.write(s);
+    return ();
+}
+
+@external
 func next{
     syscall_ptr: felt*, bitwise_ptr: BitwiseBuiltin*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }() -> (rnd: felt) {
