@@ -115,10 +115,10 @@ func or{syscall_ptr: felt*}(lhs: felt, rhs: felt) -> (res: felt) {
 
 func is_lt{syscall_ptr: felt*, range_check_ptr}(lhs: felt, rhs: felt) -> (res: felt) {
     if (rhs == 0) {
-        return (FALSE,);
+        return (FALSE);
     }
     let res: felt = is_le(lhs, rhs - 1);
-    return (res,);
+    return (res);
 }
 
 func mul_div_down{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -140,10 +140,79 @@ func mul_div_down{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     return (res,);
 }
 
+func uint256_pow{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+    let res: Uint256 = uint256_mul_rec(a, b);
+    return (res);
+}
+
+func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: uint256) -> (
+    Uint256,
+) {
+    let (is_eq: felt) = uint256_eq(b, Uint256(0, 0));
+
+    if (is_eq == TRUE) {
+        return (a);
+    }
+
+    let (mul: Uint256) = SafeUint256.mul(a, a);
+    let (sub: Uint256) = SafeUint256.sub(b, Uint256(1, 0));
+
+    return uint256_mul_rec(mul, sub);
+}
+
 func get_is_equal(a: felt, b: felt) -> (res: felt) {
     if (a == b) {
         return (TRUE,);
     } else {
         return (FALSE,);
     }
+}
+
+func index_of_max{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: felt*
+) -> (index: felt) {
+    return index_of_max_recursive(arr_len, arr, arr[0], 0, 1);
+}
+
+func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: felt*, current_max: felt, current_max_index: felt, current_index: felt
+) -> (index: felt) {
+    if (arr_len == current_index) {
+        return (current_max_index,);
+    }
+    let isLe = is_le(current_max, arr[current_index]);
+    if (isLe == TRUE) {
+        return index_of_max_recursive(
+            arr_len, arr, arr[current_index], current_index, current_index + 1
+        );
+    }
+    return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
+}
+
+func index_of_max_struct{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: felt*, position: felt
+) -> (index: felt) {
+    return index_of_max_recursive(arr_len, arr, arr[0], 0, 1, position);
+}
+
+func index_of_max_struct_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt,
+    arr: felt*,
+    current_max: felt,
+    current_max_index: felt,
+    current_index: felt,
+    position: felt,
+) -> (index: felt) {
+    if (arr_len == current_index) {
+        return (current_max_index,);
+    }
+    let isLe = is_le(current_max, arr[current_index][position]);
+    if (isLe == TRUE) {
+        return index_of_max_struct_recursive(
+            arr_len, arr, arr[current_index][position], current_index, current_index + 1
+        );
+    }
+    return index_of_max_struct_recursive(
+        arr_len, arr, current_max, current_max_index, current_index + 1, position
+    );
 }

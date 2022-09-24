@@ -10,6 +10,7 @@ from starkware.cairo.common.math import (
     assert_lt,
     unsigned_div_rem,
 )
+from starkware.cairo.common.pow import pow
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 from starkware.starknet.common.syscalls import get_block_timestamp
@@ -30,7 +31,15 @@ from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_is_zero, get_is_equal, uint256_max, is_lt
+from contracts.utils import (
+    uint256_is_zero,
+    get_is_equal,
+    uint256_max,
+    is_lt,
+    uint256_pow,
+    index_of_max_struct,
+    remove_at,
+)
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -152,15 +161,9 @@ func user_registrations_len() -> (length: felt) {
 func user_registration_index(address: felt) -> (index: felt) {
 }
 
-func only_sale_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    let (caller) = get_caller_address();
-    let (the_sale) = sale.read();
-    with_attr error_message("AstralyINOContract: only sale owner can call this function") {
-        assert the_sale.sale_owner = caller;
-    }
-
-    return ();
-}
+//
+// Events
+//
 
 @event
 func tokens_sold(user_address: felt, amount: Uint256) {
@@ -925,53 +928,130 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     return ();
 }
 
-@view
-func selectKItems{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    stream_len: felt, stream: felt*, n: felt, k: felt
-) -> (reservoir_len: felt, reservoir: felt*) {
-    alloc_locals;
-    let (local reservoir: felt*) = alloc();
-    // memcpy(reservoir, stream, k);
+struct UserProbability {
+    address: felt,
+    probability: felt,
+}
+
+@external
+func selectKelements{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    start_index: felt, end_index: felt
+) -> (winners_array_len: felt, winners_array: UserProbability) {
+    let (user_registation_details: UserRegistrationDetails*) = alloc();
+    assert_lt(start_index, end_index);
+
+    tempvar array_len = end_index - start_index;
+    let (user_reg_len: felt) = user_registrations_len.read();
+    assert_not_zero(user_reg_len);
+    assert_le(array_len, user_reg_len);
+
+    let (mapping_ref: felt*) = get_label_location(user_registrations.read);
+    get_users_registration_array(
+        start_index, end_index + 1, 0, user_registation_details, mapping_ref
+    );
 
     let (ido_factory_address) = ido_factory_contract_address.read();
     let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
         contract_address=ido_factory_address
     );
-
     with_attr error_message(
             "AstralyINOContract::get_random_number random number generator address not set in the factory") {
         assert_not_zero(rnd_nbr_gen_addr);
     }
-    let (timestamp) = get_block_timestamp();
 
-    replace_rec(reservoir, k, n, stream, k, 0, rnd_nbr_gen_addr);
+    let (allocation_arr: UserProbability*) = alloc();
+    get_probabilities(0, array_len, user_registation_details, allocation_arr, rnd_nbr_gen_addr);
 
-    return (k, reservoir);
+    let (allocation_arr_sorted: UserProbability*) = alloc();
+
+    sort_recursive(array_len, allocation_arr, array_len, allocation_arr_sorted);
+
+    let (winners_array: UserProbability*) = alloc();
+
+    let (batch_size: felt, _) = unsigned_div_rem(user_reg_len, array_len);
+
+    memcpy(winners_array, allocation_arr_sorted + array_len - batch_size, batch_size);
+
+    return (batch_size, winners_array);
 }
 
-func replace_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr: felt*, i: felt, n: felt, stream: felt*, k: felt, index: felt, rnd_nbr_gen_addr: felt
-) {
+func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    old_arr_len: felt, old_arr: UserProbability*, sorted_arr_len: felt, sorted_arr: UserProbability*
+) -> (arr_len: felt, arr: UserProbability*) {
     alloc_locals;
+    // Array to be sorted is empty
+    if (old_arr_len == 0) {
+        return (sorted_arr_len, sorted_arr);
+    }
+    let (indexOfMax) = index_of_max_struct(old_arr_len, old_arr, 1);
+    // Pushing the max occurence to the last available spot
+    assert sorted_arr[sorted_arr_len] = old_arr[indexOfMax];
+    // getting a new old array
+    let (old_shortened_arr_len, old_shortened_arr) = remove_at(old_arr_len, old_arr, indexOfMax);
+    return sort_recursive(old_shortened_arr_len, old_shortened_arr, sorted_arr_len + 1, sorted_arr);
+}
 
-    if (i == n) {
-        // parenthesis required for return statement
+func remove_at{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: UserProbability*, index: felt
+) -> (arr_len: felt, arr: UserProbability*) {
+    alloc_locals;
+    assert_not_zero(arr_len);
+    assert_lt(index, arr_len);
+    let (new_arr: UserProbability*) = alloc();
+    memcpy(new_arr, arr, index);
+    memcpy(new_arr + index, arr + index + 1, arr_len - index - 1);
+    return (arr_len - 1, new_arr);
+}
+
+func get_probabilities{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt,
+    array_len: felt,
+    user_registation_details: UserRegistrationDetails*,
+    allocation_arr: UserProbability*,
+    rnd_nbr_gen_addr: felt,
+) {
+    if (index == array_len) {
         return ();
     }
-    let (rnd) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
-    // %{ print(ids.rnd) %}
 
-    with_attr error_message("AstralyINOContract::get_random_number invalid random number value") {
-        assert_not_zero(rnd);
-    }
-    let (_, j) = unsigned_div_rem(rnd, i + 1);
-    // %{ print(ids.j) %}
-    let is_lower: felt = is_lt(j, k);
-    if (is_lower == TRUE) {
-        assert [arr + index] = stream[j];
-    } else {
-        assert [arr + index] = stream[i];
-    }
+    let UserRegistrationDetails = user_registation_details[index];
 
-    return replace_rec(arr, i + 1, n, stream, k, index + 1, rnd_nbr_gen_addr);
+    let (rnd_felt: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
+    // / TODO: Use Math64x61
+
+    let (score: Uint256) = SafeUint256.mul(
+        user_registation_details.amount, Uint256(user_registation_details.score, 0)
+    );
+
+    let (div: Uint256, _) = SafeUint256.div_rem(Uint256(1, 0), weight);
+    let (rnd_felt_uint256: Uint256) = _felt_to_uint(rnd_felt);
+    let (probability_uint256: Uint256) = uint256_pow(rnd_felt_uint256, div);
+
+    let (probability: felt) = _uint_to_felt(probability_uint256);
+
+    allocation_arr[index] = UserProbability(user_registation_details.address, probability);
+    return get_probabilities(
+        index + 1, array_len, user_registation_details, allocation_arr, rnd_nbr_gen_addr
+    );
+}
+
+func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt,
+    end_index: felt,
+    array_len: felt,
+    array: UserRegistrationDetails*,
+    mapping_ref: felt*,
+) -> () {
+    if (index == end_index) {
+        return ();
+    }
+    tempvar args: felt* = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*);
+    invoke(mapping_ref, 4, args);
+    let syscall_ptr = cast([ap - 4], felt*);
+    let pedersen_ptr = cast([ap - 3], HashBuiltin*);
+    let range_check_ptr = [ap - 2];
+
+    array[array_len] = cast([ap - 1], UserRegistrationDetails);
+
+    return get_users_registration_array(index, end_index, array_len + 1, array, mapping_ref);
 }
