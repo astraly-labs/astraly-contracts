@@ -224,6 +224,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 ) {
     assert_not_zero(_admin_address);
     AstralyAccessControl.initializer(_admin_address);
+    admin_address.write(_admin_address);
 
     let (caller: felt) = get_caller_address();
     ido_factory_contract_address.write(caller);
@@ -392,6 +393,9 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     with_attr error_message("AstralyIDOContract::set_sale_params Sale owner address can not be 0") {
         assert_not_zero(_sale_owner_address);
     }
+    with_attr error_message("AstralyIDOContract::set_sale_params Token address can not be 0") {
+        assert_not_zero(_token_address);
+    }
     with_attr error_message(
             "AstralyIDOContract::set_sale_params IDO Token price must be greater than zero") {
         let (token_price_check: felt) = uint256_lt(Uint256(0, 0), _token_price);
@@ -402,8 +406,10 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         let (token_to_sell_check: felt) = uint256_lt(Uint256(0, 0), _amount_of_tokens_to_sell);
         assert token_to_sell_check = TRUE;
     }
-    with_attr error_message("AstralyIDOContract::set_sale_params Bad input") {
+    with_attr error_message("AstralyIDOContract::set_sale_params Sale end time in the past") {
         assert_lt(block_timestamp, _sale_end_time);
+    }
+    with_attr error_message("AstralyIDOContract::set_sale_params Tokens unlock time in the past") {
         assert_lt(block_timestamp, _tokens_unlock_time);
     }
     with_attr error_message(
@@ -571,7 +577,7 @@ func register_user{
     }
     let (is_user_reg) = is_registered.read(caller);
     with_attr error_message("AstralyIDOContract::register_user user already registered") {
-        assert is_user_reg = TRUE;
+        assert is_user_reg = FALSE;
     }
 
     // Save user registration
@@ -1072,11 +1078,13 @@ func check_registration_signature{
 }(sig_len: felt, sig: felt*, sig_expiration_timestamp: felt, caller: felt) {
     alloc_locals;
     let (admin) = admin_address.read();
+    let (this) = get_contract_address();
 
-    let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0);
+    let (user_hash) = hash2{hash_ptr=pedersen_ptr}(sig_expiration_timestamp, caller);
+    let (final_hash) = hash2{hash_ptr=pedersen_ptr}(user_hash, this);
 
     // Verify the user's signature.
-    let (is_valid) = IAccount.is_valid_signature(admin, user_hash, sig_len, sig);
+    let (is_valid) = IAccount.isValidSignature(admin, final_hash, sig_len, sig);
     assert is_valid = TRUE;
     return ();
 }
@@ -1092,7 +1100,7 @@ func check_participation_signature{
     let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0);
 
     // Verify the user's signature.
-    let (is_valid) = IAccount.is_valid_signature(admin, user_hash, sig_len, sig);
+    let (is_valid) = IAccount.isValidSignature(admin, user_hash, sig_len, sig);
     assert is_valid = TRUE;
     return ();
 }

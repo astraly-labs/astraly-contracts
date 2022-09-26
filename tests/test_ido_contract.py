@@ -4,10 +4,12 @@ import pytest_asyncio
 from signers import MockSigner
 from utils import *
 import asyncio
+from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 
 from datetime import datetime, timedelta
 from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
+from typing import Tuple
 
 TRUE = 1
 FALSE = 0
@@ -26,6 +28,8 @@ staking = MockSigner(3456543)
 sale_owner = MockSigner(4567654)
 sale_participant = MockSigner(5678765)
 sale_participant_2 = MockSigner(678909876)
+
+sig_exp = 3000000000
 
 
 def uint_array(l):
@@ -49,6 +53,47 @@ def advance_clock(starknet_state, num_seconds):
 
 def days_to_seconds(days: int):
     return days * 24 * 60 * 60
+
+    # function generateSignature(digest, privateKey) {
+    # // prefix with "\x19Ethereum Signed Message:\n32"
+    # // Reference: https: // github.com/OpenZeppelin/openzeppelin-contracts/issues/890
+    # const prefixedHash = ethUtil.hashPersonalMessage(ethUtil.toBuffer(digest));
+
+    # // sign message
+    # const {v, r, s} = ethUtil.ecsign(prefixedHash, Buffer.from (privateKey, 'hex'))
+
+    # // generate signature by concatenating r(32), s(32), v(1) in this order
+    # // Reference: https: // github.com/OpenZeppelin/openzeppelin-contracts/blob/76fe1548aee183dfcc395364f0745fe153a56141/contracts/ECRecovery.sol  # L39-L43
+    # const vb = Buffer.from ([v]);
+    # const signature = Buffer.concat([r, s, vb]);
+
+    # return signature; }
+
+
+def generate_signature(digest, pk) -> Tuple[int, int]:
+    # signer = Signer(pk)
+
+    return admin1.signer.sign(message_hash=digest)
+
+#   function signRegistration(signatureExpirationTimestamp, userAddress, roundId, contractAddress, privateKey) {
+#     // compute keccak256(abi.encodePacked(user, roundId, address(this)))
+#     const digest = ethers.utils.keccak256(
+#       ethers.utils.solidityPack(
+#         ['uint256', 'address', 'uint256', 'address'],
+#         [signatureExpirationTimestamp, userAddress, roundId, contractAddress]
+#       )
+#     );
+
+#     return generateSignature(digest, privateKey);
+#   }
+
+
+def sign_registration(signature_expiration_timestamp, user_address, contract_address, pk):
+    digest = pedersen_hash(pedersen_hash(
+        signature_expiration_timestamp, user_address), contract_address)
+
+    return generate_signature(digest, pk)
+
 
 @pytest_asyncio.fixture(scope='module')
 async def get_starknet():
@@ -147,6 +192,11 @@ async def contracts_init(contract_defs, get_starknet):
                                      *to_uint(5000)]
                                     )
 
+    await deployer.send_transaction(deployer_account, erc20_eth_token.contract_address, "transfer",
+                                    [sale_owner_account.contract_address,
+                                     *to_uint(1000000)]
+                                    )
+
     await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
@@ -188,6 +238,74 @@ def contracts_factory(contract_defs, contracts_init, get_starknet):
         _state, erc20_eth_def, erc20_eth_token)
     return deployer_cached, admin1_cached, staking_cached, owner_cached, participant_cached, participant_2_cached, rnd_nbr_gen_cached, ido_factory_cached, ido_cached, erc20_eth_token_cached, _state
 
+#########################
+# SALE SETUP
+#########################
+
+
+@pytest_asyncio.fixture
+async def setup_sale(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # SET SALE PARAMS
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    )
+
+    # SET REGISTRATION ROUND PARAMS
+
+    reg_start = day + timeDeltaOneDay
+    reg_end = reg_start + timeDeltaOneWeek
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_registration_time",
+        [
+            int(reg_start.timestamp()),
+            int(reg_end.timestamp())
+        ]
+    )
+
+    # SET PURCHASE ROUND PARAMS
+
+    purchase_round_start = reg_end + timeDeltaOneDay
+    purchase_round_end = purchase_round_start + timeDeltaOneWeek
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_purchase_round_params",
+        [
+            int(purchase_round_start.timestamp()),
+            int(purchase_round_end.timestamp()),
+            *to_uint(500)
+        ]
+    )
+
+    # DEPOSIT TOKENS
+    await sale_owner.send_transaction(owner, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *to_uint(1000000)])
+    tx = await sale_owner.send_transaction(owner, ido.contract_address, 'deposit_tokens', [])
+
 
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
@@ -211,7 +329,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
             *to_uint(1000000),  # amount of tokens to sell
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
-            *to_uint(10000)  # portion vesting precision
+            *to_uint(1000)  # portion vesting precision
         ]
     )
 
@@ -221,7 +339,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         *to_uint(1000000),
         int(sale_end.timestamp()),
         int(token_unlock.timestamp())
-    ])
+    ], order=2)
 
     VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
 
@@ -243,19 +361,19 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ]
     )
 
-    number_of_portions = await ido.get_number_of_vesting_portions().invoke()
+    number_of_portions = await ido.get_number_of_vesting_portions().call()
     assert number_of_portions.result.res == 4
 
-    portion_1 = await ido.get_vesting_portion_percent(1).invoke()
+    portion_1 = await ido.get_vesting_portion_percent(1).call()
     assert portion_1.result.res == uint(100)
 
-    portion_2 = await ido.get_vesting_portion_percent(2).invoke()
+    portion_2 = await ido.get_vesting_portion_percent(2).call()
     assert portion_2.result.res == uint(200)
 
-    portion_3 = await ido.get_vesting_portion_percent(3).invoke()
+    portion_3 = await ido.get_vesting_portion_percent(3).call()
     assert portion_3.result.res == uint(300)
 
-    portion_4 = await ido.get_vesting_portion_percent(4).invoke()
+    portion_4 = await ido.get_vesting_portion_percent(4).call()
     assert portion_4.result.res == uint(400)
 
     reg_start = day + timeDeltaOneDay
@@ -295,3 +413,277 @@ async def test_setup_sale_success_with_events(contracts_factory):
         int(purchase_round_end.timestamp()),
         *to_uint(500)
     ])
+
+
+@pytest.mark.asyncio
+async def test_only_admin_can_setup_sale(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AccessControl: caller is missing role')
+
+
+@pytest.mark.asyncio
+async def test_can_only_create_sale_once(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    )
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), "AstralyIDOContract::set_sale_params Sale is already created")
+
+
+@pytest.mark.asyncio
+async def test_fail_setup_sale_zero_address(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            0,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params Sale owner address can not be 0')
+
+
+@pytest.mark.asyncio
+async def test_fail_setup_token_zero_address(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            0,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params Token address can not be 0')
+
+
+@pytest.mark.asyncio
+async def test_fail_setup_token_price_zero(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(0),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params IDO Token price must be greater than zero')
+
+
+@pytest.mark.asyncio
+async def test_fail_setup_tokens_sold_zero(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(0),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params Number of IDO Tokens to sell must be greater than zero')
+
+
+@pytest.mark.asyncio
+async def test_fail_setup_bad_timestamps(contracts_factory):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    sale_end = day - timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params Sale end time in the past')
+
+    sale_end = day + timeDelta90days
+    token_unlock = day - timeDeltaOneDay
+
+    await assert_revert(admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(100),  # token price
+            *to_uint(1000000),  # amount of tokens to sell
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)  # portion vesting precision
+        ]
+    ), reverted_with='AstralyIDOContract::set_sale_params Tokens unlock time in the past')
+
+#########################
+# REGISTRATION
+#########################
+
+
+@pytest.mark.asyncio
+async def test_registration_works(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    # Check there are no registrants
+    tx = await ido.get_registration().call()
+    assert tx.result.res.number_of_registrants == uint(0)
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # Go to registration round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDeltaOneDay).timestamp()))
+
+    await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
+
+    tx = await ido.get_registration().call()
+    # Check registrant counter has been incremented
+    assert tx.result.res.number_of_registrants == uint(1)
+
+
+@pytest.mark.asyncio
+async def test_registration_fails_after_registration_ends(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    # Check there are no registrants
+    tx = await ido.get_registration().call()
+    assert tx.result.res.number_of_registrants == uint(0)
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta8Days = timedelta(days=8)
+
+    # Go to AFTER registration round end
+    set_block_timestamp(starknet_state, int(
+        (day + timeDelta8Days).timestamp()))
+
+    await assert_revert(sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp]), reverted_with='AstralyIDOContract::register_user Registration window is closed')
