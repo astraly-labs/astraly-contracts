@@ -210,7 +210,9 @@ func registration_time_set(registration_time_starts: felt, registration_time_end
 }
 
 @event
-func purchase_round_time_set(purchase_time_starts: felt, purchase_time_ends: felt) {
+func purchase_round_set(
+    purchase_time_starts: felt, purchase_time_ends: felt, max_participation: Uint256
+) {
 }
 
 @event
@@ -540,8 +542,10 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
         max_participation=max_participation,
     );
     purchase_round.write(upd_purchase);
-    purchase_round_time_set.emit(
-        purchase_time_starts=_purchase_time_starts, purchase_time_ends=_purchase_time_ends
+    purchase_round_set.emit(
+        purchase_time_starts=_purchase_time_starts,
+        purchase_time_ends=_purchase_time_ends,
+        max_participation=max_participation,
     );
     return ();
 }

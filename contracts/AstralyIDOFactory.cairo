@@ -8,7 +8,7 @@ from starkware.starknet.common.syscalls import get_caller_address, get_block_tim
 
 from contracts.AstralyAccessControl import AstralyAccessControl
 
-from InterfaceAll import IAstralyIDOContract, ITask
+from InterfaceAll import IAstralyIDOContract
 
 @storage_var
 func ido_contract_addresses(id: felt) -> (address: felt) {
@@ -132,8 +132,6 @@ func create_ido{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
         deploy_from_zero=0,
     );
     ido_contract_addresses.write(_id, new_ido_contract_address);
-    let (task_addr: felt) = task_address.read();
-    ITask.setIDOContractAddress(task_addr, new_ido_contract_address);
     current_id.write(_id + 1);
     IDO_Created.emit(_id, new_ido_contract_address);
     return (new_ido_contract_address,);
@@ -148,30 +146,6 @@ func set_random_number_generator_address{
         assert_not_zero(rnd_nbr_gen_adr);
     }
     random_number_generator_address.write(rnd_nbr_gen_adr);
-    return ();
-}
-
-@external
-func set_task_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    task_addr: felt
-) {
-    AstralyAccessControl.assert_only_owner();
-    with_attr error_message("Invalid address") {
-        assert_not_zero(task_addr);
-    }
-    task_address.write(task_addr);
-    return ();
-}
-
-@external
-func set_lottery_ticket_contract_address{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
-}(_lottery_ticket_contract_address: felt) {
-    AstralyAccessControl.assert_only_owner();
-    with_attr error_message("Invalid address") {
-        assert_not_zero(_lottery_ticket_contract_address);
-    }
-    lottery_ticket_contract_address.write(_lottery_ticket_contract_address);
     return ();
 }
 

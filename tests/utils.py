@@ -10,7 +10,7 @@ from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract, Starknet
-from starkware.starknet.business_logic.execution.objects import Event
+from starkware.starknet.business_logic.execution.objects import Event, OrderedEvent
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 
 from nile.signer import Signer, from_call_to_call_array, get_transaction_hash
@@ -47,12 +47,34 @@ def felt_to_str(felt):
     return b_felt.decode()
 
 
-def assert_event_emitted(tx_exec_info, from_address, name, data):
-    assert Event(
-        from_address=from_address,
-        keys=[get_selector_from_name(name)],
-        data=data,
-    ) in tx_exec_info.raw_events
+def assert_event_emitted(tx_exec_info, from_address, name, data, order=0):
+    """Assert one single event is fired with correct data."""
+    assert_events_emitted(tx_exec_info, [(order, from_address, name, data)])
+
+
+def assert_events_emitted(tx_exec_info, events):
+    """Assert events are fired with correct data."""
+    for event in events:
+        order, from_address, name, data = event
+        event_obj = OrderedEvent(
+            order=order,
+            keys=[get_selector_from_name(name)],
+            data=data,
+        )
+
+        base = tx_exec_info.call_info.internal_calls[0]
+        print(event_obj, base.events)
+        if event_obj in base.events and from_address == base.contract_address:
+            return
+
+        try:
+            base2 = base.internal_calls[0]
+            if event_obj in base2.events and from_address == base2.contract_address:
+                return
+        except IndexError:
+            pass
+
+        raise BaseException("Event not fired or not fired correctly")
 
 
 def get_contract_class(path):
