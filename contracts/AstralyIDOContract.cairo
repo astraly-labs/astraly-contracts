@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.cairo.common.math import (
     assert_nn_le,
     assert_not_equal,
@@ -12,6 +12,7 @@ from starkware.cairo.common.math import (
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
+from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.uint256 import (
     Uint256,
     uint256_eq,
@@ -41,7 +42,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_mul,
     Math64x61_add,
 )
-from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR
+from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IAccount
 
 const Math64x61_BOUND_LOCAL = 2 ** 64;
 const SALE_OWNER_ROLE = 'SALE_OWNER';
@@ -65,16 +66,12 @@ struct Sale {
     amount_of_tokens_to_sell: Uint256,
     // Total tokens being sold
     total_tokens_sold: Uint256,
-    // Total winning lottery tickets
-    total_winning_tickets: Uint256,
     // Total Raised (what are using to track this?)
     total_raised: Uint256,
     // Sale end time
     sale_end: felt,
     // When tokens can be withdrawn
     tokens_unlock_time: felt,
-    // Cap on the number of lottery tickets to burn when registring
-    lottery_tickets_burn_cap: Uint256,
     // Number of users participated in the sale
     number_of_participants: Uint256,
 }
@@ -96,7 +93,7 @@ struct Registration {
 struct Purchase_Round {
     time_starts: felt,
     time_ends: felt,
-    number_of_purchases: felt,
+    max_participation: Uint256,
 }
 
 struct Distribution_Round {
@@ -120,11 +117,6 @@ func purchase_round() -> (res: Purchase_Round) {
 // Mapping user to his participation
 @storage_var
 func user_to_participation(user_address: felt) -> (res: Participation) {
-}
-
-// Mapping user to number of winning lottery tickets
-@storage_var
-func user_to_winning_lottery_tickets(user_address: felt) -> (res: Uint256) {
 }
 
 // Mapping user to number of allocations
@@ -176,6 +168,10 @@ func ido_factory_contract_address() -> (res: felt) {
 }
 
 @storage_var
+func admin_address() -> (res: felt) {
+}
+
+@storage_var
 func ido_allocation() -> (res: Uint256) {
 }
 
@@ -184,7 +180,7 @@ func tokens_sold(user_address: felt, amount: Uint256) {
 }
 
 @event
-func user_registered(user_address: felt, winning_lottery_tickets: Uint256, amount_burnt: Uint256) {
+func user_registered(user_address: felt) {
 }
 
 @event
@@ -260,20 +256,14 @@ func get_current_sale{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 func get_user_info{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     account: felt
 ) -> (
-    participation: Participation,
-    tickets: Uint256,
-    allocations: Uint256,
-    is_registered: felt,
-    has_participated: felt,
+    participation: Participation, allocations: Uint256, is_registered: felt, has_participated: felt
 ) {
     let (_participation) = user_to_participation.read(account);
-    let (_winning_tickets) = user_to_winning_lottery_tickets.read(account);
     let (_allocations) = address_to_allocations.read(account);
     let (_is_registered) = is_registered.read(account);
     let (_has_participated) = has_participated.read(account);
     return (
         participation=_participation,
-        tickets=_winning_tickets,
         allocations=_allocations,
         is_registered=_is_registered,
         has_participated=_has_participated,
@@ -381,51 +371,6 @@ func set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     return ();
 }
 
-func populate_vesting_params_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    _unlocking_times_len: felt,
-    _unlocking_times: felt*,
-    _percents_len: felt,
-    _percents: Uint256*,
-    _array_index: felt,
-) {
-    alloc_locals;
-    assert _unlocking_times_len = _percents_len;
-
-    if (_unlocking_times_len == 0) {
-        return ();
-    }
-
-    let percent0 = _percents[0];
-    vesting_portions_unlock_time_array.write(_array_index, _unlocking_times[0]);
-    // vesting_percent_per_portion_array.write(_array_index, _percents[0])
-    vesting_percent_per_portion_array.write(_array_index, percent0);
-    return populate_vesting_params_rec(
-        _unlocking_times_len=_unlocking_times_len - 1,
-        _unlocking_times=_unlocking_times + 1,
-        _percents_len=_percents_len - 1,
-        _percents=_percents + Uint256.SIZE,
-        _array_index=_array_index + 1,
-    );
-}
-
-func array_sum{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr: Uint256*, size: felt
-) -> (sum: Uint256) {
-    if (size == 0) {
-        // parenthesis required for return statement
-        return (sum=Uint256(0, 0));
-    }
-
-    // recursive call to array_sum, arr = arr[0],
-    let (sum_of_rest) = array_sum(arr=arr + Uint256.SIZE, size=size - 1);
-    // [...] dereferences to value of memory address which is first element of arr
-    // recurisvely calls array_sum with arr+1 which is next element in arr
-    // recursion stops when size == 0
-    // return (sum=[arr] + sum_of_rest)
-    let (the_sum) = SafeUint256.add([arr], sum_of_rest);
-    return (sum=the_sum);
-}
-
 @external
 func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     _token_address: felt,
@@ -435,7 +380,6 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     _sale_end_time: felt,
     _tokens_unlock_time: felt,
     _portion_vesting_precision: Uint256,
-    _lottery_tickets_burn_cap: Uint256,
 ) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
@@ -480,11 +424,9 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         token_price=_token_price,
         amount_of_tokens_to_sell=_amount_of_tokens_to_sell,
         total_tokens_sold=Uint256(0, 0),
-        total_winning_tickets=Uint256(0, 0),
         total_raised=Uint256(0, 0),
         sale_end=_sale_end_time,
         tokens_unlock_time=_tokens_unlock_time,
-        lottery_tickets_burn_cap=_lottery_tickets_burn_cap,
         number_of_participants=Uint256(0, 0),
     );
     sale.write(new_sale);
@@ -518,11 +460,9 @@ func set_sale_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         token_price=the_sale.token_price,
         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
         total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=the_sale.total_winning_tickets,
         total_raised=the_sale.total_raised,
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
@@ -568,7 +508,7 @@ func set_registration_time{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
 
 @external
 func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    _purchase_time_starts: felt, _purchase_time_ends: felt
+    _purchase_time_starts: felt, _purchase_time_ends: felt, max_participation: Uint256
 ) {
     AstralyAccessControl.assert_only_owner();
     let (the_reg) = registration.read();
@@ -580,6 +520,10 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     with_attr error_message(
             "AstralyIDOContract::set_purchase_round_params end time must be after start end") {
         assert_lt(_purchase_time_starts, _purchase_time_ends);
+    }
+    with_attr error_message("AstralyIDOContract::max_participation must be non-null") {
+        let (participation_check: felt) = uint256_lt(Uint256(0, 0), max_participation);
+        assert participation_check = TRUE;
     }
     with_attr error_message(
             "AstralyIDOContract::set_purchase_round_params registration time not set yet") {
@@ -593,7 +537,7 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     let upd_purchase = Purchase_Round(
         time_starts=_purchase_time_starts,
         time_ends=_purchase_time_ends,
-        number_of_purchases=the_purchase.number_of_purchases,
+        max_participation=max_participation,
     );
     purchase_round.write(upd_purchase);
     purchase_round_time_set.emit(
@@ -603,275 +547,133 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 }
 
 @external
-func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    amount: Uint256, account: felt, nb_quest: felt
-) -> (res: felt) {
+func register_user{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
+}(signature_len: felt, signature: felt*, signature_expiration: felt) -> (res: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
     let (block_timestamp) = get_block_timestamp();
+    let (caller) = get_caller_address();
     let (the_sale) = sale.read();
 
-    let (factory_address) = ido_factory_contract_address.read();
-    let (lottery_ticket_address) = IAstralyIDOFactory.get_lottery_ticket_contract_address(
-        contract_address=factory_address
-    );
-    with_attr error_message(
-            "AstralyIDOContract::register_user Lottery ticket contract address not set") {
-        assert_not_zero(lottery_ticket_address);
-    }
-    let (caller) = get_caller_address();
-    with_attr error_message(
-            "AstralyIDOContract::register_user only the lottery ticket contract can make this call") {
-        assert caller = lottery_ticket_address;
-    }
-
-    with_attr error_message(
-            "AstralyIDOContract::register_user account address is the zero address") {
-        assert_not_zero(account);
-    }
-    with_attr error_message(
-            "AstralyIDOContract::register_user allocation claim amount not greater than 0") {
-        let (amount_check: felt) = uint256_lt(Uint256(0, 0), amount);
-        assert amount_check = TRUE;
-    }
     with_attr error_message("AstralyIDOContract::register_user Registration window is closed") {
         assert_le(the_reg.registration_time_starts, block_timestamp);
         assert_le(block_timestamp, the_reg.registration_time_ends);
     }
-
-    let (is_user_reg) = is_registered.read(account);
-    if (is_user_reg == 0) {
-        is_registered.write(account, TRUE);
-        let (local registrants_sum: Uint256) = SafeUint256.add(
-            the_reg.number_of_registrants, Uint256(low=1, high=0)
-        );
-
-        let upd_reg = Registration(
-            registration_time_starts=the_reg.registration_time_starts,
-            registration_time_ends=the_reg.registration_time_ends,
-            number_of_registrants=registrants_sum,
-        );
-        registration.write(upd_reg);
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
-    } else {
-        tempvar syscall_ptr = syscall_ptr;
-        tempvar pedersen_ptr = pedersen_ptr;
-        tempvar range_check_ptr = range_check_ptr;
+    with_attr error_message("AstralyIDOContract::register_user invalid signature") {
+        check_registration_signature(signature_len, signature, signature_expiration, caller);
+    }
+    with_attr error_message("AstralyIDOContract::register_user signature expired") {
+        assert_lt(block_timestamp, signature_expiration);
+    }
+    let (is_user_reg) = is_registered.read(caller);
+    with_attr error_message("AstralyIDOContract::register_user user already registered") {
+        assert is_user_reg = TRUE;
     }
 
-    let (adjusted_amount: Uint256) = get_adjusted_amount(
-        _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
-    );
-    let (current_winning: Uint256) = user_to_winning_lottery_tickets.read(account);
-    let (new_winning: Uint256) = draw_winning_tickets(
-        tickets_burnt=adjusted_amount, nb_quest=nb_quest
-    );
-    let (local winning_tickets_sum: Uint256) = SafeUint256.add(current_winning, new_winning);
-
-    user_to_winning_lottery_tickets.write(account, winning_tickets_sum);
-
-    let (local total_winning_tickets_sum: Uint256) = SafeUint256.add(
-        the_sale.total_winning_tickets, new_winning
+    // Save user registration
+    is_registered.write(caller, TRUE);
+    // Increment number of registered users
+    let (local registrants_sum: Uint256) = SafeUint256.add(
+        the_reg.number_of_registrants, Uint256(low=1, high=0)
     );
 
-    let upd_sale = Sale(
-        token=the_sale.token,
-        is_created=the_sale.is_created,
-        raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
-        leftover_withdrawn=the_sale.leftover_withdrawn,
-        tokens_deposited=the_sale.tokens_deposited,
-        sale_owner=the_sale.sale_owner,
-        token_price=the_sale.token_price,
-        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
-        total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=total_winning_tickets_sum,
-        total_raised=the_sale.total_raised,
-        sale_end=the_sale.sale_end,
-        tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=the_sale.number_of_participants,
+    let upd_reg = Registration(
+        registration_time_starts=the_reg.registration_time_starts,
+        registration_time_ends=the_reg.registration_time_ends,
+        number_of_registrants=registrants_sum,
     );
-    sale.write(upd_sale);
-
-    user_registered.emit(
-        user_address=account, winning_lottery_tickets=new_winning, amount_burnt=adjusted_amount
-    );
+    registration.write(upd_reg);
+    user_registered.emit(user_address=caller);
     return (res=TRUE);
 }
 
-func get_adjusted_amount{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    _amount: Uint256, _cap: Uint256
-) -> (res: Uint256) {
-    let (is_amount_le_cap: felt) = uint256_le(_amount, _cap);
-    if (is_amount_le_cap == TRUE) {
-        return (res=_amount);
-    } else {
-        return (res=_cap);
-    }
-}
-
-// This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
-// does this method need any inputs? or will it only use the number of users and winning tickets?
 @external
-func calculate_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+func participate{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
+}(amount_paid: Uint256, amount: Uint256, sig_len: felt, sig: felt*) {
     alloc_locals;
-    AstralyAccessControl.assert_only_owner();
-    let (current_allocation: Uint256) = ido_allocation.read();
-    with_attr error_message(
-            "AstralyIDOContract::calculate_allocation allocation already calculated") {
-        let (allocation_check: felt) = uint256_eq(current_allocation, Uint256(0, 0));
-        assert allocation_check = TRUE;
+    let (account: felt) = get_caller_address();
+    with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
+        check_participation_signature(sig_len, sig, account, amount);
     }
-    let (the_sale: Sale) = sale.read();
-    local to_sell: Uint256 = the_sale.amount_of_tokens_to_sell;
-    local total_winning_tickets: Uint256 = the_sale.total_winning_tickets;
-
-    // Compute the allocation : amount_of_tokens_to_sell / total_winning_tickets
-    let (the_allocation: Uint256, _) = SafeUint256.div_rem(to_sell, total_winning_tickets);
-    // with_attr error_message("AstralyIDOContract::calculate_allocation calculation error"):
-    //     assert the_allocation * the_sale.total_winning_tickets = the_sale.amount_of_tokens_to_sell
-    // end
-    ido_allocation.write(the_allocation);
-    allocation_computed.emit(allocation=the_allocation, sold=the_sale.amount_of_tokens_to_sell);
+    _participate(account, amount_paid, amount);
     return ();
 }
 
-// this function will call the VRF and determine the number of winning tickets (if any)
-@view
-func draw_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    tickets_burnt: Uint256, nb_quest: felt
-) -> (res: Uint256) {
-    alloc_locals;
-    let (single_t: felt) = uint256_le(tickets_burnt, Uint256(1, 0));
-    if (single_t == TRUE) {
-        // One ticket
-        let (rnd) = get_random_number();
-        // let (f_rnd) = _uint_to_felt(rnd)
-        let (q, r) = unsigned_div_rem(rnd, 9);
-        let is_won: felt = is_le(r, 2);
-        if (is_won == TRUE) {
-            let (res: Uint256) = _felt_to_uint(1);
-            return (res,);
-        }
-        let (res: Uint256) = _felt_to_uint(0);
-        return (res,);
-    }
-
-    let (rnd) = get_random_number();
-    // let (max_uint : Uint256) = uint256_max()
-
-    // Tickets_burnt * 0.6
-    let (a) = Math64x61_fromFelt(3);
-    let (b) = Math64x61_fromFelt(5);
-    let (div) = Math64x61_div(a, b);
-    let (fixed_tickets_felt) = _uint_to_felt(tickets_burnt);
-    let (num1) = Math64x61_mul(fixed_tickets_felt, div);
-    // Nb_quest * 5
-    let (num2) = Math64x61_mul(nb_quest, 5);
-
-    // Add them
-    let (sum) = Math64x61_add(num1, num2);
-
-    // Compute rand/max
-    let (fixed_rand) = Math64x61_fromFelt(rnd);
-    let (rand_factor) = Math64x61_div(rnd, Math64x61_BOUND_LOCAL - 1);
-
-    // Finally multiply both results
-    let (fixed_winning) = Math64x61_mul(rand_factor, sum);
-
-    let (winning: Uint256) = Math64x61_toUint256(fixed_winning);
-
-    return (res=winning);
-}
-
-func get_random_number{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
-    rnd: felt
+func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    account: felt, amount_paid: Uint256, amount: Uint256
 ) {
-    let (ido_factory_address) = ido_factory_contract_address.read();
-    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
-        contract_address=ido_factory_address
-    );
-    with_attr error_message(
-            "AstralyIDOContract::get_random_number random number generator address not set in the factory") {
-        assert_not_zero(rnd_nbr_gen_addr);
-    }
-    let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
-    with_attr error_message("AstralyIDOContract::get_random_number invalid random number value") {
-        assert_not_zero(rnd_felt);
-    }
-    return (rnd=rnd_felt);
-}
-
-@external
-func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    amount_paid: Uint256
-) -> (res: felt) {
     alloc_locals;
-    let (account: felt) = get_caller_address();
     let (address_this: felt) = get_contract_address();
-    let (the_sale) = sale.read();
     let (block_timestamp) = get_block_timestamp();
     let (the_round) = purchase_round.read();
 
     // Validations
+    with_attr error_message("AstralyIDOContract::participate Crossing max participation") {
+        let (amount_paid_check: felt) = uint256_le(amount_paid, the_round.max_participation);
+        assert amount_paid_check = TRUE;
+    }
     with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
         assert_le(the_round.time_starts, block_timestamp);
-    }
-    with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
-        assert_le(block_timestamp, the_round.time_ends);
     }
     let (user_participated) = has_participated.read(account);
     with_attr error_message("AstralyIDOContract::participate user participated") {
         assert user_participated = FALSE;
     }
-    with_attr error_message("AstralyIDOContract::participate Account address is the zero address") {
-        assert_not_zero(account);
+    with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
+        assert_le(block_timestamp, the_round.time_ends);
     }
-    with_attr error_message("AstralyIDOContract::participate Amount paid is zero") {
-        let (amount_paid_check: felt) = uint256_lt(Uint256(0, 0), amount_paid);
-        assert amount_paid_check = TRUE;
-    }
+
+    // with_attr error_message("AstralyIDOContract::participate Account address is the zero address") {
+    //     assert_not_zero(account);
+    // }
+    // with_attr error_message("AstralyIDOContract::participate Amount paid is zero") {
+    //     let (amount_paid_check: felt) = uint256_lt(Uint256(0, 0), amount_paid);
+    //     assert amount_paid_check = TRUE;
+    // }
+
     let (the_sale) = sale.read();
     with_attr error_message("AstralyIDOContract::participate the IDO token price is not set") {
         let (token_price_check: felt) = uint256_lt(Uint256(0, 0), the_sale.token_price);
         assert token_price_check = TRUE;
     }
-    let (the_alloc: Uint256) = ido_allocation.read();
-    with_attr error_message(
-            "AstralyIDOContract::participate The IDO token allocation has not been calculated") {
-        let (allocation_check: felt) = uint256_lt(Uint256(0, 0), the_alloc);
-        assert allocation_check = TRUE;
-    }
-    let (winning_tickets: Uint256) = user_to_winning_lottery_tickets.read(account);
-    with_attr error_message(
-            "AstralyIDOContract::participate account does not have any winning lottery tickets") {
-        let (winning_tkts_check: felt) = uint256_lt(Uint256(0, 0), winning_tickets);
-        assert winning_tkts_check = TRUE;
-    }
 
-    let (max_tokens_to_purchase: Uint256) = SafeUint256.mul(winning_tickets, the_alloc);
     let (number_of_tokens_buying, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price);
     let (number_of_tokens_buying_mod: Uint256) = SafeUint256.mul(
         number_of_tokens_buying, Uint256(10 ** 18, 0)
     );
 
-    with_attr error_message(
-            "AstralyIDOContract::participate Can't buy more than maximum allocation") {
-        let (is_tokens_buying_le_max) = uint256_le(
-            number_of_tokens_buying_mod, max_tokens_to_purchase
-        );
-        assert is_tokens_buying_le_max = TRUE;
+    // Must buy more than 0 tokens
+    with_attr error_message("AstralyIDOContract::participate Can't buy 0 tokens") {
+        let (is_tokens_buying_valid: felt) = uint256_lt(Uint256(0, 0), number_of_tokens_buying_mod);
+        assert is_tokens_buying_valid = TRUE;
     }
 
-    // Updates
+    // Check user allocation
+    with_attr error_message("AstralyIDOContract::participate Exceeding allowance") {
+        let (valid_allocation: felt) = uint256_le(number_of_tokens_buying_mod, amount);
+        assert valid_allocation = TRUE;
+    }
 
+    // Require that amountOfTokensBuying is less than sale token leftover cap
+    with_attr error_message("AstralyIDOContract::participate Not enough tokens to sell") {
+        let (tokens_left) = SafeUint256.sub_le(
+            the_sale.amount_of_tokens_to_sell, the_sale.total_tokens_sold
+        );
+        let (enough_tokens: felt) = uint256_le(number_of_tokens_buying_mod, tokens_left);
+        assert enough_tokens = TRUE;
+    }
+
+    // Increase amount of sold tokens
     let (local total_tokens_sum: Uint256) = SafeUint256.add(
         the_sale.total_tokens_sold, number_of_tokens_buying_mod
     );
 
+    // Increase total amount raised
     let (local total_raised_sum: Uint256) = SafeUint256.add(the_sale.total_raised, amount_paid);
+
+    // Increment number of participants in the Sale.
     let (local number_of_participants_sum: Uint256) = SafeUint256.add(
         the_sale.number_of_participants, Uint256(1, 0)
     );
@@ -886,15 +688,14 @@ func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         token_price=the_sale.token_price,
         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
         total_tokens_sold=total_tokens_sum,
-        total_winning_tickets=the_sale.total_winning_tickets,
         total_raised=total_raised_sum,
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=number_of_participants_sum,
     );
     sale.write(upd_sale);
 
+    // Add participation for user.
     let new_purchase = Participation(
         amount_bought=number_of_tokens_buying_mod,
         amount_paid=amount_paid,
@@ -918,15 +719,8 @@ func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     with_attr error_message("AstralyIDOContract::participate Participation payment failed") {
         assert pmt_success = TRUE;
     }
-    let new_number_of_purchases: felt = the_round.number_of_purchases + 1;
-    let upd_purchase = Purchase_Round(
-        time_starts=the_round.time_starts,
-        time_ends=the_round.time_ends,
-        number_of_purchases=new_number_of_purchases,
-    );
-    purchase_round.write(upd_purchase);
     tokens_sold.emit(user_address=account, amount=number_of_tokens_buying_mod);
-    return (res=TRUE);
+    return ();
 }
 
 @external
@@ -950,11 +744,9 @@ func deposit_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         token_price=the_sale.token_price,
         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
         total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=the_sale.total_winning_tickets,
         total_raised=the_sale.total_raised,
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
@@ -1045,7 +837,7 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
 @external
 func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    AstralyAccessControl.assert_only_owner();
+    AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
     let (address_caller: felt) = get_caller_address();
     let (address_this: felt) = get_contract_address();
     let (factory_address) = ido_factory_contract_address.read();
@@ -1071,11 +863,9 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
         token_price=the_sale.token_price,
         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
         total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=the_sale.total_winning_tickets,
         total_raised=the_sale.total_raised,
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
@@ -1107,11 +897,9 @@ func withdraw_leftovers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         token_price=the_sale.token_price,
         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
         total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=the_sale.total_winning_tickets,
         total_raised=the_sale.total_raised,
         sale_end=the_sale.sale_end,
         tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
@@ -1149,6 +937,10 @@ func withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
         return ();
     }
 }
+
+//############################################
+// #                 INTERNALS              ##
+//############################################
 
 func withdraw_multiple_portions_rec{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
@@ -1206,4 +998,98 @@ func withdraw_multiple_portions_rec{
 
     let (the_sum) = SafeUint256.add(amt_withdrawing, sum_of_portions);
     return (amt_sum=the_sum);
+}
+
+func get_random_number{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    rnd: felt
+) {
+    let (ido_factory_address) = ido_factory_contract_address.read();
+    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
+        contract_address=ido_factory_address
+    );
+    with_attr error_message(
+            "AstralyIDOContract::get_random_number random number generator address not set in the factory") {
+        assert_not_zero(rnd_nbr_gen_addr);
+    }
+    let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
+    with_attr error_message("AstralyIDOContract::get_random_number invalid random number value") {
+        assert_not_zero(rnd_felt);
+    }
+    return (rnd=rnd_felt);
+}
+
+func populate_vesting_params_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    _unlocking_times_len: felt,
+    _unlocking_times: felt*,
+    _percents_len: felt,
+    _percents: Uint256*,
+    _array_index: felt,
+) {
+    alloc_locals;
+    assert _unlocking_times_len = _percents_len;
+
+    if (_unlocking_times_len == 0) {
+        return ();
+    }
+
+    let percent0 = _percents[0];
+    vesting_portions_unlock_time_array.write(_array_index, _unlocking_times[0]);
+    // vesting_percent_per_portion_array.write(_array_index, _percents[0])
+    vesting_percent_per_portion_array.write(_array_index, percent0);
+    return populate_vesting_params_rec(
+        _unlocking_times_len=_unlocking_times_len - 1,
+        _unlocking_times=_unlocking_times + 1,
+        _percents_len=_percents_len - 1,
+        _percents=_percents + Uint256.SIZE,
+        _array_index=_array_index + 1,
+    );
+}
+
+func array_sum{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr: Uint256*, size: felt
+) -> (sum: Uint256) {
+    if (size == 0) {
+        // parenthesis required for return statement
+        return (sum=Uint256(0, 0));
+    }
+
+    // recursive call to array_sum, arr = arr[0],
+    let (sum_of_rest) = array_sum(arr=arr + Uint256.SIZE, size=size - 1);
+    // [...] dereferences to value of memory address which is first element of arr
+    // recurisvely calls array_sum with arr+1 which is next element in arr
+    // recursion stops when size == 0
+    // return (sum=[arr] + sum_of_rest)
+    let (the_sum) = SafeUint256.add([arr], sum_of_rest);
+    return (sum=the_sum);
+}
+
+@view
+func check_registration_signature{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ecdsa_ptr: SignatureBuiltin*, range_check_ptr
+}(sig_len: felt, sig: felt*, sig_expiration_timestamp: felt, caller: felt) {
+    alloc_locals;
+    let (admin) = admin_address.read();
+
+    let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0);
+
+    // Verify the user's signature.
+    let (is_valid) = IAccount.is_valid_signature(admin, user_hash, sig_len, sig);
+    assert is_valid = TRUE;
+    return ();
+}
+
+@view
+func check_participation_signature{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
+}(sig_len: felt, sig: felt*, account: felt, amount: Uint256) {
+    alloc_locals;
+    let (caller) = get_caller_address();
+    let (admin) = admin_address.read();
+
+    let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0);
+
+    // Verify the user's signature.
+    let (is_valid) = IAccount.is_valid_signature(admin, user_hash, sig_len, sig);
+    assert is_valid = TRUE;
+    return ();
 }

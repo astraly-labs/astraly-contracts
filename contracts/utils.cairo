@@ -145,7 +145,7 @@ func uint256_pow{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: Uin
     return (res);
 }
 
-func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: uint256) -> (
+func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: Uint256) -> (
     Uint256,
 ) {
     let (is_eq: felt) = uint256_eq(b, Uint256(0, 0));
@@ -155,7 +155,7 @@ func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b:
     }
 
     let (mul: Uint256) = SafeUint256.mul(a, a);
-    let (sub: Uint256) = SafeUint256.sub(b, Uint256(1, 0));
+    let (sub: Uint256) = SafeUint256.sub_le(b, Uint256(1, 0));
 
     return uint256_mul_rec(mul, sub);
 }
