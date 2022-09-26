@@ -1054,7 +1054,7 @@ func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
     let pedersen_ptr = cast([ap - 6], HashBuiltin*);
     let range_check_ptr = [ap - 5];
 
-    assert array[array_len] = cast(([ap - 4], Uint256([ap-3], [ap-2]), [ap-1]), UserRegistrationDetails);
+    assert array[array_len] = cast(([ap - 4], Uint256([ap - 3], [ap - 2]), [ap - 1]), UserRegistrationDetails);
 
     return get_users_registration_array(index, end_index, array_len + 1, array, mapping_ref);
 }
