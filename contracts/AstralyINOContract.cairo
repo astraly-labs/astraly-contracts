@@ -1,7 +1,8 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
+from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.math import (
     assert_nn_le,
     assert_not_equal,
@@ -13,7 +14,6 @@ from starkware.cairo.common.math import (
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.alloc import alloc
-from starkware.starknet.common.syscalls import get_block_timestamp
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.uint256 import (
     Uint256,
@@ -23,6 +23,11 @@ from starkware.cairo.common.uint256 import (
     uint256_check,
 )
 from starkware.cairo.common.memcpy import memcpy
+from starkware.starknet.common.syscalls import (
+    get_caller_address,
+    get_contract_address,
+    get_block_timestamp,
+)
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.security.safemath.library import SafeUint256
@@ -31,15 +36,7 @@ from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import (
-    uint256_is_zero,
-    get_is_equal,
-    uint256_max,
-    is_lt,
-    uint256_pow,
-    index_of_max_struct,
-    remove_at,
-)
+from contracts.utils import uint256_pow
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -936,7 +933,8 @@ struct UserProbability {
 @external
 func selectKelements{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     start_index: felt, end_index: felt
-) -> (winners_array_len: felt, winners_array: UserProbability) {
+) -> (winners_array_len: felt, winners_array: UserProbability*) {
+    alloc_locals;
     let (user_registation_details: UserRegistrationDetails*) = alloc();
     assert_lt(start_index, end_index);
 
@@ -983,7 +981,7 @@ func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     if (old_arr_len == 0) {
         return (sorted_arr_len, sorted_arr);
     }
-    let (indexOfMax) = index_of_max_struct(old_arr_len, old_arr, 1);
+    let indexOfMax: felt = index_of_max(old_arr_len, old_arr);
     // Pushing the max occurence to the last available spot
     assert sorted_arr[sorted_arr_len] = old_arr[indexOfMax];
     // getting a new old array
@@ -1005,33 +1003,38 @@ func remove_at{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
 func get_probabilities{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     index: felt,
-    array_len: felt,
-    user_registation_details: UserRegistrationDetails*,
+    users_registation_details_len: felt,
+    users_registation_details: UserRegistrationDetails*,
     allocation_arr: UserProbability*,
     rnd_nbr_gen_addr: felt,
 ) {
-    if (index == array_len) {
+    alloc_locals;
+    if (index == users_registation_details_len) {
         return ();
     }
 
-    let UserRegistrationDetails = user_registation_details[index];
+    let user_reg_details: UserRegistrationDetails = users_registation_details[index];
 
     let (rnd_felt: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
     // / TODO: Use Math64x61
 
-    let (score: Uint256) = SafeUint256.mul(
-        user_registation_details.amount, Uint256(user_registation_details.score, 0)
+    let (weight: Uint256) = SafeUint256.mul(
+        user_reg_details.amount, Uint256(user_reg_details.score, 0)
     );
 
     let (div: Uint256, _) = SafeUint256.div_rem(Uint256(1, 0), weight);
     let (rnd_felt_uint256: Uint256) = _felt_to_uint(rnd_felt);
-    let (probability_uint256: Uint256) = uint256_pow(rnd_felt_uint256, div);
+    let probability_uint256: Uint256 = uint256_pow(rnd_felt_uint256, div);
 
     let (probability: felt) = _uint_to_felt(probability_uint256);
 
-    allocation_arr[index] = UserProbability(user_registation_details.address, probability);
+    assert allocation_arr[index] = UserProbability(user_reg_details.address, probability);
     return get_probabilities(
-        index + 1, array_len, user_registation_details, allocation_arr, rnd_nbr_gen_addr
+        index + 1,
+        users_registation_details_len,
+        users_registation_details,
+        allocation_arr,
+        rnd_nbr_gen_addr,
     );
 }
 
@@ -1041,17 +1044,42 @@ func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
     array_len: felt,
     array: UserRegistrationDetails*,
     mapping_ref: felt*,
-) -> () {
+) {
     if (index == end_index) {
         return ();
     }
     tempvar args: felt* = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*);
     invoke(mapping_ref, 4, args);
-    let syscall_ptr = cast([ap - 4], felt*);
-    let pedersen_ptr = cast([ap - 3], HashBuiltin*);
-    let range_check_ptr = [ap - 2];
+    let syscall_ptr = cast([ap - 7], felt*);
+    let pedersen_ptr = cast([ap - 6], HashBuiltin*);
+    let range_check_ptr = [ap - 5];
 
-    array[array_len] = cast([ap - 1], UserRegistrationDetails);
+    assert array[array_len] = cast(([ap - 4], Uint256([ap - 3], [ap - 2]), [ap - 1]), UserRegistrationDetails);
 
     return get_users_registration_array(index, end_index, array_len + 1, array, mapping_ref);
+}
+
+func index_of_max{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: UserProbability*
+) -> felt {
+    return index_of_max_recursive(arr_len, arr, arr[0].probability, 0, 1);
+}
+
+func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt,
+    arr: UserProbability*,
+    current_max: felt,
+    current_max_index: felt,
+    current_index: felt,
+) -> felt {
+    if (arr_len == current_index) {
+        return (current_max_index);
+    }
+    let isLe = is_le(current_max, arr[current_index].probability);
+    if (isLe == TRUE) {
+        return index_of_max_recursive(
+            arr_len, arr, arr[current_index].probability, current_index, current_index + 1
+        );
+    }
+    return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
 }

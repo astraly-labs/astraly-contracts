@@ -10,37 +10,26 @@ from starkware.cairo.common.memcpy import memcpy
 
 from openzeppelin.security.safemath.library import SafeUint256
 
-func uint256_is_zero{range_check_ptr}(v: Uint256) -> (yesno: felt) {
+func uint256_is_zero{range_check_ptr}(v: Uint256) -> felt {
     let (yesno: felt) = uint256_eq(v, Uint256(0, 0));
-    return (yesno,);
+    return (yesno);
 }
 
-func uint256_max() -> (res: Uint256) {
-    return (Uint256(low=ALL_ONES, high=ALL_ONES),);
+func uint256_max() -> Uint256 {
+    return (Uint256(low=ALL_ONES, high=ALL_ONES));
 }
 
-func uint256_is_not_zero{range_check_ptr}(v: Uint256) -> (yesno: felt) {
+func uint256_is_not_zero{range_check_ptr}(v: Uint256) -> felt {
     let (is_zero: felt) = uint256_eq(v, Uint256(0, 0));
     if (is_zero == TRUE) {
-        return (FALSE,);
+        return (FALSE);
     } else {
-        return (TRUE,);
+        return (TRUE);
     }
-}
-
-func uint256_mul_checked{range_check_ptr}(a: Uint256, b: Uint256) -> (product: Uint256) {
-    alloc_locals;
-
-    let (product, carry) = uint256_mul(a, b);
-    let (in_range) = uint256_is_zero(carry);
-    with_attr error_message("number too big") {
-        assert in_range = 1;
-    }
-    return (product,);
 }
 
 func uint256_assert_not_zero{range_check_ptr}(value: Uint256) {
-    let (is_zero: felt) = uint256_is_not_zero(value);
+    let is_zero: felt = uint256_is_not_zero(value);
     assert is_zero = TRUE;
     return ();
 }
@@ -55,7 +44,7 @@ func uint256_assert_not_zero{range_check_ptr}(value: Uint256) {
 // end
 func get_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     array_len: felt, array: felt*, mapping_ref: felt*
-) -> () {
+) {
     if (array_len == 0) {
         return ();
     }
@@ -91,7 +80,7 @@ func concat_arr{range_check_ptr}(arr1_len: felt, arr1: felt*, arr2_len: felt, ar
 
 func write_to_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     array_len: felt, array: felt*, mapping_ref: felt*
-) -> () {
+) {
     if (array_len == 0) {
         return ();
     }
@@ -106,14 +95,14 @@ func write_to_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     return write_to_array(array_len - 1, array, mapping_ref);
 }
 
-func or{syscall_ptr: felt*}(lhs: felt, rhs: felt) -> (res: felt) {
+func or{syscall_ptr: felt*}(lhs: felt, rhs: felt) -> felt {
     if ((lhs - 1) * (rhs - 1) == 0) {
-        return (1,);
+        return (1);
     }
-    return (0,);
+    return (0);
 }
 
-func is_lt{syscall_ptr: felt*, range_check_ptr}(lhs: felt, rhs: felt) -> (res: felt) {
+func is_lt{syscall_ptr: felt*, range_check_ptr}(lhs: felt, rhs: felt) -> felt {
     if (rhs == 0) {
         return (FALSE);
     }
@@ -123,31 +112,33 @@ func is_lt{syscall_ptr: felt*, range_check_ptr}(lhs: felt, rhs: felt) -> (res: f
 
 func mul_div_down{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     x: Uint256, y: Uint256, denominator: Uint256
-) -> (res: Uint256) {
+) -> Uint256 {
     alloc_locals;
     let (z: Uint256) = SafeUint256.mul(x, y);
 
-    let (dominator_is_zero: felt) = uint256_is_zero(denominator);
+    let dominator_is_zero: felt = uint256_is_zero(denominator);
     assert dominator_is_zero = FALSE;
 
-    let (x_is_zero: felt) = uint256_is_zero(x);
+    let x_is_zero: felt = uint256_is_zero(x);
     let (div: Uint256, _) = SafeUint256.div_rem(z, x);
     let (is_eq: felt) = uint256_eq(div, y);
-    let (_or: felt) = or(x_is_zero, is_eq);
+    let _or: felt = or(x_is_zero, is_eq);
     assert _or = TRUE;
 
     let (res: Uint256, _) = SafeUint256.div_rem(z, denominator);
-    return (res,);
+    return (res);
 }
 
-func uint256_pow{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: Uint256) -> Uint256 {
+func uint256_pow{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    a: Uint256, b: Uint256
+) -> Uint256 {
     let res: Uint256 = uint256_mul_rec(a, b);
     return (res);
 }
 
-func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b: Uint256) -> (
-    Uint256,
-) {
+func uint256_mul_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    a: Uint256, b: Uint256
+) -> Uint256 {
     let (is_eq: felt) = uint256_eq(b, Uint256(0, 0));
 
     if (is_eq == TRUE) {
@@ -160,23 +151,15 @@ func uint256_mul_rec{pedersen_ptr: HashBuiltin*, range_check_ptr}(a: Uint256, b:
     return uint256_mul_rec(mul, sub);
 }
 
-func get_is_equal(a: felt, b: felt) -> (res: felt) {
-    if (a == b) {
-        return (TRUE,);
-    } else {
-        return (FALSE,);
-    }
-}
-
 func index_of_max{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     arr_len: felt, arr: felt*
-) -> (index: felt) {
+) -> felt {
     return index_of_max_recursive(arr_len, arr, arr[0], 0, 1);
 }
 
 func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     arr_len: felt, arr: felt*, current_max: felt, current_max_index: felt, current_index: felt
-) -> (index: felt) {
+) -> felt {
     if (arr_len == current_index) {
         return (current_max_index,);
     }
@@ -187,32 +170,4 @@ func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
         );
     }
     return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
-}
-
-func index_of_max_struct{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr_len: felt, arr: felt*, position: felt
-) -> (index: felt) {
-    return index_of_max_recursive(arr_len, arr, arr[0], 0, 1, position);
-}
-
-func index_of_max_struct_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr_len: felt,
-    arr: felt*,
-    current_max: felt,
-    current_max_index: felt,
-    current_index: felt,
-    position: felt,
-) -> (index: felt) {
-    if (arr_len == current_index) {
-        return (current_max_index,);
-    }
-    let isLe = is_le(current_max, arr[current_index][position]);
-    if (isLe == TRUE) {
-        return index_of_max_struct_recursive(
-            arr_len, arr, arr[current_index][position], current_index, current_index + 1
-        );
-    }
-    return index_of_max_struct_recursive(
-        arr_len, arr, current_max, current_max_index, current_index + 1, position
-    );
 }

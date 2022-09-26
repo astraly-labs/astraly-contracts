@@ -20,21 +20,3 @@ AstralyIDOContract = [
 AstralyIDOFactory = [
     "contracts/AstralyIDOFactory.cairo",
 ]
-AstralyLotteryToken = [
-    "contracts/AstralyLotteryToken.cairo",
-]
-AstralyStaking = [
-    "contracts/AstralyStaking.cairo",
-]
-AstralyTask = [
-    "contracts/AstralyTask.cairo",
-]
-AstralyToken = [
-    "contracts/AstralyTask.cairo",
-]
-AstralyVaultHarvestTask = [
-    "contracts/AstralyVaultHarvestTask.cairo",
-]
-JediSwapWrapper = [
-    "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
-]
