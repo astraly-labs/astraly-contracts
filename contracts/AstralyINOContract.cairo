@@ -146,12 +146,12 @@ func ido_allocation() -> (res: Uint256) {
 }
 
 @storage_var
-func user_registrations(index: felt) -> (registration_details: UserRegistrationDetails) {
+func users_registrations(index: felt) -> (registration_details: UserRegistrationDetails) {
 }
 
 // first position is not used
 @storage_var
-func user_registrations_len() -> (length: felt) {
+func users_registrations_len() -> (length: felt) {
 }
 
 @storage_var
@@ -217,7 +217,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     let (address_this: felt) = get_contract_address();
     IDO_Created.emit(address_this);
 
-    user_registrations_len.write(1);
+    users_registrations_len.write(1);
     return ();
 }
 
@@ -545,23 +545,23 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         );
         registration.write(upd_reg);
 
-        let (_user_registrations_len: felt) = user_registrations_len.read();
-        user_registrations.write(
-            _user_registrations_len, UserRegistrationDetails(account, adjusted_amount, score)
+        let (_users_registrations_len: felt) = users_registrations_len.read();
+        users_registrations.write(
+            _users_registrations_len, UserRegistrationDetails(account, adjusted_amount, score)
         );
-        user_registrations_len.write(_user_registrations_len + 1);
+        users_registrations_len.write(_users_registrations_len+ 1);
 
         return (res=TRUE);
     }
 
     let (_user_registration_index: felt) = user_registration_index.read(account);
-    let (current_user_registrations_details: UserRegistrationDetails) = user_registrations.read(
+    let (current_user_registrations_details: UserRegistrationDetails) = users_registrations.read(
         _user_registration_index
     );
     let (new_adjusted_amount: Uint256) = SafeUint256.add(
         current_user_registrations_details.amount, adjusted_amount
     );
-    user_registrations.write(
+    users_registrations.write(
         _user_registration_index, UserRegistrationDetails(account, new_adjusted_amount, score)
     );
 
@@ -583,10 +583,10 @@ func get_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let (the_sale: Sale) = sale.read();
     let (rnd: felt) = get_random_number();
 
-    let (_user_registrations_len: felt) = user_registrations_len.read();
+    let (_users_registrations_len: felt) = users_registrations_len.read();
 
     let (total_winning_tickets_sum: Uint256) = get_winning_tickets_rec(
-        1, _user_registrations_len, rnd, Uint256(0, 0)
+        1, _users_registrations_len, rnd, Uint256(0, 0)
     );
 
     let upd_sale = Sale(
@@ -610,14 +610,14 @@ func get_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 }
 
 func get_winning_tickets_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt, _user_registrations_len: felt, rand: felt, total_winning_tickets_sum: Uint256
+    index: felt, _users_registrations_len: felt, rand: felt, total_winning_tickets_sum: Uint256
 ) -> (total_winning_tickets: Uint256) {
     alloc_locals;
-    if (index == _user_registrations_len + 1) {
+    if (index == users_registrations_len + 1) {
         return (total_winning_tickets_sum,);
     }
 
-    let (user_reg_details: UserRegistrationDetails) = user_registrations.read(index);
+    let (user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
 
     with_attr error_message(
             "AstralyINOContract::register_user account address is the zero address") {
@@ -646,7 +646,7 @@ func get_winning_tickets_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     );
 
     return get_winning_tickets_rec(
-        index + 1, _user_registrations_len, rand, total_winning_tickets_sum
+        index + 1, _users_registrations_len, rand, total_winning_tickets_sum
     );
 }
 
@@ -939,11 +939,11 @@ func selectKelements{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     assert_lt(start_index, end_index);
 
     tempvar array_len = end_index - start_index;
-    let (user_reg_len: felt) = user_registrations_len.read();
+    let (user_reg_len: felt) = users_registrations_len.read();
     assert_not_zero(user_reg_len);
     assert_le(array_len, user_reg_len);
 
-    let (mapping_ref: felt*) = get_label_location(user_registrations.read);
+    let (mapping_ref: felt*) = get_label_location(users_registrations.read);
     get_users_registration_array(
         start_index, end_index + 1, 0, user_registation_details, mapping_ref
     );

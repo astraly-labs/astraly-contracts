@@ -1,15 +1,16 @@
 import pytest
 import pytest_asyncio
+import asyncio
 
 from signers import MockSigner
 from utils import *
-import asyncio
 
 from datetime import datetime, timedelta
+from typing import Tuple
 from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 from starkware.starknet.testing.objects import StarknetCallInfo
-
+from starkware.starknet.services.api.contract_class import ContractClass
 
 TRUE = 1
 FALSE = 0
@@ -25,7 +26,7 @@ ONE_DAY = 24 * 60 * 60
 
 account_path = 'openzeppelin/account/presets/Account.cairo'
 ido_factory_path = 'AstralyIDOFactory.cairo'
-ido_path = 'AstralyINOContract.cairo'
+ido_path = 'mocks/AstralyINOContract_mock.cairo'
 rnd_nbr_gen_path = 'utils/xoroshiro128_starstar.cairo'
 erc1155_path = 'AstralyLotteryToken.cairo'
 erc20_eth_path = 'mocks/Astraly_ETH_ERC20_mock.cairo'
@@ -52,7 +53,7 @@ def days_to_seconds(days: int):
 
 
 @pytest_asyncio.fixture(scope='module')
-async def get_starknet():
+async def get_starknet() -> Starknet:
     starknet = await Starknet.empty()
     set_block_timestamp(starknet.state, int(
         datetime.today().timestamp()))  # time.time()
@@ -60,7 +61,7 @@ async def get_starknet():
 
 
 @pytest.fixture(scope='module')
-def contract_defs():
+def contract_defs() -> Tuple[ContractClass, ...]:
     account_def = get_contract_def(account_path)
     zk_pad_ido_factory_def = get_contract_def(ido_factory_path)
     rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
@@ -221,7 +222,7 @@ async def contacts_init(contract_defs, get_starknet):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contacts_init, get_starknet):
+def contracts_factory(contract_defs, contacts_init, get_starknet) -> Tuple[StarknetContract, ...]:
     account_def, zk_pad_ido_factory_def, rnd_nbr_gen_def, erc1155_def, zk_pad_ido_def, zk_pad_token_def, task_def, erc20_eth_def = contract_defs
     deployer_account, admin1_account, staking_account, sale_owner_account, sale_participant_account, sale_participant_2_account, _, _, rnd_nbr_gen, zk_pad_ido_factory, ido, erc1155, zk_pad_token, erc20_eth_token = contacts_init
     _state = get_starknet.state.copy()
@@ -293,26 +294,22 @@ async def test_winning_tickets(contracts_factory):
 async def test_reservoir_sampling(contracts_factory):
     deployer_account, admin_user, stakin_contract, owner, participant, participant_2, zkp_token, rnd_nbr_gen, ido_factory, ido, erc1155, erc20_eth_token, starknet_state = contracts_factory
 
-    arr = [k for k in range(10)]
-    k = 5
+    users_registrations_arr = [
+        participant.contract_address,
+        *to_uint(100),
+        2,
 
-    res: StarknetCallInfo = await ido.selectKItems(arr, len(arr), k).call()
-    print("RESULT : ", res.result.reservoir)
-    print("STEPS : ", res.call_info.execution_resources.n_steps)
 
-    arr = [k for k in range(100)]
-    k = 25
+        participant_2.contract_address,
+        *to_uint(200),
+        3
+    ]
 
-    res: StarknetCallInfo = await ido.selectKItems(arr, len(arr), k).call()
-    print("RESULT : ", res.result.reservoir)
-    print("STEPS : ", res.call_info.execution_resources.n_steps)
+    await deployer.send_transaction(deployer_account, ido.contract_address, "set_user_registration_mock", [
+        len(users_registrations_arr),
+        *users_registrations_arr
+    ])
 
-    arr = [k for k in range(1000)]
-    k = 200
-
-    res: StarknetCallInfo = await ido.selectKItems(arr, len(arr), k).call()
-    print("RESULT : ", res.result.reservoir)
-    print("STEPS : ", res.call_info.execution_resources.n_steps)
 
 
 @pytest.mark.asyncio
