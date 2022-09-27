@@ -45,6 +45,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_toFelt,
     Math64x61_mul,
     Math64x61_add,
+    Math64x61__pow_int,
 )
 
 const Math64x61_BOUND_LOCAL = 2 ** 64;
@@ -99,7 +100,6 @@ struct Purchase_Round {
 
 struct UserRegistrationDetails {
     address: felt,
-    amount: Uint256,
     score: felt,
 }
 
@@ -549,7 +549,7 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         users_registrations.write(
             _users_registrations_len, UserRegistrationDetails(account, adjusted_amount, score)
         );
-        users_registrations_len.write(_users_registrations_len+ 1);
+        users_registrations_len.write(_users_registrations_len + 1);
 
         return (res=TRUE);
     }
@@ -568,87 +568,87 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     return (res=TRUE);
 }
 
-@external
-func get_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    alloc_locals;
-    AstralyAccessControl.assert_only_owner();
+// @external
+// func get_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+//     alloc_locals;
+//     AstralyAccessControl.assert_only_owner();
 
-    let (block_timestamp) = get_block_timestamp();
-    let (the_reg) = registration.read();
-    with_attr error_message(
-            "AstralyINOContract::get_winning_tickets Registration window is not closed") {
-        assert_le(the_reg.registration_time_ends, block_timestamp);
-    }
+// let (block_timestamp) = get_block_timestamp();
+//     let (the_reg) = registration.read();
+//     with_attr error_message(
+//             "AstralyINOContract::get_winning_tickets Registration window is not closed") {
+//         assert_le(the_reg.registration_time_ends, block_timestamp);
+//     }
 
-    let (the_sale: Sale) = sale.read();
-    let (rnd: felt) = get_random_number();
+// let (the_sale: Sale) = sale.read();
+//     let (rnd: felt) = get_random_number();
 
-    let (_users_registrations_len: felt) = users_registrations_len.read();
+// let (_users_registrations_len: felt) = users_registrations_len.read();
 
-    let (total_winning_tickets_sum: Uint256) = get_winning_tickets_rec(
-        1, _users_registrations_len, rnd, Uint256(0, 0)
-    );
+// let (total_winning_tickets_sum: Uint256) = get_winning_tickets_rec(
+//         1, _users_registrations_len, rnd, Uint256(0, 0)
+//     );
 
-    let upd_sale = Sale(
-        token=the_sale.token,
-        is_created=the_sale.is_created,
-        raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
-        sale_owner=the_sale.sale_owner,
-        token_price=the_sale.token_price,
-        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
-        total_tokens_sold=the_sale.total_tokens_sold,
-        total_winning_tickets=total_winning_tickets_sum,
-        total_raised=the_sale.total_raised,
-        sale_end=the_sale.sale_end,
-        tokens_unlock_time=the_sale.tokens_unlock_time,
-        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-        number_of_participants=the_sale.number_of_participants,
-    );
-    sale.write(upd_sale);
+// let upd_sale = Sale(
+//         token=the_sale.token,
+//         is_created=the_sale.is_created,
+//         raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
+//         sale_owner=the_sale.sale_owner,
+//         token_price=the_sale.token_price,
+//         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
+//         total_tokens_sold=the_sale.total_tokens_sold,
+//         total_winning_tickets=total_winning_tickets_sum,
+//         total_raised=the_sale.total_raised,
+//         sale_end=the_sale.sale_end,
+//         tokens_unlock_time=the_sale.tokens_unlock_time,
+//         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+//         number_of_participants=the_sale.number_of_participants,
+//     );
+//     sale.write(upd_sale);
 
-    return ();
-}
+// return ();
+// }
 
-func get_winning_tickets_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt, _users_registrations_len: felt, rand: felt, total_winning_tickets_sum: Uint256
-) -> (total_winning_tickets: Uint256) {
-    alloc_locals;
-    if (index == users_registrations_len + 1) {
-        return (total_winning_tickets_sum,);
-    }
+// func get_winning_tickets_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+//     index: felt, _users_registrations_len: felt, rand: felt, total_winning_tickets_sum: Uint256
+// ) -> (total_winning_tickets: Uint256) {
+//     alloc_locals;
+//     if (index == users_registrations_len + 1) {
+//         return (total_winning_tickets_sum,);
+//     }
 
-    let (user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
+// let (user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
 
-    with_attr error_message(
-            "AstralyINOContract::register_user account address is the zero address") {
-        assert_not_zero(user_reg_details.address);
-    }
+// with_attr error_message(
+//             "AstralyINOContract::register_user account address is the zero address") {
+//         assert_not_zero(user_reg_details.address);
+//     }
 
-    with_attr error_message(
-            "AstralyINOContract::register_user allocation claim amount not greater than 0") {
-        let (amount_check: felt) = uint256_lt(Uint256(0, 0), user_reg_details.amount);
-        assert amount_check = TRUE;
-    }
+// with_attr error_message(
+//             "AstralyINOContract::register_user allocation claim amount not greater than 0") {
+//         let (amount_check: felt) = uint256_lt(Uint256(0, 0), user_reg_details.amount);
+//         assert amount_check = TRUE;
+//     }
 
-    let (winning_tickets: Uint256) = draw_winning_tickets(
-        user_reg_details.amount, user_reg_details.score, rand
-    );
-    user_to_winning_lottery_tickets.write(user_reg_details.address, winning_tickets);
+// let (winning_tickets: Uint256) = draw_winning_tickets(
+//         user_reg_details.amount, user_reg_details.score, rand
+//     );
+//     user_to_winning_lottery_tickets.write(user_reg_details.address, winning_tickets);
 
-    let (_total_winning_tickets_sum: Uint256) = SafeUint256.add(
-        total_winning_tickets_sum, winning_tickets
-    );
+// let (_total_winning_tickets_sum: Uint256) = SafeUint256.add(
+//         total_winning_tickets_sum, winning_tickets
+//     );
 
-    user_registered.emit(
-        user_address=user_reg_details.address,
-        winning_lottery_tickets=winning_tickets,
-        amount_burnt=user_reg_details.amount,
-    );
+// user_registered.emit(
+//         user_address=user_reg_details.address,
+//         winning_lottery_tickets=winning_tickets,
+//         amount_burnt=user_reg_details.amount,
+//     );
 
-    return get_winning_tickets_rec(
-        index + 1, _users_registrations_len, rand, total_winning_tickets_sum
-    );
-}
+// return get_winning_tickets_rec(
+//         index + 1, _users_registrations_len, rand, total_winning_tickets_sum
+//     );
+// }
 
 // This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
 @external
@@ -1015,20 +1015,22 @@ func get_probabilities{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 
     let user_reg_details: UserRegistrationDetails = users_registation_details[index];
 
-    let (rnd_felt: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
-    // / TODO: Use Math64x61
-
+    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
     let (weight: Uint256) = SafeUint256.mul(
         user_reg_details.amount, Uint256(user_reg_details.score, 0)
     );
 
-    let (div: Uint256, _) = SafeUint256.div_rem(Uint256(1, 0), weight);
-    let (rnd_felt_uint256: Uint256) = _felt_to_uint(rnd_felt);
-    let probability_uint256: Uint256 = uint256_pow(rnd_felt_uint256, div);
+    let (a) = Math64x61_fromFelt(1);
+    let (b) = Math64x61_fromFelt(user_reg_details.score);
+    let (div) = Math64x61_div(a, b);
 
-    let (probability: felt) = _uint_to_felt(probability_uint256);
+    let (rnd_math64x61) = Math64x61_fromFelt(rnd);
 
-    assert allocation_arr[index] = UserProbability(user_reg_details.address, probability);
+    let (probability: felt) = Math64x61__pow_int(rnd_math64x61, div);
+
+    let (probability_felt: felt) = Math64x61_toFelt(probability);
+
+    assert allocation_arr[index] = UserProbability(user_reg_details.address, probability_felt);
     return get_probabilities(
         index + 1,
         users_registation_details_len,
