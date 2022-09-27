@@ -856,20 +856,17 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
     let (address_caller: felt) = get_caller_address();
-    let (address_this: felt) = get_contract_address();
     let (factory_address) = ido_factory_contract_address.read();
     let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
         contract_address=factory_address
     );
-    let (contract_balance: Uint256) = IERC20.balanceOf(pmt_token_addr, address_this);
-    let (token_transfer_success: felt) = IERC20.transfer(
-        pmt_token_addr, address_caller, contract_balance
-    );
-    with_attr error_message("AstralyIDOContract::withdraw_from_contract token transfer failed") {
-        assert token_transfer_success = TRUE;
+    let (the_sale) = sale.read();
+
+    with_attr error_message(
+            "AstralyIDOContract::withdraw_from_contract raised funds already withdrawn") {
+        assert the_sale.raised_funds_withdrawn = FALSE;
     }
 
-    let (the_sale) = sale.read();
     let upd_sale = Sale(
         token=the_sale.token,
         is_created=the_sale.is_created,
@@ -886,6 +883,14 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
+
+    let (token_transfer_success: felt) = IERC20.transfer(
+        pmt_token_addr, address_caller, the_sale.total_raised
+    );
+    with_attr error_message("AstralyIDOContract::withdraw_from_contract token transfer failed") {
+        assert token_transfer_success = TRUE;
+    }
+
     return ();
 }
 
@@ -893,15 +898,16 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 func withdraw_leftovers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
     let (address_caller: felt) = get_caller_address();
-    let (address_this: felt) = get_contract_address();
-    let (factory_address) = ido_factory_contract_address.read();
     let (the_sale) = sale.read();
-    let (contract_balance: Uint256) = IERC20.balanceOf(the_sale.token, address_this);
-    let (token_transfer_success: felt) = IERC20.transfer(
-        the_sale.token, address_caller, contract_balance
-    );
-    with_attr error_message("AstralyIDOContract::withdraw_leftovers token transfer failed") {
-        assert token_transfer_success = TRUE;
+
+    let (block_timestamp) = get_block_timestamp();
+
+    with_attr error_message("AstralyIDOContract::withdraw_leftovers sale not ended") {
+        assert_le(the_sale.sale_end, block_timestamp);
+    }
+
+    with_attr error_message("AstralyIDOContract::withdraw_leftovers leftovers already withdrawn") {
+        assert the_sale.leftover_withdrawn = FALSE;
     }
 
     let upd_sale = Sale(
@@ -920,6 +926,15 @@ func withdraw_leftovers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         number_of_participants=the_sale.number_of_participants,
     );
     sale.write(upd_sale);
+
+    let (leftover) = SafeUint256.sub_le(
+        the_sale.amount_of_tokens_to_sell, the_sale.total_tokens_sold
+    );
+    let (token_transfer_success: felt) = IERC20.transfer(the_sale.token, address_caller, leftover);
+    with_attr error_message("AstralyIDOContract::withdraw_leftovers token transfer failed") {
+        assert token_transfer_success = TRUE;
+    }
+
     return ();
 }
 

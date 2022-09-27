@@ -275,6 +275,28 @@ async def setup_sale(contracts_factory):
         ]
     )
 
+    # SET VESTING PARAMS
+
+    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
+
+    VESTING_TIMES_UNLOCKED = [
+        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60),
+        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
+        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
+        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60)
+    ]
+    tx = await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_vesting_params",
+        [
+            4,
+            *VESTING_TIMES_UNLOCKED,
+            *uarr2cd(VESTING_PERCENTAGES),
+            0
+        ]
+    )
+
     # SET REGISTRATION ROUND PARAMS
 
     reg_start = day + timeDeltaOneDay
@@ -1034,3 +1056,99 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
 
     await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *INVALID_PARTICIPATION_VALUE])
     await assert_revert(sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*INVALID_PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig]), reverted_with="AstralyIDOContract::participate Exceeding allowance")
+
+#########################
+# WITHDRAW TOKENS
+#########################
+
+
+@pytest.mark.asyncio
+async def test_withdraw_tokens(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDelta10days = timedelta(days=10)
+    timeDeltaOneWeek = timedelta(weeks=1)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # Go to registration round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDeltaOneDay).timestamp()))
+
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
+
+    # Go to purchase round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDelta10days).timestamp()))
+
+    sig = sign_participation(
+        participant.contract_address, PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
+
+    await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig])
+
+    await assert_revert(sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_tokens',
+        [
+            1
+        ]
+    ), reverted_with='AstralyIDOContract::withdraw_tokens Tokens can not be withdrawn yet')
+
+    await assert_revert(sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_tokens',
+        [
+            0
+        ]
+    ), reverted_with="AstralyIDOContract::withdraw_tokens portion id can't be zero")
+
+    # Go to distribution round start
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+    # advance block time stamp to one minute after portion 1 vesting unlock time
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60)
+
+    balance_before = await erc20_eth_token.balanceOf(participant.contract_address).call()
+    tx = await sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_tokens',
+        [
+            1
+        ]
+    )
+
+    assert_event_emitted(tx, ido.contract_address, 'tokens_withdrawn', [
+                         participant.contract_address, *to_uint(2 * 10 ** 17)], order=1)
+    balance_after = await erc20_eth_token.balanceOf(participant.contract_address).call()
+
+    assert int(balance_after.result.balance[0]) == int(
+        balance_before.result.balance[0]) + int(PARTICIPATION_VALUE[0] / 1000)
+
+    set_block_timestamp(starknet_state, int(
+        token_unlock.timestamp()) + (23 * 24 * 60 * 60))
+    OTHER_PORTION_IDS = [2, 3, 4]
+    tx = await sale_participant.send_transaction(
+        participant,
+        ido.contract_address,
+        'withdraw_multiple_portions',
+        [
+            3,
+            *OTHER_PORTION_IDS
+        ]
+    )
+
+    assert_event_emitted(tx, ido.contract_address, 'tokens_withdrawn', [
+                         participant.contract_address, *to_uint(18 * 10 ** 17)], order=1)
+
+    new_balance = await erc20_eth_token.balanceOf(participant.contract_address).call()
+    assert int(new_balance.result.balance[0]) == int(
+        balance_before.result.balance[0]) + int(PARTICIPATION_VALUE[0] / 100)
