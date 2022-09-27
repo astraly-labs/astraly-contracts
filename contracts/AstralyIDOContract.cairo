@@ -624,6 +624,10 @@ func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
         let (amount_check: felt) = uint256_le(amount, the_round.max_participation);
         assert amount_check = TRUE;
     }
+    with_attr error_message("AstralyIDOContract::participate User not registered") {
+        let (_is_registered) = is_registered.read(account);
+        assert _is_registered = TRUE;
+    }
     with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
         assert_le(the_round.time_starts, block_timestamp);
     }
