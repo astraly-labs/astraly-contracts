@@ -1,5 +1,6 @@
 %lang starknet
 
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import assert_not_zero
 
 from contracts.AstralyINOContract import (
@@ -13,6 +14,7 @@ from contracts.AstralyINOContract import (
     users_registrations,
     users_registrations_len,
     UserRegistrationDetails,
+    constructor
 )
 
 @external

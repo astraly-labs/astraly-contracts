@@ -213,6 +213,17 @@ def set_block_number(starknet_state, block_number):
     )
 
 
+def advance_clock(starknet_state, num_seconds):
+    set_block_timestamp(
+        starknet_state, get_block_timestamp(
+            starknet_state) + num_seconds
+    )
+
+
+def days_to_seconds(days: int):
+    return days * 24 * 60 * 60
+
+
 def assert_approx_eq(a: int, b: int, max_delta: int):
     delta = a - b if a > b else b - a
 
