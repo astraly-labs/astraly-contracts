@@ -10,6 +10,7 @@ from starkware.cairo.common.math import (
     unsigned_div_rem,
 )
 from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.hash import hash2
@@ -603,7 +604,7 @@ func participate{
 }(amount_paid: Uint256, amount: Uint256, sig_len: felt, sig: felt*) {
     alloc_locals;
     let (account: felt) = get_caller_address();
-    with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
+    with_attr error_message("AstralyIDOContract::participate invalid signature") {
         check_participation_signature(sig_len, sig, account, amount);
     }
     _participate(account, amount_paid, amount);
@@ -648,9 +649,19 @@ func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
         assert token_price_check = TRUE;
     }
 
-    let (number_of_tokens_buying, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price);
-    let (number_of_tokens_buying_mod: Uint256) = SafeUint256.mul(
-        number_of_tokens_buying, Uint256(10 ** 18, 0)
+    let (factory_address) = ido_factory_contract_address.read();
+    let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
+        contract_address=factory_address
+    );
+    with_attr error_message("AstralyIDOContract::participate Payment token address not set") {
+        assert_not_zero(pmt_token_addr);
+    }
+
+    let (decimals) = IERC20.decimals(pmt_token_addr);
+    let (local power) = pow(10, decimals);
+    let (number_of_tokens_buying: Uint256) = SafeUint256.mul(amount_paid, Uint256(power, 0));
+    let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(
+        number_of_tokens_buying, the_sale.token_price
     );
 
     // Must buy more than 0 tokens
@@ -715,13 +726,6 @@ func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 
     has_participated.write(account, TRUE);
 
-    let (factory_address) = ido_factory_contract_address.read();
-    let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
-        contract_address=factory_address
-    );
-    with_attr error_message("AstralyIDOContract::participate Payment token address not set") {
-        assert_not_zero(pmt_token_addr);
-    }
     let (pmt_success: felt) = IERC20.transferFrom(
         pmt_token_addr, account, address_this, amount_paid
     );
@@ -1092,15 +1096,17 @@ func check_registration_signature{
 @view
 func check_participation_signature{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(sig_len: felt, sig: felt*, account: felt, amount: Uint256) {
+}(sig_len: felt, sig: felt*, caller: felt, amount: Uint256) {
     alloc_locals;
-    let (caller) = get_caller_address();
     let (admin) = admin_address.read();
+    let (this) = get_contract_address();
 
-    let (user_hash) = hash2{hash_ptr=pedersen_ptr}(caller, 0);
+    let (hash1) = hash2{hash_ptr=pedersen_ptr}(caller, amount.low);
+    let (hash2_) = hash2{hash_ptr=pedersen_ptr}(hash1, amount.high);
+    let (hash3) = hash2{hash_ptr=pedersen_ptr}(hash2_, this);
 
     // Verify the user's signature.
-    let (is_valid) = IAccount.isValidSignature(admin, user_hash, sig_len, sig);
+    let (is_valid) = IAccount.isValidSignature(admin, hash3, sig_len, sig);
     assert is_valid = TRUE;
     return ();
 }

@@ -16,7 +16,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     ERC20.initializer('AstralyETH', 'AstrETH', 18);
     AstralyAccessControl.initializer(owner);
 
-    ERC20._mint(recipient, Uint256(1000000000000000000000000, 0));
+    ERC20._mint(recipient, Uint256(100000000000000000000000000, 0));  // 100 M initial supply
     return ();
 }
 
