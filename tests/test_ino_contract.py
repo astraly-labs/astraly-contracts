@@ -230,24 +230,20 @@ async def test_winning_tickets(contracts_factory):
 
 
 @pytest.mark.asyncio
-async def test_reservoir_sampling(contracts_factory):
+async def test_rename(contracts_factory):
     deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
 
     users_registrations_arr = [
-        participant.contract_address,
-        *to_uint(100),
-        2,
-
-
-        participant_2.contract_address,
-        *to_uint(200),
-        3
+        participant.contract_address, 2,
+        participant_2.contract_address, 3
     ]
 
-    await deployer.send_transaction(deployer_account, ido.contract_address, "set_user_registration_mock", [
-        len(users_registrations_arr),
+    args = [
+        len(users_registrations_arr) // 2,  # size of the struct
         *users_registrations_arr
-    ])
+    ]
+
+    await deployer.send_transaction(deployer_account, ido.contract_address, "set_user_registration_mock", args)
 
 
 @pytest.mark.asyncio

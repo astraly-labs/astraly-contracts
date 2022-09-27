@@ -14,7 +14,7 @@ from contracts.AstralyINOContract import (
     users_registrations,
     users_registrations_len,
     UserRegistrationDetails,
-    constructor
+    constructor,
 )
 
 @external
@@ -22,7 +22,7 @@ func set_user_registration_mock{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     array_len: felt, array: UserRegistrationDetails*
 ) {
     assert_not_zero(array_len);
-    write_rec(array_len, array);
+    write_rec(array_len - 1, array);
 
     users_registrations_len.write(array_len);
     return ();
@@ -31,11 +31,10 @@ func set_user_registration_mock{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
 func write_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     index: felt, array: UserRegistrationDetails*
 ) {
-
     users_registrations.write(index, array[index]);
     if (index == 0) {
         return ();
     }
 
-    return write_rec(index-1, array);
+    return write_rec(index - 1, array);
 }
