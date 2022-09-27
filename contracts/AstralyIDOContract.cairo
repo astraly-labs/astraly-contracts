@@ -621,8 +621,8 @@ func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 
     // Validations
     with_attr error_message("AstralyIDOContract::participate Crossing max participation") {
-        let (amount_paid_check: felt) = uint256_le(amount_paid, the_round.max_participation);
-        assert amount_paid_check = TRUE;
+        let (amount_check: felt) = uint256_le(amount, the_round.max_participation);
+        assert amount_check = TRUE;
     }
     with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
         assert_le(the_round.time_starts, block_timestamp);

@@ -778,10 +778,141 @@ async def test_participation_works(contracts_factory, setup_sale):
     sig = sign_participation(
         participant.contract_address, PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
 
+    await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
     tx = await sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig])
 
     assert_event_emitted(tx, ido.contract_address, 'tokens_sold', [
-                         participant.contract_address, *PARTICIPATION_VALUE])
+                         participant.contract_address, *to_uint(2 * 10 ** 18)], order=2)
 
     tx = await ido.get_user_info(participant.contract_address).call()
     pp(tx.result)
+
+    assert tx.result.has_participated == True
+    assert tx.result.participation.amount_bought == to_uint(2 * 10 ** 18)
+    assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
+
+    tx = await ido.get_current_sale().call()
+
+    assert tx.result.res.number_of_participants == to_uint(1)
+    assert tx.result.res.total_tokens_sold == to_uint(2 * 10 ** 18)
+    assert tx.result.res.total_raised == PARTICIPATION_VALUE
+
+
+@pytest.mark.asyncio
+async def test_participation_double(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+    sig2 = sign_registration(
+        sig_exp, participant_2.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta10days = timedelta(days=10)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # Go to registration round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDeltaOneDay).timestamp()))
+
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
+    tx = await sale_participant_2.send_transaction(participant_2, ido.contract_address, 'register_user', [len(sig2), *sig2, sig_exp])
+
+    # Go to purchase round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDelta10days).timestamp()))
+
+    # 1st participation
+    sig = sign_participation(
+        participant.contract_address, PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
+    await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig])
+
+    # 2nd participation
+    sig2 = sign_participation(
+        participant_2.contract_address, PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
+    await sale_participant_2.send_transaction(participant_2, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
+    tx = await sale_participant_2.send_transaction(participant_2, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig2), *sig2])
+
+    assert_event_emitted(tx, ido.contract_address, 'tokens_sold', [
+                         participant_2.contract_address, *to_uint(2 * 10 ** 18)], order=2)
+
+    tx = await ido.get_user_info(participant.contract_address).call()
+    assert tx.result.has_participated == True
+    assert tx.result.participation.amount_bought == to_uint(2 * 10 ** 18)
+    assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
+
+    tx = await ido.get_user_info(participant_2.contract_address).call()
+    assert tx.result.has_participated == True
+    assert tx.result.participation.amount_bought == to_uint(2 * 10 ** 18)
+    assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
+
+    tx = await ido.get_current_sale().call()
+
+    assert tx.result.res.number_of_participants == to_uint(2)
+    assert tx.result.res.total_tokens_sold == to_uint(4 * 10 ** 18)
+    assert tx.result.res.total_raised == to_uint(400 * 10 ** 18)
+
+
+@pytest.mark.asyncio
+async def test_participation_fails_max_participation(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta10days = timedelta(days=10)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # Go to registration round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDeltaOneDay).timestamp()))
+
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
+
+    # Go to purchase round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDelta10days).timestamp()))
+
+    INVALID_PARTICIPATION_AMOUNT = to_uint(501 * 10 ** 18)
+
+    sig = sign_participation(
+        participant.contract_address, INVALID_PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
+
+    await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
+    await assert_revert(sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *INVALID_PARTICIPATION_AMOUNT, len(sig), *sig]), reverted_with='AstralyIDOContract::participate Crossing max participation')
+
+
+@pytest.mark.asyncio
+async def test_participation_fails_twice(contracts_factory, setup_sale):
+    deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    sig = sign_registration(
+        sig_exp, participant.contract_address, ido.contract_address, 1234321)
+
+    day = datetime.today()
+    timeDelta10days = timedelta(days=10)
+    timeDeltaOneDay = timedelta(days=1)
+
+    # Go to registration round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDeltaOneDay).timestamp()))
+
+    tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
+
+    # Go to purchase round start
+    set_block_timestamp(starknet_state, int(
+        (day + timeDelta10days).timestamp()))
+
+    sig = sign_participation(
+        participant.contract_address, PARTICIPATION_AMOUNT, ido.contract_address, 1234321)
+
+    await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
+    # When
+    await sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig])
+
+    # Then
+    await assert_revert(sale_participant.send_transaction(participant, ido.contract_address, 'participate', [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig]), reverted_with='AstralyIDOContract::participate user participated')
+    
+
