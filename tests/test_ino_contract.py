@@ -1,3 +1,4 @@
+from random import randint
 import pytest
 import pytest_asyncio
 import asyncio
@@ -11,6 +12,7 @@ from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 from starkware.starknet.testing.objects import StarknetCallInfo
 from starkware.starknet.services.api.contract_class import ContractClass
+from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
 
 TRUE = 1
 FALSE = 0
@@ -233,17 +235,20 @@ async def test_winning_tickets(contracts_factory):
 async def test_rename(contracts_factory):
     deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
 
-    users_registrations_arr = [
-        participant.contract_address, 2,
-        participant_2.contract_address, 3,
-    ]
+    users_registrations_arr = list()
+    users_registrations_arr += [participant.contract_address, 2]
+    users_registrations_arr += [participant_2.contract_address, 3]
+
+    for x in range(150):
+        users_registrations_arr += [randint(1, 1000000), randint(1, 50)]
+
 
     await admin1.send_transaction(admin_user, ido.contract_address, "set_user_registration_mock", [
         len(users_registrations_arr) // 2,  # size of the struct
         *users_registrations_arr
     ]
     )
-    tx = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0, 1])
+    tx: TransactionExecutionInfo = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0,  (len(users_registrations_arr) // 2) - 1])
 
 
 @pytest.mark.asyncio
