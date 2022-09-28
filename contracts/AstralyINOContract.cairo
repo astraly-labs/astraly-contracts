@@ -490,7 +490,7 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 
 @external
 func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    amount: Uint256, account: felt, score: felt
+    account: felt, score: felt
 ) -> (res: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
@@ -515,23 +515,14 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
             "AstralyINOContract::register_user account address is the zero address") {
         assert_not_zero(account);
     }
-    with_attr error_message(
-            "AstralyINOContract::register_user allocation claim amount not greater than 0") {
-        let (amount_check: felt) = uint256_lt(Uint256(0, 0), amount);
-        assert amount_check = TRUE;
-    }
     with_attr error_message("AstralyINOContract::register_user Registration window is closed") {
         assert_le(the_reg.registration_time_starts, block_timestamp);
         assert_le(block_timestamp, the_reg.registration_time_ends);
     }
 
-    let (adjusted_amount: Uint256) = get_adjusted_amount(
-        _amount=amount, _cap=the_sale.lottery_tickets_burn_cap
-    );
+    let (_user_registration_index) = user_registration_index.read(account);
 
-    let (_user_registation_index) = user_registration_index.read(account);
-
-    if (_user_registation_index == 0) {
+    if (_user_registration_index == 0) {
         let (local registrants_sum: Uint256) = SafeUint256.add(
             the_reg.number_of_registrants, Uint256(low=1, high=0)
         );
@@ -545,24 +536,20 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 
         let (_users_registrations_len: felt) = users_registrations_len.read();
         users_registrations.write(
-            _users_registrations_len, UserRegistrationDetails(account, adjusted_amount, score)
+            _users_registrations_len, UserRegistrationDetails(account, score)
         );
         users_registrations_len.write(_users_registrations_len + 1);
 
         return (res=TRUE);
     }
 
-    let (_user_registration_index: felt) = user_registration_index.read(account);
     let (current_user_registrations_details: UserRegistrationDetails) = users_registrations.read(
         _user_registration_index
     );
-    let (new_adjusted_amount: Uint256) = SafeUint256.add(
-        current_user_registrations_details.amount, adjusted_amount
-    );
+    tempvar new_user_reg_score = current_user_registrations_details.score + score;
     users_registrations.write(
-        _user_registration_index, UserRegistrationDetails(account, new_adjusted_amount, score)
+        _user_registration_index, UserRegistrationDetails(account, new_user_reg_score)
     );
-
     return (res=TRUE);
 }
 
@@ -908,7 +895,7 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 
     let (the_sale: Sale) = sale.read();
 
-    let (no_of_winners_per_curr_batch_uint : Uint256) = _felt_to_uint(no_of_winners_per_curr_batch);
+    let (no_of_winners_per_curr_batch_uint: Uint256) = _felt_to_uint(no_of_winners_per_curr_batch);
     let (total_winning_tickets_sum: Uint256) = SafeUint256.add(
         the_sale.total_winning_tickets, no_of_winners_per_curr_batch_uint
     );
