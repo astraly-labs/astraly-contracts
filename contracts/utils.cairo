@@ -150,24 +150,3 @@ func uint256_mul_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
     return uint256_mul_rec(mul, sub);
 }
-
-func index_of_max{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr_len: felt, arr: felt*
-) -> felt {
-    return index_of_max_recursive(arr_len, arr, arr[0], 0, 1);
-}
-
-func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    arr_len: felt, arr: felt*, current_max: felt, current_max_index: felt, current_index: felt
-) -> felt {
-    if (arr_len == current_index) {
-        return (current_max_index,);
-    }
-    let isLe = is_le(current_max, arr[current_index]);
-    if (isLe == TRUE) {
-        return index_of_max_recursive(
-            arr_len, arr, arr[current_index], current_index, current_index + 1
-        );
-    }
-    return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
-}

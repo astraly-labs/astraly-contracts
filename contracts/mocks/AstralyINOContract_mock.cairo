@@ -14,6 +14,7 @@ from contracts.AstralyINOContract import (
     users_registrations,
     users_registrations_len,
     UserRegistrationDetails,
+    selectWinners,
     constructor,
 )
 

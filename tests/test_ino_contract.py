@@ -235,15 +235,15 @@ async def test_rename(contracts_factory):
 
     users_registrations_arr = [
         participant.contract_address, 2,
-        participant_2.contract_address, 3
+        participant_2.contract_address, 3,
     ]
 
-    args = [
+    await admin1.send_transaction(admin_user, ido.contract_address, "set_user_registration_mock", [
         len(users_registrations_arr) // 2,  # size of the struct
         *users_registrations_arr
     ]
-
-    await deployer.send_transaction(deployer_account, ido.contract_address, "set_user_registration_mock", args)
+    )
+    tx = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0, 1])
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ protostar_version = "0.4.2"
 ["protostar.project"]
 libs_path = "./lib"
 
-["protostar.build"]
+["protostar.shared_command_configs"]
 cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
@@ -19,4 +19,7 @@ AstralyIDOContract = [
 ]
 AstralyIDOFactory = [
     "contracts/AstralyIDOFactory.cairo",
+]
+AstralyINOContractMock = [
+    "contracts/mocks/AstralyINOContract_mock.cairo",
 ]

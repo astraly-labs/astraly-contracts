@@ -149,7 +149,6 @@ func ido_allocation() -> (res: Uint256) {
 func users_registrations(index: felt) -> (registration_details: UserRegistrationDetails) {
 }
 
-// first position is not used
 @storage_var
 func users_registrations_len() -> (length: felt) {
 }
@@ -217,7 +216,6 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     let (address_this: felt) = get_contract_address();
     IDO_Created.emit(address_this);
 
-    users_registrations_len.write(1);
     return ();
 }
 
@@ -568,88 +566,6 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     return (res=TRUE);
 }
 
-// @external
-// func get_winning_tickets{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-//     alloc_locals;
-//     AstralyAccessControl.assert_only_owner();
-
-// let (block_timestamp) = get_block_timestamp();
-//     let (the_reg) = registration.read();
-//     with_attr error_message(
-//             "AstralyINOContract::get_winning_tickets Registration window is not closed") {
-//         assert_le(the_reg.registration_time_ends, block_timestamp);
-//     }
-
-// let (the_sale: Sale) = sale.read();
-//     let (rnd: felt) = get_random_number();
-
-// let (_users_registrations_len: felt) = users_registrations_len.read();
-
-// let (total_winning_tickets_sum: Uint256) = get_winning_tickets_rec(
-//         1, _users_registrations_len, rnd, Uint256(0, 0)
-//     );
-
-// let upd_sale = Sale(
-//         token=the_sale.token,
-//         is_created=the_sale.is_created,
-//         raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
-//         sale_owner=the_sale.sale_owner,
-//         token_price=the_sale.token_price,
-//         amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
-//         total_tokens_sold=the_sale.total_tokens_sold,
-//         total_winning_tickets=total_winning_tickets_sum,
-//         total_raised=the_sale.total_raised,
-//         sale_end=the_sale.sale_end,
-//         tokens_unlock_time=the_sale.tokens_unlock_time,
-//         lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
-//         number_of_participants=the_sale.number_of_participants,
-//     );
-//     sale.write(upd_sale);
-
-// return ();
-// }
-
-// func get_winning_tickets_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-//     index: felt, _users_registrations_len: felt, rand: felt, total_winning_tickets_sum: Uint256
-// ) -> (total_winning_tickets: Uint256) {
-//     alloc_locals;
-//     if (index == users_registrations_len + 1) {
-//         return (total_winning_tickets_sum,);
-//     }
-
-// let (user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
-
-// with_attr error_message(
-//             "AstralyINOContract::register_user account address is the zero address") {
-//         assert_not_zero(user_reg_details.address);
-//     }
-
-// with_attr error_message(
-//             "AstralyINOContract::register_user allocation claim amount not greater than 0") {
-//         let (amount_check: felt) = uint256_lt(Uint256(0, 0), user_reg_details.amount);
-//         assert amount_check = TRUE;
-//     }
-
-// let (winning_tickets: Uint256) = draw_winning_tickets(
-//         user_reg_details.amount, user_reg_details.score, rand
-//     );
-//     user_to_winning_lottery_tickets.write(user_reg_details.address, winning_tickets);
-
-// let (_total_winning_tickets_sum: Uint256) = SafeUint256.add(
-//         total_winning_tickets_sum, winning_tickets
-//     );
-
-// user_registered.emit(
-//         user_address=user_reg_details.address,
-//         winning_lottery_tickets=winning_tickets,
-//         amount_burnt=user_reg_details.amount,
-//     );
-
-// return get_winning_tickets_rec(
-//         index + 1, _users_registrations_len, rand, total_winning_tickets_sum
-//     );
-// }
-
 // This function will calculate allocation (USD/IDO Token) and will be triggered using the keeper network
 @external
 func calculate_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
@@ -927,59 +843,102 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 
 struct UserProbability {
     address: felt,
-    probability: felt,
+    weight: felt,
 }
 
 @external
-func selectKelements{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     start_index: felt, end_index: felt
 ) -> (winners_array_len: felt, winners_array: UserProbability*) {
     alloc_locals;
-    let (user_registation_details: UserRegistrationDetails*) = alloc();
-    assert_lt(start_index, end_index);
+    AstralyAccessControl.assert_only_owner();
 
-    tempvar array_len = end_index - start_index;
+    with_attr error_message("AstralyINOContract::selectKelements invalid end index") {
+        assert_lt(start_index, end_index);
+    }
+
+    let (block_timestamp) = get_block_timestamp();
+    let (the_reg) = registration.read();
+    with_attr error_message(
+            "AstralyINOContract::get_winning_tickets Registration window is not closed") {
+        assert_le(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    tempvar array_len = 1 + end_index - start_index;
     let (user_reg_len: felt) = users_registrations_len.read();
-    assert_not_zero(user_reg_len);
-    assert_le(array_len, user_reg_len);
 
-    let (mapping_ref: felt*) = get_label_location(users_registrations.read);
-    get_users_registration_array(
-        start_index, end_index + 1, 0, user_registation_details, mapping_ref
-    );
-
+    with_attr error_message("AstralyINOContract::selectKelements no registered users") {
+        assert_not_zero(user_reg_len);
+    }
+    with_attr error_message(
+            "AstralyINOContract::selectKelements current batch size larger than number of users") {
+        assert_le(array_len, user_reg_len);
+    }
     let (ido_factory_address) = ido_factory_contract_address.read();
     let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
-        contract_address=ido_factory_address
+        ido_factory_address
     );
     with_attr error_message(
-            "AstralyINOContract::get_random_number random number generator address not set in the factory") {
+            "AstralyINOContract::selectKelements random number generator address not set in the factory") {
         assert_not_zero(rnd_nbr_gen_addr);
     }
 
+    let (mapping_ref: felt*) = get_label_location(users_registrations.read);
     let (allocation_arr: UserProbability*) = alloc();
-    get_probabilities(0, array_len, user_registation_details, allocation_arr, rnd_nbr_gen_addr);
-
     let (allocation_arr_sorted: UserProbability*) = alloc();
 
-    sort_recursive(array_len, allocation_arr, array_len, allocation_arr_sorted);
+    get_users_registration_array(
+        start_index, end_index, 0, allocation_arr, mapping_ref, rnd_nbr_gen_addr
+    );
+
+    sort_recursive(array_len, allocation_arr, 0, allocation_arr_sorted);
 
     let (winners_array: UserProbability*) = alloc();
 
-    let (batch_size: felt, _) = unsigned_div_rem(user_reg_len, array_len);
+    let curr_sale: Sale = get_current_sale();
+    let (total_token_to_be_sold: felt) = _uint_to_felt(curr_sale.amount_of_tokens_to_sell);
 
-    memcpy(winners_array, allocation_arr_sorted + array_len - batch_size, batch_size);
+    let (curr_batch_size: felt, _) = unsigned_div_rem(user_reg_len, array_len);
+    let (no_of_winners_per_curr_batch: felt, _) = unsigned_div_rem(
+        total_token_to_be_sold, curr_batch_size
+    );
 
-    return (batch_size, winners_array);
+    tempvar winners_array_len = no_of_winners_per_curr_batch * UserProbability.SIZE;
+    memcpy(winners_array, allocation_arr_sorted, no_of_winners_per_curr_batch);
+
+    let (the_sale: Sale) = sale.read();
+
+    let (no_of_winners_per_curr_batch_uint : Uint256) = _felt_to_uint(no_of_winners_per_curr_batch);
+    let (total_winning_tickets_sum: Uint256) = SafeUint256.add(
+        the_sale.total_winning_tickets, no_of_winners_per_curr_batch_uint
+    );
+
+    let upd_sale = Sale(
+        token=the_sale.token,
+        is_created=the_sale.is_created,
+        raised_funds_withdrawn=the_sale.raised_funds_withdrawn,
+        sale_owner=the_sale.sale_owner,
+        token_price=the_sale.token_price,
+        amount_of_tokens_to_sell=the_sale.amount_of_tokens_to_sell,
+        total_tokens_sold=the_sale.total_tokens_sold,
+        total_winning_tickets=total_winning_tickets_sum,
+        total_raised=the_sale.total_raised,
+        sale_end=the_sale.sale_end,
+        tokens_unlock_time=the_sale.tokens_unlock_time,
+        lottery_tickets_burn_cap=the_sale.lottery_tickets_burn_cap,
+        number_of_participants=the_sale.number_of_participants,
+    );
+    sale.write(upd_sale);
+
+    return (no_of_winners_per_curr_batch, winners_array);
 }
 
-func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func sort_recursive{pedersen_ptr: HashBuiltin*, range_check_ptr}(
     old_arr_len: felt, old_arr: UserProbability*, sorted_arr_len: felt, sorted_arr: UserProbability*
-) -> (arr_len: felt, arr: UserProbability*) {
+) {
     alloc_locals;
-    // Array to be sorted is empty
     if (old_arr_len == 0) {
-        return (sorted_arr_len, sorted_arr);
+        return ();
     }
     let indexOfMax: felt = index_of_max(old_arr_len, old_arr);
     // Pushing the max occurence to the last available spot
@@ -989,85 +948,55 @@ func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     return sort_recursive(old_shortened_arr_len, old_shortened_arr, sorted_arr_len + 1, sorted_arr);
 }
 
-func remove_at{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func remove_at{pedersen_ptr: HashBuiltin*, range_check_ptr}(
     arr_len: felt, arr: UserProbability*, index: felt
-) -> (arr_len: felt, arr: UserProbability*) {
+) -> (new_arr_len: felt, new_arr: UserProbability*) {
     alloc_locals;
-    assert_not_zero(arr_len);
+
     assert_lt(index, arr_len);
     let (new_arr: UserProbability*) = alloc();
-    memcpy(new_arr, arr, index);
-    memcpy(new_arr + index, arr + index + 1, arr_len - index - 1);
+    memcpy(new_arr, arr, index * UserProbability.SIZE);
+    tempvar slots = index * UserProbability.SIZE;
+    tempvar struct_arr_len = arr_len * UserProbability.SIZE;
+    memcpy(
+        new_arr + slots,
+        arr + slots + UserProbability.SIZE,
+        struct_arr_len - slots - UserProbability.SIZE,
+    );
     return (arr_len - 1, new_arr);
-}
-
-func get_probabilities{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt,
-    users_registation_details_len: felt,
-    users_registation_details: UserRegistrationDetails*,
-    allocation_arr: UserProbability*,
-    rnd_nbr_gen_addr: felt,
-) {
-    alloc_locals;
-    if (index == users_registation_details_len) {
-        return ();
-    }
-
-    let user_reg_details: UserRegistrationDetails = users_registation_details[index];
-
-    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
-    let (weight: Uint256) = SafeUint256.mul(
-        user_reg_details.amount, Uint256(user_reg_details.score, 0)
-    );
-
-    let (a) = Math64x61_fromFelt(1);
-    let (b) = Math64x61_fromFelt(user_reg_details.score);
-    let (div) = Math64x61_div(a, b);
-
-    let (rnd_math64x61) = Math64x61_fromFelt(rnd);
-
-    let (probability: felt) = Math64x61__pow_int(rnd_math64x61, div);
-
-    let (probability_felt: felt) = Math64x61_toFelt(probability);
-
-    assert allocation_arr[index] = UserProbability(user_reg_details.address, probability_felt);
-    return get_probabilities(
-        index + 1,
-        users_registation_details_len,
-        users_registation_details,
-        allocation_arr,
-        rnd_nbr_gen_addr,
-    );
 }
 
 func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     index: felt,
     end_index: felt,
     array_len: felt,
-    array: UserRegistrationDetails*,
+    array: UserProbability*,
     mapping_ref: felt*,
+    rnd_nbr_gen_addr: felt,
 ) {
-    if (index == end_index) {
+    alloc_locals;
+    if (index == end_index + 1) {
         return ();
     }
-    tempvar args: felt* = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*);
-    invoke(mapping_ref, 4, args);
-    let syscall_ptr = cast([ap - 7], felt*);
-    let pedersen_ptr = cast([ap - 6], HashBuiltin*);
-    let range_check_ptr = [ap - 5];
+    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
+    let (_user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
 
-    assert array[array_len] = cast(([ap - 4], Uint256([ap - 3], [ap - 2]), [ap - 1]), UserRegistrationDetails);
+    let (weight: felt) = pow(_user_reg_details.score, rnd);
+    let user_prob_struct: UserProbability = UserProbability(_user_reg_details.address, weight);
 
-    return get_users_registration_array(index, end_index, array_len + 1, array, mapping_ref);
+    assert array[array_len] = user_prob_struct;
+    return get_users_registration_array(
+        index + 1, end_index, array_len + 1, array, mapping_ref, rnd_nbr_gen_addr
+    );
 }
 
-func index_of_max{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func index_of_max{pedersen_ptr: HashBuiltin*, range_check_ptr}(
     arr_len: felt, arr: UserProbability*
 ) -> felt {
-    return index_of_max_recursive(arr_len, arr, arr[0].probability, 0, 1);
+    return index_of_max_recursive(arr_len, arr, arr[0].weight, 0, 1);
 }
 
-func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func index_of_max_recursive{pedersen_ptr: HashBuiltin*, range_check_ptr}(
     arr_len: felt,
     arr: UserProbability*,
     current_max: felt,
@@ -1077,10 +1006,10 @@ func index_of_max_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     if (arr_len == current_index) {
         return (current_max_index);
     }
-    let isLe = is_le(current_max, arr[current_index].probability);
+    let isLe = is_le(current_max, arr[current_index].weight);
     if (isLe == TRUE) {
         return index_of_max_recursive(
-            arr_len, arr, arr[current_index].probability, current_index, current_index + 1
+            arr_len, arr, arr[current_index].weight, current_index, current_index + 1
         );
     }
     return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
