@@ -5,11 +5,13 @@ from starkware.cairo.common.math import (
     assert_nn_le,
     assert_not_equal,
     assert_not_zero,
-    assert_le,
-    assert_lt,
+    assert_le_felt,
+    assert_lt_felt,
     unsigned_div_rem,
 )
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.registers import get_label_location
+from starkware.cairo.common.math_cmp import is_le_felt
+from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
@@ -100,6 +102,11 @@ struct Distribution_Round {
     time_starts: felt,
 }
 
+struct UserRegistrationDetails {
+    address: felt,
+    score: felt,
+}
+
 // Sale
 @storage_var
 func sale() -> (res: Sale) {
@@ -173,6 +180,18 @@ func admin_address() -> (res: felt) {
 
 @storage_var
 func ido_allocation() -> (res: Uint256) {
+}
+
+@storage_var
+func users_registrations(i: felt) -> (res: UserRegistrationDetails) {
+}
+
+@storage_var
+func users_registrations_len() -> (res: felt) {
+}
+
+@storage_var
+func participants(user_address: felt) -> (res: felt) {
 }
 
 @event
@@ -290,6 +309,14 @@ func get_registration{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 }
 
 @view
+func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    user: felt
+) -> (res: felt) {
+    let (allocation) = participants.read(user);
+    return (res=allocation);
+}
+
+@view
 func get_vesting_portion_percent{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     portion_id: felt
 ) -> (res: Uint256) {
@@ -349,7 +376,7 @@ func set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 
     with_attr error_message(
             "AstralyIDOContract::set_vesting_params max vesting time shift more than 30 days") {
-        assert_le(_max_vesting_time_shift, DAYS_30);
+        assert_le_felt(_max_vesting_time_shift, DAYS_30);
     }
 
     max_vesting_time_shift.write(_max_vesting_time_shift);
@@ -408,10 +435,10 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         assert token_to_sell_check = TRUE;
     }
     with_attr error_message("AstralyIDOContract::set_sale_params Sale end time in the past") {
-        assert_lt(block_timestamp, _sale_end_time);
+        assert_lt_felt(block_timestamp, _sale_end_time);
     }
     with_attr error_message("AstralyIDOContract::set_sale_params Tokens unlock time in the past") {
-        assert_lt(block_timestamp, _tokens_unlock_time);
+        assert_lt_felt(block_timestamp, _tokens_unlock_time);
     }
     with_attr error_message(
             "AstralyIDOContract::set_sale_params portion vesting percision should be at least 100") {
@@ -494,12 +521,12 @@ func set_registration_time{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
     // end
     with_attr error_message(
             "AstralyIDOContract::set_registration_time registration start/end times issue") {
-        assert_le(block_timestamp, _registration_time_starts);
-        assert_lt(_registration_time_starts, _registration_time_ends);
+        assert_le_felt(block_timestamp, _registration_time_starts);
+        assert_lt_felt(_registration_time_starts, _registration_time_ends);
     }
     with_attr error_message(
             "AstralyIDOContract::set_registration_time registration end has to be before sale end") {
-        assert_lt(_registration_time_ends, the_sale.sale_end);
+        assert_lt_felt(_registration_time_ends, the_sale.sale_end);
     }
     let upd_reg = Registration(
         registration_time_starts=_registration_time_starts,
@@ -527,7 +554,7 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     }
     with_attr error_message(
             "AstralyIDOContract::set_purchase_round_params end time must be after start end") {
-        assert_lt(_purchase_time_starts, _purchase_time_ends);
+        assert_lt_felt(_purchase_time_starts, _purchase_time_ends);
     }
     with_attr error_message("AstralyIDOContract::max_participation must be non-null") {
         let (participation_check: felt) = uint256_lt(Uint256(0, 0), max_participation);
@@ -540,7 +567,7 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     }
     with_attr error_message(
             "AstralyIDOContract::set_purchase_round_params start time must be after registration end") {
-        assert_lt(the_reg.registration_time_ends, _purchase_time_starts);
+        assert_lt_felt(the_reg.registration_time_ends, _purchase_time_starts);
     }
     let upd_purchase = Purchase_Round(
         time_starts=_purchase_time_starts,
@@ -567,14 +594,14 @@ func register_user{
     let (the_sale) = sale.read();
 
     with_attr error_message("AstralyIDOContract::register_user Registration window is closed") {
-        assert_le(the_reg.registration_time_starts, block_timestamp);
-        assert_le(block_timestamp, the_reg.registration_time_ends);
+        assert_le_felt(the_reg.registration_time_starts, block_timestamp);
+        assert_le_felt(block_timestamp, the_reg.registration_time_ends);
     }
     with_attr error_message("AstralyIDOContract::register_user invalid signature") {
         check_registration_signature(signature_len, signature, signature_expiration, caller);
     }
     with_attr error_message("AstralyIDOContract::register_user signature expired") {
-        assert_lt(block_timestamp, signature_expiration);
+        assert_lt_felt(block_timestamp, signature_expiration);
     }
     let (is_user_reg) = is_registered.read(caller);
     with_attr error_message("AstralyIDOContract::register_user user already registered") {
@@ -583,6 +610,12 @@ func register_user{
 
     // Save user registration
     is_registered.write(caller, TRUE);
+    // Add to registrants array
+    let (local registrants_len) = users_registrations_len.read();
+    // TODO: get the score
+    let score = 0;
+    users_registrations.write(registrants_len, UserRegistrationDetails(caller, score));
+    users_registrations_len.write(registrants_len + 1);
     // Increment number of registered users
     let (local registrants_sum: Uint256) = SafeUint256.add(
         the_reg.number_of_registrants, Uint256(low=1, high=0)
@@ -601,42 +634,60 @@ func register_user{
 @external
 func participate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(amount_paid: Uint256, amount: Uint256, sig_len: felt, sig: felt*) {
+}(amount_paid: Uint256, test: Uint256, sig_len: felt, sig: felt*) {
     alloc_locals;
     let (account: felt) = get_caller_address();
-    with_attr error_message("AstralyIDOContract::participate invalid signature") {
-        check_participation_signature(sig_len, sig, account, amount);
+    let (the_round) = purchase_round.read();
+    let (block_timestamp) = get_block_timestamp();
+
+    // with_attr error_message("AstralyIDOContract::participate invalid signature") {
+    //     check_participation_signature(sig_len, sig, account, amount);
+    // }
+    with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
+        assert_le_felt(the_round.time_starts, block_timestamp);
     }
-    _participate(account, amount_paid, amount);
+    with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
+        assert_le_felt(block_timestamp, the_round.time_ends);
+    }
+    let (allocation) = participants.read(account);
+    with_attr error_message("AstralyIDOContract::participate no allocation") {
+        assert_lt_felt(0, allocation);
+    }
+    // let (allocation_uint) = _felt_to_uint(allocation);
+    // let (amount) = SafeUint256.mul(allocation_uint, smth?);
+    // TODO: compute allocation amount
+    _participate(account, amount_paid, the_round.max_participation, block_timestamp, the_round);
     return ();
 }
 
 func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    account: felt, amount_paid: Uint256, amount: Uint256
+    account: felt,
+    amount_paid: Uint256,
+    amount: Uint256,
+    block_timestamp: felt,
+    the_round: Purchase_Round,
 ) {
     alloc_locals;
     let (address_this: felt) = get_contract_address();
-    let (block_timestamp) = get_block_timestamp();
-    let (the_round) = purchase_round.read();
 
     // Validations
     with_attr error_message("AstralyIDOContract::participate Crossing max participation") {
         let (amount_check: felt) = uint256_le(amount, the_round.max_participation);
         assert amount_check = TRUE;
     }
-    with_attr error_message("AstralyIDOContract::participate User not registered") {
-        let (_is_registered) = is_registered.read(account);
-        assert _is_registered = TRUE;
-    }
+    // with_attr error_message("AstralyIDOContract::participate User not registered") {
+    //     let (_is_registered) = is_registered.read(account);
+    //     assert _is_registered = TRUE;
+    // }
     with_attr error_message("AstralyIDOContract::participate Purchase round has not started yet") {
-        assert_le(the_round.time_starts, block_timestamp);
+        assert_le_felt(the_round.time_starts, block_timestamp);
     }
     let (user_participated) = has_participated.read(account);
     with_attr error_message("AstralyIDOContract::participate user participated") {
         assert user_participated = FALSE;
     }
     with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
-        assert_le(block_timestamp, the_round.time_ends);
+        assert_le_felt(block_timestamp, the_round.time_ends);
     }
 
     // with_attr error_message("AstralyIDOContract::participate Account address is the zero address") {
@@ -795,11 +846,11 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     }
 
     with_attr error_message("AstralyIDOContract::withdraw_tokens Tokens can not be withdrawn yet") {
-        assert_le(the_sale.tokens_unlock_time, block_timestamp);
+        assert_le_felt(the_sale.tokens_unlock_time, block_timestamp);
     }
 
     with_attr error_message("AstralyIDOContract::withdraw_tokens Invlaid portion id") {
-        assert_le(participation.last_portion_withdrawn, portion_id);
+        assert_le_felt(participation.last_portion_withdrawn, portion_id);
     }
 
     let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(portion_id);
@@ -811,7 +862,7 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
     with_attr error_message(
             "AstralyIDOContract::withdraw_tokens Portion has not been unlocked yet") {
-        assert_le(vesting_portions_unlock_time, block_timestamp);
+        assert_le_felt(vesting_portions_unlock_time, block_timestamp);
     }
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(portion_id);
@@ -903,7 +954,7 @@ func withdraw_leftovers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (block_timestamp) = get_block_timestamp();
 
     with_attr error_message("AstralyIDOContract::withdraw_leftovers sale not ended") {
-        assert_le(the_sale.sale_end, block_timestamp);
+        assert_le_felt(the_sale.sale_end, block_timestamp);
     }
 
     with_attr error_message("AstralyIDOContract::withdraw_leftovers leftovers already withdrawn") {
@@ -989,7 +1040,7 @@ func withdraw_multiple_portions_rec{
     let (participation) = user_to_participation.read(_address_caller);
     with_attr error_message(
             "AstralyIDOContract::withdraw_multiple_portions_rec Invalid portion Id") {
-        assert_lt(participation.last_portion_withdrawn, current_portion);
+        assert_lt_felt(participation.last_portion_withdrawn, current_portion);
     }
     let participation_upd = Participation(
         amount_bought=participation.amount_bought,
@@ -1013,7 +1064,7 @@ func withdraw_multiple_portions_rec{
     }
     with_attr error_message(
             "AstralyIDOContract::withdraw_multiple_portions_rec Portion has not been unlocked yet") {
-        assert_le(vesting_portions_unlock_time, _block_timestamp);
+        assert_le_felt(vesting_portions_unlock_time, _block_timestamp);
     }
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(current_portion);
@@ -1128,4 +1179,174 @@ func check_participation_signature{
     let (is_valid) = IAccount.isValidSignature(admin, hash3, sig_len, sig);
     assert is_valid = TRUE;
     return ();
+}
+
+struct UserProbability {
+    address: felt,
+    weight: felt,
+}
+
+@event
+func WinnersSelected(winners_len: felt, winners: felt*) {
+}
+
+@external
+func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    start_index: felt, end_index: felt, batch_size: felt
+) -> (winners_array_len: felt, winners_array: felt*) {
+    alloc_locals;
+    AstralyAccessControl.assert_only_owner();
+
+    with_attr error_message("AstralyINOContract::selectKelements invalid end index") {
+        assert_le_felt(start_index, end_index);
+    }
+
+    let (block_timestamp) = get_block_timestamp();
+    let (the_reg) = registration.read();
+    with_attr error_message(
+            "AstralyINOContract::get_winning_tickets Registration window is not closed") {
+        assert_le_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    tempvar array_len = 1 + end_index - start_index;
+    let (user_reg_len: felt) = users_registrations_len.read();
+
+    with_attr error_message("AstralyINOContract::selectKelements no registered users") {
+        assert_not_zero(user_reg_len);
+    }
+    with_attr error_message(
+            "AstralyINOContract::selectKelements current batch size larger than number of users") {
+        assert_le_felt(array_len, user_reg_len);
+    }
+    let (ido_factory_address) = ido_factory_contract_address.read();
+    let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
+        ido_factory_address
+    );
+    with_attr error_message(
+            "AstralyINOContract::selectKelements random number generator address not set in the factory") {
+        assert_not_zero(rnd_nbr_gen_addr);
+    }
+
+    let (allocation_arr: UserProbability*) = alloc();
+    let (winners_array: felt*) = alloc();  // addresses array
+
+    get_users_registration_array(start_index, end_index, 0, allocation_arr, rnd_nbr_gen_addr);
+
+    sort_recursive(array_len, allocation_arr, 0, winners_array, batch_size);
+
+    WinnersSelected.emit(batch_size, winners_array);
+    return (winners_array_len=batch_size, winners_array=winners_array);
+}
+
+func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    old_arr_len: felt,
+    old_arr: UserProbability*,
+    sorted_arr_len: felt,
+    sorted_arr: felt*,
+    batch_size: felt,
+) {
+    alloc_locals;
+    if (sorted_arr_len == batch_size) {
+        return ();
+    }
+    let indexOfMax: felt = index_of_max(old_arr_len, old_arr);
+    // %{ print(ids.indexOfMax) %}
+    // Pushing the max occurence to the last available spot
+    tempvar _address = old_arr[indexOfMax].address;
+    assert sorted_arr[sorted_arr_len] = _address;
+    let (counter) = participants.read(_address);
+    participants.write(_address, counter + 1);
+    // %{ print(ids._address, ids.counter + 1) %}
+    // getting a new old array
+    let (old_shortened_arr_len, old_shortened_arr) = remove_at(old_arr_len, old_arr, indexOfMax);
+    return sort_recursive(
+        old_shortened_arr_len, old_shortened_arr, sorted_arr_len + 1, sorted_arr, batch_size
+    );
+}
+
+func remove_at{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: UserProbability*, index: felt
+) -> (new_arr_len: felt, new_arr: UserProbability*) {
+    alloc_locals;
+
+    assert_lt_felt(index, arr_len);
+    let (new_arr: UserProbability*) = alloc();
+    memcpy(new_arr, arr, index * UserProbability.SIZE);
+    tempvar slots = index * UserProbability.SIZE;
+    tempvar struct_arr_len = arr_len * UserProbability.SIZE;
+    memcpy(
+        new_arr + slots,
+        arr + slots + UserProbability.SIZE,
+        struct_arr_len - slots - UserProbability.SIZE,
+    );
+    return (arr_len - 1, new_arr);
+}
+
+func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, end_index: felt, array_len: felt, array: UserProbability*, rnd_nbr_gen_addr: felt
+) {
+    alloc_locals;
+    if (index == end_index + 1) {
+        return ();
+    }
+    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
+    let (_user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
+
+    let (weight: felt) = pow(_user_reg_details.score, rnd);
+    // %{ print(ids._user_reg_details.score, ids.weight) %}
+    let user_prob_struct: UserProbability = UserProbability(_user_reg_details.address, weight);
+
+    assert array[array_len] = user_prob_struct;
+    return get_users_registration_array(
+        index + 1, end_index, array_len + 1, array, rnd_nbr_gen_addr
+    );
+}
+
+func index_of_max{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: UserProbability*
+) -> felt {
+    return index_of_max_recursive(arr_len, arr, arr[0].weight, 0, 1);
+}
+
+func index_of_max_recursive{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt,
+    arr: UserProbability*,
+    current_max: felt,
+    current_max_index: felt,
+    current_index: felt,
+) -> felt {
+    if (arr_len == current_index) {
+        return (current_max_index);
+    }
+    let isLe = is_le_felt(current_max, arr[current_index].weight);
+    if (isLe == TRUE) {
+        return index_of_max_recursive(
+            arr_len, arr, arr[current_index].weight, current_index, current_index + 1
+        );
+    }
+    return index_of_max_recursive(arr_len, arr, current_max, current_max_index, current_index + 1);
+}
+
+// MOCKING
+
+@external
+func set_user_registration_mock{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    array_len: felt, array: UserRegistrationDetails*
+) {
+    assert_not_zero(array_len);
+    write_rec(array_len - 1, array);
+
+    users_registrations_len.write(array_len);
+    return ();
+}
+
+func write_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, array: UserRegistrationDetails*
+) {
+    users_registrations.write(index, array[index]);
+    if (index == 0) {
+        return ();
+    }
+
+    return write_rec(index - 1, array);
 }
