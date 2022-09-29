@@ -36,7 +36,7 @@ from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IERC721
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.AstralyConstants import DAYS_30
 from contracts.utils.Uint256_felt_conv import _felt_to_uint, _uint_to_felt
-from contracts.utils import uint256_pow
+from contracts.utils import uint256_pow, get_array
 from contracts.utils.Math64x61 import (
     Math64x61_fromUint256,
     Math64x61_toUint256,
@@ -157,6 +157,14 @@ func users_registrations_len() -> (length: felt) {
 func user_registration_index(address: felt) -> (index: felt) {
 }
 
+@storage_var
+func winners(index: felt) -> (address: felt) {
+}
+
+@storage_var
+func winners_len() -> (res: felt) {
+}
+
 //
 // Events
 //
@@ -201,6 +209,10 @@ func purchase_round_time_set(purchase_time_starts: felt, purchase_time_ends: fel
 
 @event
 func IDO_Created(new_ido_contract_address: felt) {
+}
+
+@event
+func WinnersSelected(winners_len: felt, winners: felt*) {
 }
 
 @constructor
@@ -870,13 +882,10 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         assert_not_zero(rnd_nbr_gen_addr);
     }
 
-    let (mapping_ref: felt*) = get_label_location(users_registrations.read);
     let (allocation_arr: UserProbability*) = alloc();
     let (allocation_arr_sorted: UserProbability*) = alloc();
 
-    get_users_registration_array(
-        start_index, end_index, 0, allocation_arr, mapping_ref, rnd_nbr_gen_addr
-    );
+    get_users_registration_array(start_index, end_index, 0, allocation_arr, rnd_nbr_gen_addr);
 
     sort_recursive(array_len, allocation_arr, 0, allocation_arr_sorted);
 
@@ -917,7 +926,40 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     );
     sale.write(upd_sale);
 
+    WinnersSelected.emit(no_of_winners_per_curr_batch, winners_array);
+
+    let (current_winners_len: felt) = winners_len.read();
+    add_winners_rec(0, no_of_winners_per_curr_batch, winners_array, current_winners_len);
+
     return (no_of_winners_per_curr_batch, winners_array);
+}
+
+@view
+func getWinnersArray{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    arr_len: felt, arr: felt*
+) {
+    alloc_locals;
+    let (mapping_ref: felt*) = get_label_location(winners.read);
+    let (len: felt) = winners_len.read();
+
+    let (arr: felt*) = alloc();
+    get_array(len, arr, mapping_ref);
+
+    return (len, arr);
+}
+
+func add_winners_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    index: felt, no_of_winners_per_curr_batch: felt, winners_array: felt*, current_winners_len: felt
+) {
+    if (no_of_winners_per_curr_batch == index) {
+        winners_len.write(current_winners_len);
+        return ();
+    }
+    winners.write(current_winners_len, winners_array[index]);
+
+    return add_winners_rec(
+        index + 1, no_of_winners_per_curr_batch, winners_array, current_winners_len + 1
+    );
 }
 
 func sort_recursive{pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -954,12 +996,7 @@ func remove_at{pedersen_ptr: HashBuiltin*, range_check_ptr}(
 }
 
 func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt,
-    end_index: felt,
-    array_len: felt,
-    array: UserProbability*,
-    mapping_ref: felt*,
-    rnd_nbr_gen_addr: felt,
+    index: felt, end_index: felt, array_len: felt, array: UserProbability*, rnd_nbr_gen_addr: felt
 ) {
     alloc_locals;
     if (index == end_index + 1) {
@@ -973,7 +1010,7 @@ func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
 
     assert array[array_len] = user_prob_struct;
     return get_users_registration_array(
-        index + 1, end_index, array_len + 1, array, mapping_ref, rnd_nbr_gen_addr
+        index + 1, end_index, array_len + 1, array, rnd_nbr_gen_addr
     );
 }
 

@@ -250,6 +250,11 @@ async def test_rename(contracts_factory):
     )
     tx: TransactionExecutionInfo = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0,  (len(users_registrations_arr) // 2) - 1])
 
+    res = await ido.getWinnersArray().call()
+    t = 0
+
+
+
 
 @pytest.mark.asyncio
 @pytest.mark.skip
