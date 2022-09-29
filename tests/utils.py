@@ -1,6 +1,7 @@
 """Utilities for testing Cairo contracts."""
 from collections import namedtuple
 from pathlib import Path
+from functools import cache
 import math
 import asyncio
 from starkware.cairo.common.hash_state import compute_hash_on_elements
@@ -153,6 +154,7 @@ async def assert_revert(fun, reverted_with=None, error_code=None):
             assert error['code'] == error_code
 
 
+@cache
 def get_contract_def(path):
     """Returns the contract definition from the contract path"""
     path = contract_path(path)
