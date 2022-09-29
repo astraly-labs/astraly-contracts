@@ -15,19 +15,15 @@ func ido_contract_addresses(id: felt) -> (address: felt) {
 }
 
 @storage_var
+func scorer_addresses(id: felt) -> (address: felt) {
+}
+
+@storage_var
 func current_id() -> (id: felt) {
 }
 
 @storage_var
 func random_number_generator_address() -> (res: felt) {
-}
-
-@storage_var
-func task_address() -> (res: felt) {
-}
-
-@storage_var
-func lottery_ticket_contract_address() -> (res: felt) {
 }
 
 @storage_var
@@ -47,15 +43,6 @@ func IDO_Created(id: felt, address: felt) {
 }
 
 @view
-func get_ido_launch_date{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    id: felt
-) -> (launch_date: felt) {
-    let (the_address: felt) = ido_contract_addresses.read(id);
-    let (launch_date) = IAstralyIDOContract.get_ido_launch_date(contract_address=the_address);
-    return (launch_date,);
-}
-
-@view
 func get_ido_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(id: felt) -> (
     address: felt
 ) {
@@ -71,14 +58,6 @@ func get_random_number_generator_address{
 }() -> (res: felt) {
     let (rnd_nbr_gen_adr) = random_number_generator_address.read();
     return (res=rnd_nbr_gen_adr);
-}
-
-@view
-func get_lottery_ticket_contract_address{
-    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
-}() -> (res: felt) {
-    let (ltry_tckt_addr) = lottery_ticket_contract_address.read();
-    return (res=ltry_tckt_addr);
 }
 
 @view
@@ -115,7 +94,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 
 @external
 func create_ido{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    ido_admin: felt
+    ido_admin: felt, scorer: felt
 ) -> (new_ido_contract_address: felt) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
@@ -132,6 +111,7 @@ func create_ido{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
         deploy_from_zero=0,
     );
     ido_contract_addresses.write(_id, new_ido_contract_address);
+    scorer_addresses.write(_id, scorer);
     current_id.write(_id + 1);
     IDO_Created.emit(_id, new_ido_contract_address);
     return (new_ido_contract_address,);

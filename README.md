@@ -8,25 +8,14 @@
 
 _Smart Contracts for Astraly, Fundraising powered by on-chain reputation on Starknet. Learn more about it [here](https://wp.astraly.xyz)._
 
-## Documentation
-
-You can find the latest technical documentation [here](https://astraly.notion.site/Docs-fe24502e89aa479ebb8186c69c96c0c5)
-
 ## Contracts
 
-| Contract                                                             | Title          | Description                                                                                            |
-| -------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
-| [AstralyStaking](./contracts/AstralyStaking.cairo)                   | xZKP Token     | Lock ZKP or ZKP-LP in the vault. Follows [ERC-4626](https://github.com/fei-protocol/ERC4626) standard. |
-| [AstralyLotteryToken](./contracts/AstralyLotteryToken.cairo)         | Lottery Ticket | Lottery Ticket tokenized as ERC-1155 token.                                                            |
-| [AstralyToken](./contracts/AstralyToken.cairo)                       | ZKP Token      | Native token of the platform. Follows ERC-20 standard. Mintable, Burnable, Pausable.                   |
-| [AstralyIDO](./contracts/AstralyIDO.cairo)                           | IDO Contract   | Handles the whole business logic of the IDO. Triggers VRF when a lottery ticket is burnt.              |
-| [AstralyIDOFactory](./AstralyIDOFactory.cairo)                       | IDO Factory    | Instanciates AstralyIDO contracts for every new IDO.                                                   |
-| [AstralyVesting](./contracts/AstralyVesting.cairo)                   | Vesting        | Vests Assets linearly over time for multiple payees.                                                   |
-| [AstralyFaucet](./contracts/AstralyFaucet.cairo)                     | IDO Factory    | Simple Faucet to withdraw X ERC20 every Y seconds.                                                     |
-| [AstralyVaultHarvestTask](./contracts/AstralyVaultHarvestTask.cairo) | Harvest Task   | Yagi Task to regularly harvest vault's earnings.                                                       |
-| [AstralyTask](./contracts/AstralyTask.cairo)                         | IDO Task       | Yagi Task to trigger allocation computation.                                                           |
-| [AMMs](./contracts/AMMs)                                             | AMMs Wrapper   | Wrappers for different AMMs pools.                                                                     |
-| [Utils](./contracts/utils)                                           | Cairo utils    |
+| Contract                                       | Title           | Description                                                  |
+| ---------------------------------------------- | --------------- | ------------------------------------------------------------ |
+| [AstralyIDO](./contracts/AstralyIDO.cairo)     | IDO Contract    | Handles the whole business logic of the IDO.                 |
+| [AstralyINO](./contracts/AstralyINO.cairo)     | INO Contract    | Handles the whole business logic of the INO.                 |
+| [AstralyIDOFactory](./AstralyIDOFactory.cairo) | IDO/INO Factory | Instanciates AstralyIDO/INO contracts for every new IDO/INO. |
+| [Utils](./contracts/utils)                     | Cairo utils     |
 
 # Development Workflow
 
@@ -45,9 +34,6 @@ _Note: Mac and Mac M1 have special instructions you can refer to this [article](
 
 4. Run tests
    `poetry run pytest tests/`
-
-5. Deploy contracts
-   `poetry run nile run scripts/deploy_all.py` or `cd scripts && sh deploy_all.sh`
 
 These commands will test and deploy against your local node. If you want to deploy to the goerli testnet, use --network goerli instead.
 
