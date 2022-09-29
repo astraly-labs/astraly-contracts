@@ -1431,12 +1431,12 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         ido.contract_address,
         1234321,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
+    # await admin1.send_transaction(
+    #     admin_user,
+    #     ido.contract_address,
+    #     "selectWinners",
+    #     [0, 0, BATCH_SIZE],
+    # )
 
     await sale_participant.send_transaction(
         participant,
