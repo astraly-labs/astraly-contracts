@@ -847,7 +847,7 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 
 @external
 func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    start_index: felt, end_index: felt
+    start_index: felt, end_index: felt, no_of_winners_per_curr_batch : felt
 ) -> (winners_array_len: felt, winners_array: UserProbability*) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
@@ -890,17 +890,12 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     sort_recursive(array_len, allocation_arr, 0, allocation_arr_sorted);
 
     let (the_sale: Sale) = sale.read();
-    let (total_token_to_be_sold: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);
-
-    let (allocation: felt, _) = unsigned_div_rem(total_token_to_be_sold, user_reg_len);
-
-    let (curr_batch_size: felt, _) = unsigned_div_rem(user_reg_len, array_len);
-    tempvar no_of_winners_per_curr_batch = allocation * curr_batch_size;
-    tempvar winners_array_len = no_of_winners_per_curr_batch * UserProbability.SIZE;
 
     let (winners_array: UserProbability*) = alloc();
 
-    memcpy(winners_array, allocation_arr_sorted, winners_array_len);
+    memcpy(
+        winners_array, allocation_arr_sorted, no_of_winners_per_curr_batch * UserProbability.SIZE
+    );
 
     let (no_of_winners_per_curr_batch_uint: Uint256) = _felt_to_uint(no_of_winners_per_curr_batch);
     let (total_winning_tickets_sum: Uint256) = SafeUint256.add(

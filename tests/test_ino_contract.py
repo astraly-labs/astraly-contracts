@@ -117,7 +117,7 @@ async def contacts_init(contract_defs, get_starknet):
     )
 
     tx = await deployer.send_transaction(deployer_account, zk_pad_ido_factory.contract_address, "create_ido",
-                                         [admin1_account.contract_address])
+                                         [admin1_account.contract_address, 1])
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
 
     ido = StarknetContract(starknet, zk_pad_ido_def.abi, ido_address, None)
@@ -250,7 +250,7 @@ async def test_selectWinners(contracts_factory):
             erc20_eth_token.contract_address,
             owner.contract_address,
             *to_uint(10),
-            *to_uint(200),
+            *to_uint(20),
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
             *to_uint(1000)
@@ -269,7 +269,7 @@ async def test_selectWinners(contracts_factory):
         *users_registrations_arr
     ]
     )
-    tx: TransactionExecutionInfo = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0,  (len(users_registrations_arr) // 2) - 1])
+    tx: TransactionExecutionInfo = await admin1.send_transaction(admin_user, ido.contract_address, "selectWinners", [0,  (len(users_registrations_arr) // 2) - 1, 5])
 
     res = await ido.getWinnersArray().call()
     t = 0
