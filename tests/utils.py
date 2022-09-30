@@ -16,7 +16,7 @@ from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 
 from nile.signer import Signer, from_call_to_call_array, get_transaction_hash
 
-MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
+MAX_UINT256 = (2**128 - 1, 2**128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
@@ -32,7 +32,7 @@ def contract_path(name):
         return str(_root / "lib/cairo_contracts/src" / name)
     elif name.startswith("tests/"):
         return str(_root / name)
-    elif name.startswith('/'):
+    elif name.startswith("/"):
         return str(_root / "contracts" / name[1:])
     else:
         return str(_root / "contracts" / name)
@@ -64,7 +64,7 @@ def assert_events_emitted(tx_exec_info, events):
         )
 
         base = tx_exec_info.call_info.internal_calls[0]
-        # print(base.events, event_obj)
+        print(base.events, event_obj)
         if event_obj in base.events and from_address == base.contract_address:
             return
 
@@ -82,9 +82,7 @@ def get_contract_class(path):
     """Return the contract class from the contract path"""
     path = contract_path(path)
     contract_class = compile_starknet_files(
-        files=[path],
-        debug_info=True,
-        disable_hint_validation=True
+        files=[path], debug_info=True, disable_hint_validation=True
     )
     return contract_class
 
@@ -148,10 +146,10 @@ async def assert_revert(fun, reverted_with=None, error_code=None):
     except StarkException as err:
         _, error = err.args
         if reverted_with is not None:
-            assert reverted_with in error['message']
+            assert reverted_with in error["message"]
 
         if error_code is not None:
-            assert error['code'] == error_code
+            assert error["code"] == error_code
 
 
 @cache
@@ -161,9 +159,11 @@ def get_contract_def(path):
     contract_def = compile_starknet_files(
         files=[path],
         debug_info=True,
-        cairo_path=[str(_root / "lib/cairo_contracts/src"),
-                    str(_root / "lib/starknet_attestations")],
-        disable_hint_validation=True
+        cairo_path=[
+            str(_root / "lib/cairo_contracts/src"),
+            str(_root / "lib/starknet_attestations"),
+        ],
+        disable_hint_validation=True,
     )
     return contract_def
 
@@ -174,7 +174,7 @@ def cached_contract(state, definition, deployed):
         state=state,
         abi=definition.abi,
         contract_address=deployed.contract_address,
-        deploy_call_info=deployed.deploy_call_info
+        deploy_call_info=deployed.deploy_call_info,
     )
     return contract
 
@@ -186,12 +186,12 @@ def hash_multicall(sender, calls, nonce, max_fee):
         hash_array.append(compute_hash_on_elements(call_elements))
 
     message = [
-        str_to_felt('StarkNet Transaction'),
+        str_to_felt("StarkNet Transaction"),
         sender,
         compute_hash_on_elements(hash_array),
         nonce,
         max_fee,
-        TRANSACTION_VERSION
+        TRANSACTION_VERSION,
     ]
     return compute_hash_on_elements(message)
 
@@ -218,8 +218,7 @@ def set_block_number(starknet_state, block_number):
 
 def advance_clock(starknet_state, num_seconds):
     set_block_timestamp(
-        starknet_state, get_block_timestamp(
-            starknet_state) + num_seconds
+        starknet_state, get_block_timestamp(starknet_state) + num_seconds
     )
 
 
