@@ -1190,12 +1190,23 @@ struct UserProbability {
 func WinnersSelected(winners_len: felt, winners: felt*) {
 }
 
+@storage_var
+func last_index_processed() -> (res: felt) {
+}
+
 @external
 func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     start_index: felt, end_index: felt, batch_size: felt
 ) -> (winners_array_len: felt, winners_array: felt*) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
+
+    let (_last_index_processed: felt) = last_index_processed.read();
+
+    with_attr error_message("AstralyINOContract::selectKelements indexes already proccesed") {
+        assert_le_felt(_last_index_processed, start_index);
+        last_index_processed.write(end_index);
+    }
 
     with_attr error_message("AstralyINOContract::selectKelements invalid end index") {
         assert_le_felt(start_index, end_index);
