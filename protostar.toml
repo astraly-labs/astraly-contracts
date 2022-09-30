@@ -8,9 +8,6 @@ libs_path = "./lib"
 cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
-AstralyFaucet = [
-    "contracts/AstralyFaucet.cairo",
-]
 AstralyINOContract = [
     "contracts/AstralyINOContract.cairo",
 ]
@@ -19,7 +16,4 @@ AstralyIDOContract = [
 ]
 AstralyIDOFactory = [
     "contracts/AstralyIDOFactory.cairo",
-]
-AstralyINOContractMock = [
-    "contracts/mocks/AstralyINOContract_mock.cairo",
 ]
