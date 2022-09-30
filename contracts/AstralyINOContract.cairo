@@ -170,6 +170,10 @@ func winners(index: felt) -> (address: UserProbability) {
 func winners_len() -> (res: felt) {
 }
 
+@storage_var
+func last_index_processed() -> (index: felt) {
+}
+
 //
 // Events
 //
@@ -847,13 +851,19 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 
 @external
 func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    start_index: felt, end_index: felt, no_of_winners_per_curr_batch : felt
+    start_index: felt, end_index: felt, no_of_winners_per_curr_batch: felt
 ) -> (winners_array_len: felt, winners_array: UserProbability*) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
 
     with_attr error_message("AstralyINOContract::selectKelements invalid end index") {
         assert_lt(start_index, end_index);
+    }
+    let (_last_index_processed: felt) = last_index_processed.read();
+
+    with_attr error_message("AstralyINOContract::selectKelements indexes already proccesed") {
+        assert_le(_last_index_processed, start_index);
+        last_index_processed.write(end_index);
     }
 
     let (block_timestamp) = get_block_timestamp();
