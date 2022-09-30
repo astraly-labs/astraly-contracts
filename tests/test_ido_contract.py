@@ -1859,3 +1859,97 @@ async def test_select_winners(contracts_factory):
             winners.append((res.result.res, users_registrations_arr[i]))
 
     assert len(winners) == BATCH_SIZE
+
+
+@pytest.mark.asyncio
+async def test_select_winners_multicall(contracts_factory):
+    (
+        deployer_account,
+        admin_user,
+        stakin_contract,
+        owner,
+        participant,
+        participant_2,
+        rnd_nbr_gen,
+        ido_factory,
+        ido,
+        erc20_eth_token,
+        starknet_state,
+    ) = contracts_factory
+
+    users_registrations_arr = list()
+    users_registrations_arr += [participant.contract_address, 2]
+    users_registrations_arr += [participant_2.contract_address, 3]
+
+    for x in range(497):
+        a = [randint(1, 1000000), randint(1, 50)]
+        users_registrations_arr += a
+
+    # We have 500 registrations
+    # We're selling 5000 * 10 ** 18 tokens
+    # One allocation is 20 * 10 ** 18 tokens
+    # We need to pick 250 winners (not uniques)
+    # And 250 = 150 * 1 + 100 --> We have 300 users in the first batch and 200 in the last one
+
+    await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_user_registration_mock",
+        [
+            len(users_registrations_arr) // 2,  # size of the struct
+            *users_registrations_arr,
+        ],
+    )
+
+    # tx: TransactionExecutionInfo = await admin1.send_transaction(
+    #     admin_user,
+    #     ido.contract_address,
+    #     "selectWinners",
+    #     [0, (len(users_registrations_arr) // 2) - 1, BATCH_SIZE],
+    # )
+
+    calls = [
+        (
+            ido.contract_address,
+            "selectWinners",
+            [0, 149, 75],
+        ),
+        (
+            ido.contract_address,
+            "selectWinners",
+            [150, 299, 75],
+        ),
+        (
+            ido.contract_address,
+            "selectWinners",
+            [300, 449, 75],
+        ),
+        (
+            ido.contract_address,
+            "selectWinners",
+            [450, 499, 25],
+        ),
+    ]
+    for call in calls:
+        tx = await admin1.send_transactions(admin_user, [call])
+
+    # res = await ido.selectWinners(
+    #     0, len(users_registrations_arr) // 2 - 1, BATCH_SIZE
+    # ).call()
+
+    # winners = [
+    #     (
+    #         address,
+    #         users_registrations_arr[users_registrations_arr.index(address) + 1],
+    #     )
+    #     for address in res.result.winners_array
+    # ]
+    # print(winners)
+
+    winners = []
+    for i in range(0, len(users_registrations_arr), 2):
+        res = await ido.get_allocation(users_registrations_arr[i]).call()
+        if res.result.res > 0:
+            winners.append((res.result.res, users_registrations_arr[i]))
+
+    assert len(winners) == 250
