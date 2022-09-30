@@ -41,7 +41,7 @@ TOKENS_TO_SELL = to_uint(100000 * 10**18)
 
 VESTING_PRECISION = to_uint(1000)
 
-BATCH_SIZE = 1
+BATCH_SIZE = 10
 
 
 def advance_clock(starknet_state, num_seconds):
@@ -190,7 +190,7 @@ async def contracts_init(contract_defs, get_starknet):
         deployer_account,
         zk_pad_ido_factory.contract_address,
         "create_ido",
-        [admin1_account.contract_address],
+        [admin1_account.contract_address, 1],
     )
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
 
