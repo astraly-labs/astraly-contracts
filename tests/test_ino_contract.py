@@ -232,8 +232,30 @@ async def test_winning_tickets(contracts_factory):
 
 
 @pytest.mark.asyncio
-async def test_rename(contracts_factory):
+async def test_selectWinners(contracts_factory):
     deployer_account, admin_user, stakin_contract, owner, participant, participant_2, rnd_nbr_gen, ido_factory, ido, erc20_eth_token, starknet_state = contracts_factory
+
+    day = datetime.today()
+    timeDelta90days = timedelta(days=90)
+    timeDeltaOneWeek = timedelta(weeks=1)
+
+    sale_end = day + timeDelta90days
+    token_unlock = sale_end + timeDeltaOneWeek
+
+    await admin1.send_transaction(
+        admin_user,
+        ido.contract_address,
+        "set_sale_params",
+        [
+            erc20_eth_token.contract_address,
+            owner.contract_address,
+            *to_uint(10),
+            *to_uint(200),
+            int(sale_end.timestamp()),
+            int(token_unlock.timestamp()),
+            *to_uint(1000)
+        ]
+    )
 
     users_registrations_arr = list()
     users_registrations_arr += [participant.contract_address, 2]
@@ -241,7 +263,6 @@ async def test_rename(contracts_factory):
 
     for x in range(150):
         users_registrations_arr += [randint(1, 1000000), randint(1, 50)]
-
 
     await admin1.send_transaction(admin_user, ido.contract_address, "set_user_registration_mock", [
         len(users_registrations_arr) // 2,  # size of the struct
@@ -252,8 +273,6 @@ async def test_rename(contracts_factory):
 
     res = await ido.getWinnersArray().call()
     t = 0
-
-
 
 
 @pytest.mark.asyncio
@@ -268,7 +287,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     sale_end = day + timeDelta90days
     token_unlock = sale_end + timeDeltaOneWeek
 
-    tx = await admin1.send_transaction(
+    await admin1.send_transaction(
         admin_user,
         ido.contract_address,
         "set_sale_params",

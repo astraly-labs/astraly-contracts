@@ -9,6 +9,7 @@ from contracts.AstralyINOContract import (
     registration_time_set,
     set_purchase_round_params,
     set_registration_time,
+    set_sale_params,
     purchase_round_time_set,
     participate,
     users_registrations,

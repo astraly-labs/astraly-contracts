@@ -103,6 +103,11 @@ struct UserRegistrationDetails {
     score: felt,
 }
 
+struct UserProbability {
+    address: felt,
+    weight: felt,
+}
+
 // Sale
 @storage_var
 func sale() -> (res: Sale) {
@@ -158,7 +163,7 @@ func user_registration_index(address: felt) -> (index: felt) {
 }
 
 @storage_var
-func winners(index: felt) -> (address: felt) {
+func winners(index: felt) -> (address: UserProbability) {
 }
 
 @storage_var
@@ -212,7 +217,7 @@ func IDO_Created(new_ido_contract_address: felt) {
 }
 
 @event
-func WinnersSelected(winners_len: felt, winners: felt*) {
+func WinnersSelected(winners_len: felt, winners: UserProbability*) {
 }
 
 @constructor
@@ -840,11 +845,6 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     return ();
 }
 
-struct UserProbability {
-    address: felt,
-    weight: felt,
-}
-
 @external
 func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     start_index: felt, end_index: felt
@@ -889,20 +889,18 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 
     sort_recursive(array_len, allocation_arr, 0, allocation_arr_sorted);
 
-    let (winners_array: UserProbability*) = alloc();
+    let (the_sale: Sale) = sale.read();
+    let (total_token_to_be_sold: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);
 
-    let curr_sale: Sale = get_current_sale();
-    let (total_token_to_be_sold: felt) = _uint_to_felt(curr_sale.amount_of_tokens_to_sell);
+    let (allocation: felt, _) = unsigned_div_rem(total_token_to_be_sold, user_reg_len);
 
     let (curr_batch_size: felt, _) = unsigned_div_rem(user_reg_len, array_len);
-    let (no_of_winners_per_curr_batch: felt, _) = unsigned_div_rem(
-        total_token_to_be_sold, curr_batch_size
-    );
-
+    tempvar no_of_winners_per_curr_batch = allocation * curr_batch_size;
     tempvar winners_array_len = no_of_winners_per_curr_batch * UserProbability.SIZE;
-    memcpy(winners_array, allocation_arr_sorted, no_of_winners_per_curr_batch);
 
-    let (the_sale: Sale) = sale.read();
+    let (winners_array: UserProbability*) = alloc();
+
+    memcpy(winners_array, allocation_arr_sorted, winners_array_len);
 
     let (no_of_winners_per_curr_batch_uint: Uint256) = _felt_to_uint(no_of_winners_per_curr_batch);
     let (total_winning_tickets_sum: Uint256) = SafeUint256.add(
@@ -936,20 +934,40 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 
 @view
 func getWinnersArray{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
-    arr_len: felt, arr: felt*
+    arr_len: felt, arr: UserProbability*
 ) {
     alloc_locals;
     let (mapping_ref: felt*) = get_label_location(winners.read);
     let (len: felt) = winners_len.read();
 
-    let (arr: felt*) = alloc();
-    get_array(len, arr, mapping_ref);
+    let (arr: UserProbability*) = alloc();
+    get_winners_rec(len, arr, mapping_ref);
 
     return (len, arr);
 }
 
+func get_winners_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    array_len: felt, array: UserProbability*, mapping_ref: felt*
+) {
+    if (array_len == 0) {
+        return ();
+    }
+    let index = array_len - 1;
+    tempvar args: felt* = cast(new (syscall_ptr, pedersen_ptr, range_check_ptr, index), felt*);
+    invoke(mapping_ref, 4, args);
+    let syscall_ptr = cast([ap - 5], felt*);
+    let pedersen_ptr = cast([ap - 4], HashBuiltin*);
+    let range_check_ptr = [ap - 3];
+    assert array[index] = UserProbability([ap - 2], [ap - 1]);
+
+    return get_winners_rec(array_len - 1, array, mapping_ref);
+}
+
 func add_winners_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt, no_of_winners_per_curr_batch: felt, winners_array: felt*, current_winners_len: felt
+    index: felt,
+    no_of_winners_per_curr_batch: felt,
+    winners_array: UserProbability*,
+    current_winners_len: felt,
 ) {
     if (no_of_winners_per_curr_batch == index) {
         winners_len.write(current_winners_len);
