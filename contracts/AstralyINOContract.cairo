@@ -926,101 +926,79 @@ func selectWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         assert_not_zero(rnd_nbr_gen_addr);
     }
 
-    let (allocation_arr: UserRegistrationDetails*) = alloc();
+    let (allocation_arr: UserProbability*) = alloc();
+    let (winners_array: felt*) = alloc();  // addresses array
 
-    get_users_registration_array(start_index, end_index, 0, allocation_arr);
+    get_users_registration_array(start_index, end_index, 0, allocation_arr, rnd_nbr_gen_addr);
 
-    let winners_array: felt* = draw_winners(
-        array_len, allocation_arr, batch_size, rnd_nbr_gen_addr
-    );
+    sort_recursive(array_len, allocation_arr, 0, winners_array, batch_size);
 
     WinnersSelected.emit(batch_size, winners_array);
     return (winners_array_len=batch_size, winners_array=winners_array);
 }
 
-func draw_winners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    array_len: felt,
-    allocation_arr: UserRegistrationDetails*,
+func sort_recursive{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    old_arr_len: felt,
+    old_arr: UserProbability*,
+    sorted_arr_len: felt,
+    sorted_arr: felt*,
     batch_size: felt,
-    rnd_nbr_gen_addr: felt,
-) -> felt* {
-    alloc_locals;
-    let (winners_array: felt*) = alloc();
-
-    draw_winners_rec(array_len, allocation_arr, winners_array, 0, batch_size, rnd_nbr_gen_addr);
-
-    return (winners_array);
-}
-
-func draw_winners_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    array_len: felt,
-    allocation_arr: UserRegistrationDetails*,
-    winners_arr: felt*,
-    winners_alloc_index: felt,
-    batch_size: felt,
-    rnd_nbr_gen_addr: felt,
 ) {
     alloc_locals;
-    if (winners_alloc_index == batch_size) {
+    if (sorted_arr_len == batch_size) {
         return ();
     }
-
-    let (user_weights: UserProbability*) = alloc();
-    get_user_weights_rec(user_weights, 0, array_len, allocation_arr, rnd_nbr_gen_addr);
-
-    let winner_index: felt = index_of_max(array_len, user_weights);
-
-    let (counter) = participants.read(user_weights[winner_index].address);
-    participants.write(user_weights[winner_index].address, counter + 1);
-
-    assert winners_arr[winners_alloc_index] = user_weights[winner_index].address;
-
-    return draw_winners_rec(
-        array_len,
-        allocation_arr,
-        winners_arr,
-        winners_alloc_index + 1,
-        batch_size,
-        rnd_nbr_gen_addr,
+    let indexOfMax: felt = index_of_max(old_arr_len, old_arr);
+    // %{ print(ids.indexOfMax) %}
+    // Pushing the max occurence to the last available spot
+    tempvar _address = old_arr[indexOfMax].address;
+    assert sorted_arr[sorted_arr_len] = _address;
+    let (counter) = participants.read(_address);
+    participants.write(_address, counter + 1);
+    // %{ print(ids._address, ids.counter + 1) %}
+    // getting a new old array
+    let (old_shortened_arr_len, old_shortened_arr) = remove_at(old_arr_len, old_arr, indexOfMax);
+    return sort_recursive(
+        old_shortened_arr_len, old_shortened_arr, sorted_arr_len + 1, sorted_arr, batch_size
     );
 }
 
-func get_user_weights_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    user_weights_arr: UserProbability*,
-    index: felt,
-    allocation_len: felt,
-    allocation_arr: UserRegistrationDetails*,
-    rnd_nbr_gen_addr: felt,
-) {
+func remove_at{pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    arr_len: felt, arr: UserProbability*, index: felt
+) -> (new_arr_len: felt, new_arr: UserProbability*) {
     alloc_locals;
 
-    if (index == allocation_len) {
-        return ();
-    }
-    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
-    let (weight: felt) = pow(allocation_arr[index].score, rnd);
-
-    let user_prob_struct: UserProbability = UserProbability(allocation_arr[index].address, weight);
-
-    assert user_weights_arr[index] = user_prob_struct;
-
-    return get_user_weights_rec(
-        user_weights_arr, index + 1, allocation_len, allocation_arr, rnd_nbr_gen_addr
+    assert_lt_felt(index, arr_len);
+    let (new_arr: UserProbability*) = alloc();
+    memcpy(new_arr, arr, index * UserProbability.SIZE);
+    tempvar slots = index * UserProbability.SIZE;
+    tempvar struct_arr_len = arr_len * UserProbability.SIZE;
+    memcpy(
+        new_arr + slots,
+        arr + slots + UserProbability.SIZE,
+        struct_arr_len - slots - UserProbability.SIZE,
     );
+    return (arr_len - 1, new_arr);
 }
 
 func get_users_registration_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    index: felt, end_index: felt, array_len: felt, array: UserRegistrationDetails*
+    index: felt, end_index: felt, array_len: felt, array: UserProbability*, rnd_nbr_gen_addr: felt
 ) {
     alloc_locals;
     if (index == end_index + 1) {
         return ();
     }
-
+    let (rnd: felt) = IXoroshiro.next(rnd_nbr_gen_addr);
     let (_user_reg_details: UserRegistrationDetails) = users_registrations.read(index);
 
-    assert array[array_len] = _user_reg_details;
-    return get_users_registration_array(index + 1, end_index, array_len + 1, array);
+    let (weight: felt) = pow(_user_reg_details.score, rnd);
+    // %{ print(ids._user_reg_details.score, ids.weight) %}
+    let user_prob_struct: UserProbability = UserProbability(_user_reg_details.address, weight);
+
+    assert array[array_len] = user_prob_struct;
+    return get_users_registration_array(
+        index + 1, end_index, array_len + 1, array, rnd_nbr_gen_addr
+    );
 }
 
 func index_of_max{pedersen_ptr: HashBuiltin*, range_check_ptr}(
