@@ -477,38 +477,32 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 }
 
 @external
-func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    account: felt, score: felt
-) {
+func register_user{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
+}(signature_len: felt, signature: felt*, signature_expiration: felt, score: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
     let (block_timestamp) = get_block_timestamp();
+    let (caller) = get_caller_address();
     let (the_sale) = sale.read();
 
-    let (factory_address) = ido_factory_contract_address.read();
-    let (lottery_ticket_address) = IAstralyIDOFactory.get_lottery_ticket_contract_address(
-        contract_address=factory_address
-    );
-    with_attr error_message(
-            "AstralyINOContract::register_user Lottery ticket contract address not set") {
-        assert_not_zero(lottery_ticket_address);
-    }
-    let (caller) = get_caller_address();
-    with_attr error_message(
-            "AstralyINOContract::register_user only the lottery ticket contract can make this call") {
-        assert caller = lottery_ticket_address;
-    }
-
-    with_attr error_message(
-            "AstralyINOContract::register_user account address is the zero address") {
-        assert_not_zero(account);
-    }
     with_attr error_message("AstralyINOContract::register_user Registration window is closed") {
         assert_le_felt(the_reg.registration_time_starts, block_timestamp);
         assert_le_felt(block_timestamp, the_reg.registration_time_ends);
     }
 
-    let (_user_registration_index) = user_registration_index.read(account);
+    with_attr error_message("AstralyINOContract::register_user invalid signature") {
+        check_registration_signature(signature_len, signature, signature_expiration, caller);
+    }
+    with_attr error_message("AstralyINOContract::register_user signature expired") {
+        assert_lt_felt(block_timestamp, signature_expiration);
+    }
+    let (is_user_reg) = is_registered.read(caller);
+    with_attr error_message("AstralyINOContract::register_user user already registered") {
+        assert is_user_reg = FALSE;
+    }
+
+    let (_user_registration_index) = user_registration_index.read(caller);
 
     if (_user_registration_index == 0) {
         let (local registrants_sum: Uint256) = SafeUint256.add(
@@ -523,19 +517,17 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         registration.write(upd_reg);
 
         let (_users_registrations_len: felt) = users_registrations_len.read();
-        users_registrations.write(
-            _users_registrations_len, UserRegistrationDetails(account, score)
-        );
+        users_registrations.write(_users_registrations_len, UserRegistrationDetails(caller, score));
         users_registrations_len.write(_users_registrations_len + 1);
 
-        user_registration_index.write(account, _users_registrations_len);
+        user_registration_index.write(caller, _users_registrations_len);
     } else {
         let (
             current_user_registrations_details: UserRegistrationDetails
         ) = users_registrations.read(_user_registration_index);
         tempvar new_user_reg_score = current_user_registrations_details.score + score;
         users_registrations.write(
-            _user_registration_index, UserRegistrationDetails(account, new_user_reg_score)
+            _user_registration_index, UserRegistrationDetails(caller, new_user_reg_score)
         );
     }
 
@@ -544,8 +536,10 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     let _is_lt: felt = is_lt(curr_winners_len, k);
 
     if (_is_lt == TRUE) {
-        winners.write(curr_winners_len, UserRegistrationDetails(account, score));
+        winners.write(curr_winners_len, UserRegistrationDetails(caller, score));
         winners_len.write(curr_winners_len + 1);
+        user_registered.emit(user_address=caller);
+
         return ();
     } else {
         let (rnd: felt) = get_random_number();
@@ -555,7 +549,8 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
             let (curr_user_reg_values: UserRegistrationDetails) = winners.read(j);
             let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
             if (have_lower_score == TRUE) {
-                winners.write(j, UserRegistrationDetails(account, score));
+                winners.write(j, UserRegistrationDetails(caller, score));
+                user_registered.emit(user_address=caller);
                 return ();
             }
         } else {
@@ -564,12 +559,12 @@ func register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
             );
             let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
             if (have_lower_score == TRUE) {
-                winners.write(curr_winners_len - 1, UserRegistrationDetails(account, score));
+                winners.write(curr_winners_len - 1, UserRegistrationDetails(caller, score));
+                user_registered.emit(user_address=caller);
                 return ();
             }
         }
     }
-
     return ();
 }
 
@@ -929,6 +924,31 @@ func check_participation_signature{
     let (is_valid) = IAccount.isValidSignature(admin, hash3, sig_len, sig);
     assert is_valid = TRUE;
     return ();
+}
+
+@view
+func getWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    arr_len: felt, arr: felt*
+) {
+    alloc_locals;
+    let (winners_arr_len: felt) = winners_len.read();
+    let (arr: felt*) = alloc();
+
+    get_winners_array_rec(winners_arr_len, arr, 0);
+
+    return (winners_arr_len, arr);
+}
+
+func get_winners_array_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    array_len: felt, array: felt*, index: felt
+) {
+    if (index == array_len) {
+        return ();
+    }
+    let (winner_details: UserRegistrationDetails) = winners.read(index);
+    assert array[index] = winner_details.address;
+
+    return get_winners_array_rec(array_len, array, index + 1);
 }
 
 func batch_mint{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
