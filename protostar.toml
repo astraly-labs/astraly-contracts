@@ -11,6 +11,9 @@ cairo-path = ["./lib/cairo_contracts/src"]
 AstralyINOContract = [
     "contracts/AstralyINOContract.cairo",
 ]
+AstralyINOContractMock = [
+    "contracts/mocks/AstralyINOContract_mock.cairo",
+]
 AstralyIDOContract = [
     "contracts/AstralyIDOContract.cairo",
 ]

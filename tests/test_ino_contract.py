@@ -12,6 +12,7 @@ from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 from typing import Tuple
 from random import randrange
+import numpy as np
 
 TRUE = 1
 FALSE = 0
@@ -20,7 +21,7 @@ ONE_DAY = 24 * 60 * 60
 
 account_path = "openzeppelin/account/presets/Account.cairo"
 ido_factory_path = "AstralyIDOFactory.cairo"
-ido_path = "AstralyINOContract.cairo"
+ido_path = "mocks/AstralyINOContract_mock.cairo"
 rnd_nbr_gen_path = "utils/xoroshiro128_starstar.cairo"
 erc20_eth_path = "mocks/Astraly_ETH_ERC20_mock.cairo"
 erc721_path = "mocks/Astraly_ERC721_mock.cairo"
@@ -39,7 +40,7 @@ MAX_PARTICIPATION = to_uint(5)
 PARTICIPATION_VALUE = to_uint(200 * 10**18)
 
 TOKEN_PRICE = to_uint(100 * 10**18)
-TOKENS_TO_SELL = to_uint(100)
+TOKENS_TO_SELL = to_uint(50)
 
 BATCH_SIZE = 1  # ONLY ONE USER IS REGISTERED FOR MOST TESTS
 
@@ -851,7 +852,7 @@ async def test_registration_works(contracts_factory, setup_sale):
     )
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp, randrange(100)]
     )
 
@@ -864,11 +865,23 @@ async def test_registration_works(contracts_factory, setup_sale):
     # Check registrant counter has been incremented
     assert current_registration.number_of_registrants == uint(1)
 
+    users_list_len = 200
+    users_addresses = list()
+    users_score = list()
+    for x in range(users_list_len):
+        users_addresses.append(randint(99999, 9999999999999))
+        users_score.append(randint(1, 100))
+
+    await deployer.send_transaction(
+        deployer_account, ido.contract_address, "register_users", [
+            len(users_addresses), *list(users_addresses),
+            len(users_score), *list(users_score)]
+    )
+
     set_block_timestamp(
         starknet_state, current_registration.registration_time_ends + 1)
 
     winners_arr = (await ido.getWinners().call()).result.arr
-    assert participant.contract_address in winners_arr
 
 
 @pytest.mark.asyncio
@@ -908,7 +921,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "register_user",
+            "registerUser",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user Registration window is closed",
@@ -921,7 +934,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "register_user",
+            "registerUser",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user Registration window is closed",
@@ -966,7 +979,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "register_user",
+            "registerUser",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user invalid signature",
@@ -1008,7 +1021,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1016,7 +1029,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "register_user",
+            "registerUser",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user user already registered",
@@ -1058,7 +1071,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1147,13 +1160,13 @@ async def test_participation_double(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
-        "register_user",
+        "registerUser",
         [len(sig2), *sig2, sig_exp],
     )
 
@@ -1265,7 +1278,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1336,7 +1349,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1414,7 +1427,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1559,7 +1572,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1622,7 +1635,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1701,7 +1714,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "register_user", [
+        participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
     )
 

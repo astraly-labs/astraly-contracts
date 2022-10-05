@@ -481,14 +481,13 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 }
 
 @external
-func register_user{
+func registerUser{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
 }(signature_len: felt, signature: felt*, signature_expiration: felt, score: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
     let (block_timestamp) = get_block_timestamp();
     let (caller) = get_caller_address();
-    let (the_sale) = sale.read();
 
     with_attr error_message("AstralyINOContract::register_user Registration window is closed") {
         assert_le_felt(the_reg.registration_time_starts, block_timestamp);
@@ -506,17 +505,27 @@ func register_user{
         assert is_user_reg = FALSE;
     }
 
+    _register_user(caller, the_reg, score);
+
+    user_registered.emit(user_address=caller);
+    return ();
+}
+
+func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    caller: felt, curr_registration: Registration, score: felt
+) {
+    alloc_locals;
     let (_user_registration_index) = user_registration_index.read(caller);
 
     if (_user_registration_index == 0) {
-        let (local registrants_sum: Uint256) = SafeUint256.add(
-            the_reg.number_of_registrants, Uint256(low=1, high=0)
+        let (registrants_sum: Uint256) = SafeUint256.add(
+            curr_registration.number_of_registrants, Uint256(low=1, high=0)
         );
 
         let upd_reg = Registration(
-            registration_time_starts=the_reg.registration_time_starts,
-            registration_time_ends=the_reg.registration_time_ends,
-            number_of_registrants=registrants_sum,
+            curr_registration.registration_time_starts,
+            curr_registration.registration_time_ends,
+            registrants_sum,
         );
         registration.write(upd_reg);
 
@@ -534,7 +543,7 @@ func register_user{
             _user_registration_index, UserRegistrationDetails(caller, new_user_reg_score)
         );
     }
-
+    let (the_sale) = sale.read();
     let (curr_winners_len: felt) = winners_len.read();
     let (k: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);  // number of winners
     let _is_lt: felt = is_lt(curr_winners_len, k);
@@ -542,8 +551,6 @@ func register_user{
     if (_is_lt == TRUE) {
         winners.write(curr_winners_len, UserRegistrationDetails(caller, score));
         winners_len.write(curr_winners_len + 1);
-        user_registered.emit(user_address=caller);
-
         return ();
     } else {
         let (rnd: felt) = get_random_number();
@@ -554,7 +561,6 @@ func register_user{
             let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
             if (have_lower_score == TRUE) {
                 winners.write(j, UserRegistrationDetails(caller, score));
-                user_registered.emit(user_address=caller);
                 return ();
             }
         } else {
@@ -564,7 +570,6 @@ func register_user{
             let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
             if (have_lower_score == TRUE) {
                 winners.write(curr_winners_len - 1, UserRegistrationDetails(caller, score));
-                user_registered.emit(user_address=caller);
                 return ();
             }
         }
