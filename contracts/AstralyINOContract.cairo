@@ -180,6 +180,10 @@ func winners_len() -> (res: felt) {
 func participants(user_address: felt) -> (res: felt) {
 }
 
+//
+// Events
+//
+
 @event
 func tokens_sold(user_address: felt, amount: Uint256) {
 }
@@ -931,6 +935,13 @@ func getWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     arr_len: felt, arr: felt*
 ) {
     alloc_locals;
+
+    with_attr error_message("AstralyINOContract::getWinners Registration window not closed") {
+        let (the_reg) = registration.read();
+        let (block_timestamp) = get_block_timestamp();
+        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
     let (winners_arr_len: felt) = winners_len.read();
     let (arr: felt*) = alloc();
 

@@ -835,6 +835,7 @@ async def test_registration_works(contracts_factory, setup_sale):
     ) = contracts_factory
 
     # Check there are no registrants
+    current_sale = (await ido.get_current_sale().call()).result.res
     tx = await ido.get_registration().call()
     assert tx.result.res.number_of_registrants == uint(0)
 
@@ -859,11 +860,14 @@ async def test_registration_works(contracts_factory, setup_sale):
             participant.contract_address]
     )
 
-    tx2 = await ido.get_registration().call()
+    current_registration = (await ido.get_registration().call()).result.res
     # Check registrant counter has been incremented
-    assert tx2.result.res.number_of_registrants == uint(1)
-    winners_arr = (await ido.getWinners().call()).result.arr
+    assert current_registration.number_of_registrants == uint(1)
 
+    set_block_timestamp(
+        starknet_state, current_registration.registration_time_ends + 1)
+
+    winners_arr = (await ido.getWinners().call()).result.arr
     assert participant.contract_address in winners_arr
 
 
