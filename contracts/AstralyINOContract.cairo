@@ -153,10 +153,6 @@ func admin_address() -> (res: felt) {
 }
 
 @storage_var
-func ido_allocation() -> (res: Uint256) {
-}
-
-@storage_var
 func users_registrations(index: felt) -> (res: UserRegistrationDetails) {
 }
 
@@ -169,11 +165,15 @@ func user_registration_index(address: felt) -> (index: felt) {
 }
 
 @storage_var
-func winners(index: felt) -> (res: UserRegistrationDetails) {
+func winners_arr(index: felt) -> (res: UserRegistrationDetails) {
 }
 
 @storage_var
-func winners_len() -> (res: felt) {
+func winners_arr_len() -> (res: felt) {
+}
+
+@storage_var
+func winners(address: felt) -> (count: felt) {
 }
 
 @storage_var
@@ -304,6 +304,20 @@ func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 ) -> (res: felt) {
     let (allocation) = participants.read(user);
     return (res=allocation);
+}
+
+@view
+func isWinner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(address: felt) -> (
+    res: felt
+) {
+    with_attr error_message("AstralyINOContract::isWinner Registration window not closed") {
+        let (the_reg) = registration.read();
+        let (block_timestamp) = get_block_timestamp();
+        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    let (count: felt) = winners.read(address);
+    return (res=count);
 }
 
 //############################################
@@ -544,13 +558,14 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         );
     }
     let (the_sale) = sale.read();
-    let (curr_winners_len: felt) = winners_len.read();
+    let (curr_winners_len: felt) = winners_arr_len.read();
     let (k: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);  // number of winners
     let _is_lt: felt = is_lt(curr_winners_len, k);
 
     if (_is_lt == TRUE) {
-        winners.write(curr_winners_len, UserRegistrationDetails(caller, score));
-        winners_len.write(curr_winners_len + 1);
+        winners_arr.write(curr_winners_len, UserRegistrationDetails(caller, score));
+        winners_arr_len.write(curr_winners_len + 1);
+        increase_winner_count(caller);
         return ();
     } else {
         let (rnd: felt) = get_random_number();
@@ -560,28 +575,55 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
             let (rnd2: felt) = get_random_number();
             let (_users_registrations_len: felt) = users_registrations_len.read();
             let (_, rnd_index) = unsigned_div_rem(rnd2, _users_registrations_len);
-            let (rnd_user_reg_values: UserRegistrationDetails) = winners.read(rnd_index);
+            let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(
+                rnd_index
+            );
 
-            let (curr_user_reg_values: UserRegistrationDetails) = winners.read(j);
-            let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, rnd_user_reg_values.score);
+            let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(j);
+            let have_lower_score: felt = is_le_felt(
+                curr_user_reg_values.score, rnd_user_reg_values.score
+            );
             if (have_lower_score == TRUE) {
-                winners.write(j, rnd_user_reg_values);
-                return ();
-            } else {
-                winners.write(j, curr_user_reg_values);
+                winners_arr.write(j, rnd_user_reg_values);
+                increase_winner_count(rnd_user_reg_values.address);
+                decrease_winner_count(curr_user_reg_values.address);
                 return ();
             }
         } else {
-            let (curr_user_reg_values: UserRegistrationDetails) = winners.read(
+            let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(
                 curr_winners_len - 1
             );
             let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
             if (have_lower_score == TRUE) {
-                winners.write(curr_winners_len - 1, UserRegistrationDetails(caller, score));
+                winners_arr.write(curr_winners_len - 1, UserRegistrationDetails(caller, score));
+
+                increase_winner_count(caller);
+                decrease_winner_count(curr_user_reg_values.address);
                 return ();
             }
         }
     }
+    return ();
+}
+
+func increase_winner_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
+) {
+    let (current_winner_count: felt) = winners.read(address);
+    winners.write(address, current_winner_count + 1);
+
+    return ();
+}
+
+func decrease_winner_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
+) {
+    let (current_winner_count: felt) = winners.read(address);
+    if (current_winner_count == 0) {
+        return ();
+    }
+    winners.write(address, current_winner_count - 1);
+
     return ();
 }
 
@@ -941,38 +983,6 @@ func check_participation_signature{
     let (is_valid) = IAccount.isValidSignature(admin, hash3, sig_len, sig);
     assert is_valid = TRUE;
     return ();
-}
-
-@view
-func getWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
-    arr_len: felt, arr: felt*
-) {
-    alloc_locals;
-
-    with_attr error_message("AstralyINOContract::getWinners Registration window not closed") {
-        let (the_reg) = registration.read();
-        let (block_timestamp) = get_block_timestamp();
-        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
-    }
-
-    let (winners_arr_len: felt) = winners_len.read();
-    let (arr: felt*) = alloc();
-
-    get_winners_array_rec(winners_arr_len, arr, 0);
-
-    return (winners_arr_len, arr);
-}
-
-func get_winners_array_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    array_len: felt, array: felt*, index: felt
-) {
-    if (index == array_len) {
-        return ();
-    }
-    let (winner_details: UserRegistrationDetails) = winners.read(index);
-    assert array[index] = winner_details.address;
-
-    return get_winners_array_rec(array_len, array, index + 1);
 }
 
 func batch_mint{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(

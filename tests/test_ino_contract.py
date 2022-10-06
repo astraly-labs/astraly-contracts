@@ -881,8 +881,12 @@ async def test_registration_works(contracts_factory, setup_sale):
     set_block_timestamp(
         starknet_state, current_registration.registration_time_ends + 1)
 
+    # Check the winners array integrity
     winners_arr = (await ido.getWinners().call()).result.arr
-    t = 0
+    winners_arr.sort()
+    for winner in winners_arr:
+        is_winner = (await ido.isWinner(winner).call()).result.res
+        assert winners_arr.count(winner) == is_winner
 
 
 @pytest.mark.asyncio
