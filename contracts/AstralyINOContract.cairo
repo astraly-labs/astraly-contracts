@@ -497,7 +497,7 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 @external
 func registerUser{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(signature_len: felt, signature: felt*, signature_expiration: felt, score: felt) {
+}(signature_len: felt, signature: felt*, signature_expiration: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
     let (block_timestamp) = get_block_timestamp();
@@ -518,6 +518,9 @@ func registerUser{
     with_attr error_message("AstralyINOContract::register_user user already registered") {
         assert is_user_reg = FALSE;
     }
+
+    // let (score : felt) = IScorer.getScore(caller);
+    let score = 99;
 
     _register_user(caller, the_reg, score);
 
@@ -570,37 +573,21 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     } else {
         let (rnd: felt) = get_random_number();
         let (_, j) = unsigned_div_rem(rnd, curr_winners_len);
-        let is_lower: felt = is_lt(j, k);
-        if (is_lower == TRUE) {
-            let (rnd2: felt) = get_random_number();
-            let (_users_registrations_len: felt) = users_registrations_len.read();
-            let (_, rnd_index) = unsigned_div_rem(rnd2, _users_registrations_len);
-            let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(
-                rnd_index
-            );
 
-            let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(j);
-            let have_lower_score: felt = is_le_felt(
-                curr_user_reg_values.score, rnd_user_reg_values.score
-            );
-            if (have_lower_score == TRUE) {
-                winners_arr.write(j, rnd_user_reg_values);
-                increase_winner_count(rnd_user_reg_values.address);
-                decrease_winner_count(curr_user_reg_values.address);
-                return ();
-            }
-        } else {
-            let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(
-                curr_winners_len - 1
-            );
-            let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
-            if (have_lower_score == TRUE) {
-                winners_arr.write(curr_winners_len - 1, UserRegistrationDetails(caller, score));
+        let (rnd2: felt) = get_random_number();
+        let (_users_registrations_len: felt) = users_registrations_len.read();
+        let (_, rnd_index) = unsigned_div_rem(rnd2, _users_registrations_len);
+        let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(rnd_index);
 
-                increase_winner_count(caller);
-                decrease_winner_count(curr_user_reg_values.address);
-                return ();
-            }
+        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(j);
+        let have_lower_score: felt = is_le_felt(
+            curr_user_reg_values.score, rnd_user_reg_values.score
+        );
+        if (have_lower_score == TRUE) {
+            winners_arr.write(j, rnd_user_reg_values);
+            increase_winner_count(rnd_user_reg_values.address);
+            decrease_winner_count(curr_user_reg_values.address);
+            return ();
         }
     }
     return ();

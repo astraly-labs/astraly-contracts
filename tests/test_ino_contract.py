@@ -851,7 +851,7 @@ async def test_registration_works(contracts_factory, setup_sale):
 
     tx = await sale_participant.send_transaction(
         participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp, randrange(100)]
+            len(sig), *sig, sig_exp]
     )
 
     assert_event_emitted(
