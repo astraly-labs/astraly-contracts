@@ -557,10 +557,18 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         let (_, j) = unsigned_div_rem(rnd, curr_winners_len);
         let is_lower: felt = is_lt(j, k);
         if (is_lower == TRUE) {
+            let (rnd2: felt) = get_random_number();
+            let (_users_registrations_len: felt) = users_registrations_len.read();
+            let (_, rnd_index) = unsigned_div_rem(rnd2, _users_registrations_len);
+            let (rnd_user_reg_values: UserRegistrationDetails) = winners.read(rnd_index);
+
             let (curr_user_reg_values: UserRegistrationDetails) = winners.read(j);
-            let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, score);
+            let have_lower_score: felt = is_le_felt(curr_user_reg_values.score, rnd_user_reg_values.score);
             if (have_lower_score == TRUE) {
-                winners.write(j, UserRegistrationDetails(caller, score));
+                winners.write(j, rnd_user_reg_values);
+                return ();
+            } else {
+                winners.write(j, curr_user_reg_values);
                 return ();
             }
         } else {

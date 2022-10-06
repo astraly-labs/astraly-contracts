@@ -882,6 +882,7 @@ async def test_registration_works(contracts_factory, setup_sale):
         starknet_state, current_registration.registration_time_ends + 1)
 
     winners_arr = (await ido.getWinners().call()).result.arr
+    t = 0
 
 
 @pytest.mark.asyncio
