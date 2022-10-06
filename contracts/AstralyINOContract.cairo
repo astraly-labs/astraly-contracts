@@ -562,8 +562,8 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     }
     let (the_sale) = sale.read();
     let (curr_winners_len: felt) = winners_arr_len.read();
-    let (k: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);  // number of winners
-    let _is_lt: felt = is_lt(curr_winners_len, k);
+    let (winners_max_len: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);  // number of winners
+    let _is_lt: felt = is_lt(curr_winners_len, winners_max_len);
 
     if (_is_lt == TRUE) {
         winners_arr.write(curr_winners_len, UserRegistrationDetails(caller, score));
@@ -572,19 +572,19 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
         return ();
     } else {
         let (rnd: felt) = get_random_number();
-        let (_, j) = unsigned_div_rem(rnd, curr_winners_len);
+        let (_, rnd_index) = unsigned_div_rem(rnd, curr_winners_len);
 
         let (rnd2: felt) = get_random_number();
         let (_users_registrations_len: felt) = users_registrations_len.read();
-        let (_, rnd_index) = unsigned_div_rem(rnd2, _users_registrations_len);
-        let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(rnd_index);
+        let (_, rnd_index2) = unsigned_div_rem(rnd2, _users_registrations_len);
+        let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(rnd_index2);
 
-        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(j);
+        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(rnd_index);
         let have_lower_score: felt = is_le_felt(
             curr_user_reg_values.score, rnd_user_reg_values.score
         );
         if (have_lower_score == TRUE) {
-            winners_arr.write(j, rnd_user_reg_values);
+            winners_arr.write(rnd_index, rnd_user_reg_values);
             increase_winner_count(rnd_user_reg_values.address);
             decrease_winner_count(curr_user_reg_values.address);
             return ();
