@@ -4,15 +4,16 @@ import pytest_asyncio
 from signers import MockSigner
 from random import randint
 from utils import *
-import asyncio
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
+from starkware.starknet.business_logic.transaction.objects import (
+    TransactionExecutionInfo,
+)
 
 from datetime import datetime, timedelta
 from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 from typing import Tuple
 from random import randrange
-import numpy as np
 
 TRUE = 1
 FALSE = 0
@@ -60,10 +61,10 @@ BATCH_SIZE = 1  # ONLY ONE USER IS REGISTERED FOR MOST TESTS
 # return signature; }
 
 
-def generate_signature(digest, pk) -> Tuple[int, int]:
+def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
     # signer = Signer(pk)
 
-    return admin1.signer.sign(message_hash=digest)
+    return signer.sign(message_hash=digest)
 
 
 #   function signRegistration(signatureExpirationTimestamp, userAddress, roundId, contractAddress, privateKey) {
@@ -80,23 +81,23 @@ def generate_signature(digest, pk) -> Tuple[int, int]:
 
 
 def sign_registration(
-    signature_expiration_timestamp, user_address, contract_address, pk
+    signature_expiration_timestamp, user_address, contract_address, signer: Signer
 ):
     digest = pedersen_hash(
         pedersen_hash(signature_expiration_timestamp,
                       user_address), contract_address
     )
 
-    return generate_signature(digest, pk)
+    return generate_signature(digest, signer)
 
 
-def sign_participation(user_address, amount, contract_address, pk):
+def sign_participation(user_address, amount, contract_address, signer: Signer):
     digest = pedersen_hash(
         pedersen_hash(pedersen_hash(user_address, amount[0]), amount[1]),
         contract_address,
     )
 
-    return generate_signature(digest, pk)
+    return generate_signature(digest, signer)
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -848,12 +849,19 @@ async def test_registration_works(contracts_factory, setup_sale):
         (day + time_delta_one_day).timestamp()))
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
+    )
+
+    await deployer.send_transaction(
+        deployer_account,
+        rnd_nbr_gen.contract_address,
+        "update_seed",
+        [randint(1, 9999999999999999999)],
     )
 
     tx = await sale_participant.send_transaction(
         participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp, randrange(100)]
+            len(sig), *sig, sig_exp]
     )
 
     assert_event_emitted(
@@ -873,16 +881,29 @@ async def test_registration_works(contracts_factory, setup_sale):
         users_score.append(randint(1, 100))
 
     await deployer.send_transaction(
-        deployer_account, ido.contract_address, "register_users", [
-            len(users_addresses), *list(users_addresses),
-            len(users_score), *list(users_score)]
+        deployer_account,
+        ido.contract_address,
+        "register_users",
+        [
+            len(users_addresses),
+            *list(users_addresses),
+            len(users_score),
+            *list(users_score),
+        ],
     )
 
     set_block_timestamp(
         starknet_state, current_registration.registration_time_ends + 1)
 
+    # Check the winners array integrity
     winners_arr = (await ido.getWinners().call()).result.arr
-    t = 0
+    print(winners_arr)
+    winners_arr.sort()
+    for winner in set(winners_arr):
+        is_winner = (await ido.isWinner(winner).call()).result.res
+        assert is_winner == 1
+        allocation = from_uint((await ido.getAllocation(winner).call()).result.res)
+        assert allocation == winners_arr.count(winner)
 
 
 @pytest.mark.asyncio
@@ -907,7 +928,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
     assert tx.result.res.number_of_registrants == uint(0)
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -964,7 +985,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
     assert tx.result.res.number_of_registrants == uint(0)
 
     sig = sign_registration(
-        sig_exp, participant_2.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant_2.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1009,7 +1030,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
     assert tx.result.res.number_of_registrants == uint(0)
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1060,7 +1081,7 @@ async def test_participation_works(contracts_factory, setup_sale):
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1084,7 +1105,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,
@@ -1146,10 +1167,10 @@ async def test_participation_double(contracts_factory, setup_sale):
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
     sig2 = sign_registration(
-        sig_exp, participant_2.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant_2.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1180,7 +1201,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key
+        admin1.signer,
     )
 
     await admin1.send_transaction(
@@ -1208,7 +1229,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         participant_2.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await sale_participant_2.send_transaction(
         participant_2,
@@ -1267,7 +1288,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1293,7 +1314,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         participant.contract_address,
         INVALID_PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,
@@ -1338,7 +1359,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1362,7 +1383,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,
@@ -1415,7 +1436,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1436,7 +1457,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     # await admin1.send_transaction(
     #     admin_user,
@@ -1494,7 +1515,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1516,7 +1537,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     # await admin1.send_transaction(
     #     admin_user,
@@ -1561,7 +1582,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1585,7 +1606,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,
@@ -1624,7 +1645,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1648,7 +1669,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,
@@ -1701,7 +1722,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     ) = contracts_factory
 
     sig = sign_registration(
-        sig_exp, participant.contract_address, ido.contract_address, deployer.signer.private_key
+        sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     day = datetime.today()
@@ -1727,7 +1748,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        deployer.signer.private_key,
+        admin1.signer,
     )
     await admin1.send_transaction(
         admin_user,

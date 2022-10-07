@@ -4,7 +4,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_eq, uint256_mul, ALL
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.invoke import invoke
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.math_cmp import is_le_felt
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
@@ -106,7 +106,7 @@ func is_lt{syscall_ptr: felt*, range_check_ptr}(lhs: felt, rhs: felt) -> felt {
     if (rhs == 0) {
         return (FALSE);
     }
-    let res: felt = is_le(lhs, rhs - 1);
+    let res: felt = is_le_felt(lhs, rhs - 1);
     return (res);
 }
 

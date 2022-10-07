@@ -44,6 +44,7 @@ from contracts.utils.Math64x61 import (
     Math64x61_mul,
     Math64x61_add,
 )
+from contracts.utils import is_lt
 from InterfaceAll import IAstralyIDOFactory, IXoroshiro, XOROSHIRO_ADDR, IAccount
 
 const Math64x61_BOUND_LOCAL = 2 ** 64;
@@ -179,15 +180,35 @@ func admin_address() -> (res: felt) {
 }
 
 @storage_var
-func ido_allocation() -> (res: Uint256) {
-}
-
-@storage_var
-func users_registrations(i: felt) -> (res: UserRegistrationDetails) {
+func users_registrations(index: felt) -> (res: UserRegistrationDetails) {
 }
 
 @storage_var
 func users_registrations_len() -> (res: felt) {
+}
+
+@storage_var
+func user_registration_index(address: felt) -> (index: felt) {
+}
+
+@storage_var
+func winners_arr(index: felt) -> (res: UserRegistrationDetails) {
+}
+
+@storage_var
+func winners_arr_len() -> (res: felt) {
+}
+
+@storage_var
+func winners(address: felt) -> (count: felt) {
+}
+
+@storage_var
+func ido_allocation() -> (res: Uint256) {
+}
+
+@storage_var
+func base_allocation() -> (allocation: Uint256) {
 }
 
 @storage_var
@@ -309,13 +330,39 @@ func get_registration{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 }
 
 @view
-func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    user: felt
-) -> (res: felt) {
-    let (allocation) = participants.read(user);
-    return (res=allocation);
+func getAllocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
+) -> (res: Uint256) {
+    with_attr error_message("AstralyINOContract::getAllocation Registration window not closed") {
+        let (the_reg) = registration.read();
+        let (block_timestamp) = get_block_timestamp();
+        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    let (count: felt) = winners.read(address);
+    let (_base_allocation) = base_allocation.read();
+
+    let (res: Uint256) = SafeUint256.mul(Uint256(count, 0), _base_allocation);
+    return (res=res);
 }
 
+@view
+func isWinner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(address: felt) -> (
+    res: felt
+) {
+    with_attr error_message("AstralyINOContract::isWinner Registration window not closed") {
+        let (the_reg) = registration.read();
+        let (block_timestamp) = get_block_timestamp();
+        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    let (count: felt) = winners.read(address);
+    if (count == 0) {
+        return (res=FALSE);
+    }
+
+    return (res=TRUE);
+}
 @view
 func get_vesting_portion_percent{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     portion_id: felt
@@ -410,6 +457,7 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     _sale_end_time: felt,
     _tokens_unlock_time: felt,
     _portion_vesting_precision: Uint256,
+    _base_allocation: Uint256
 ) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
@@ -447,6 +495,8 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         );
         assert vesting_precision_check = TRUE;
     }
+
+    base_allocation.write(_base_allocation);
 
     // set params
     let new_sale = Sale(
@@ -584,51 +634,145 @@ func set_purchase_round_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 }
 
 @external
-func register_user{
+func registerUser{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(signature_len: felt, signature: felt*, signature_expiration: felt) -> (res: felt) {
+}(signature_len: felt, signature: felt*, signature_expiration: felt) {
     alloc_locals;
     let (the_reg) = registration.read();
     let (block_timestamp) = get_block_timestamp();
     let (caller) = get_caller_address();
-    let (the_sale) = sale.read();
 
-    with_attr error_message("AstralyIDOContract::register_user Registration window is closed") {
+    with_attr error_message("AstralyINOContract::registerUser Registration window is closed") {
         assert_le_felt(the_reg.registration_time_starts, block_timestamp);
         assert_le_felt(block_timestamp, the_reg.registration_time_ends);
     }
-    with_attr error_message("AstralyIDOContract::register_user invalid signature") {
+
+    with_attr error_message("AstralyINOContract::registerUser invalid signature") {
         check_registration_signature(signature_len, signature, signature_expiration, caller);
     }
-    with_attr error_message("AstralyIDOContract::register_user signature expired") {
+    with_attr error_message("AstralyINOContract::registerUser signature expired") {
         assert_lt_felt(block_timestamp, signature_expiration);
     }
     let (is_user_reg) = is_registered.read(caller);
-    with_attr error_message("AstralyIDOContract::register_user user already registered") {
+    with_attr error_message("AstralyINOContract::registerUser user already registered") {
         assert is_user_reg = FALSE;
     }
 
-    // Save user registration
-    is_registered.write(caller, TRUE);
-    // Add to registrants array
-    let (local registrants_len) = users_registrations_len.read();
-    // TODO: get the score
-    let score = 0;
-    users_registrations.write(registrants_len, UserRegistrationDetails(caller, score));
-    users_registrations_len.write(registrants_len + 1);
-    // Increment number of registered users
-    let (local registrants_sum: Uint256) = SafeUint256.add(
-        the_reg.number_of_registrants, Uint256(low=1, high=0)
-    );
+    // let (score : felt) = IScorer.getScore(caller);
+    let score = 99;
 
-    let upd_reg = Registration(
-        registration_time_starts=the_reg.registration_time_starts,
-        registration_time_ends=the_reg.registration_time_ends,
-        number_of_registrants=registrants_sum,
-    );
-    registration.write(upd_reg);
+    _register_user(caller, the_reg, score);
+
     user_registered.emit(user_address=caller);
-    return (res=TRUE);
+    return ();
+}
+func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    caller: felt, curr_registration: Registration, score: felt
+) {
+    alloc_locals;
+    let (_user_registration_index) = user_registration_index.read(caller);
+
+    if (_user_registration_index == 0) {
+        let (registrants_sum: Uint256) = SafeUint256.add(
+            curr_registration.number_of_registrants, Uint256(low=1, high=0)
+        );
+
+        let upd_reg = Registration(
+            curr_registration.registration_time_starts,
+            curr_registration.registration_time_ends,
+            registrants_sum,
+        );
+        registration.write(upd_reg);
+
+        let (_users_registrations_len: felt) = users_registrations_len.read();
+        users_registrations.write(_users_registrations_len, UserRegistrationDetails(caller, score));
+        users_registrations_len.write(_users_registrations_len + 1);
+
+        user_registration_index.write(caller, _users_registrations_len);
+    } else {
+        let (
+            current_user_registrations_details: UserRegistrationDetails
+        ) = users_registrations.read(_user_registration_index);
+        tempvar new_user_reg_score = current_user_registrations_details.score + score;
+        users_registrations.write(
+            _user_registration_index, UserRegistrationDetails(caller, new_user_reg_score)
+        );
+    }
+    let (the_sale) = sale.read();
+    let (curr_winners_len: felt) = winners_arr_len.read();
+
+    let (_base_allocation: Uint256) = base_allocation.read();
+    let (winners_max_len_uint, _) = SafeUint256.div_rem(
+        the_sale.amount_of_tokens_to_sell, _base_allocation
+    );
+    let (winners_max_len: felt) = _uint_to_felt(winners_max_len_uint);  // number of winners
+    let _is_lt: felt = is_lt(curr_winners_len, winners_max_len);
+
+    tempvar caller_registration_details = UserRegistrationDetails(caller, score);
+
+    if (_is_lt == TRUE) {
+        winners_arr.write(curr_winners_len, caller_registration_details);
+        winners_arr_len.write(curr_winners_len + 1);
+        increase_winner_count(caller);
+        return ();
+    } else {
+        let (rnd: felt) = get_random_number();
+        let (_, rnd_index) = unsigned_div_rem(rnd, curr_winners_len);
+        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(rnd_index);
+
+        let (rnd2: felt) = get_random_number();
+        let (_users_registrations_len: felt) = users_registrations_len.read();
+        let (_, rnd_index2) = unsigned_div_rem(rnd2, _users_registrations_len);
+        let (local rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(
+            rnd_index2
+        );
+
+        let replace_with_caller: felt = is_le_felt(rnd_user_reg_values.score, score);
+
+        if (replace_with_caller == TRUE) {
+            let have_lower_score: felt = is_le_felt(
+                curr_user_reg_values.score, caller_registration_details.score
+            );
+            if (have_lower_score == TRUE) {
+                winners_arr.write(rnd_index, caller_registration_details);
+                increase_winner_count(caller_registration_details.address);
+                decrease_winner_count(curr_user_reg_values.address);
+                return ();
+            }
+        }
+
+        let have_lower_score: felt = is_le_felt(
+            curr_user_reg_values.score, rnd_user_reg_values.score
+        );
+        if (have_lower_score == TRUE) {
+            winners_arr.write(rnd_index, rnd_user_reg_values);
+            increase_winner_count(rnd_user_reg_values.address);
+            decrease_winner_count(curr_user_reg_values.address);
+            return ();
+        }
+    }
+    return ();
+}
+
+func increase_winner_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
+) {
+    let (current_winner_count: felt) = winners.read(address);
+    winners.write(address, current_winner_count + 1);
+
+    return ();
+}
+
+func decrease_winner_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
+) {
+    let (current_winner_count: felt) = winners.read(address);
+    if (current_winner_count == 0) {
+        return ();
+    }
+    winners.write(address, current_winner_count - 1);
+
+    return ();
 }
 
 @external
