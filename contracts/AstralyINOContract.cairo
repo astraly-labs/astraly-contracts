@@ -299,11 +299,17 @@ func get_registration{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 }
 
 @view
-func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    user: felt
+func getAllocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    address: felt
 ) -> (res: felt) {
-    let (allocation) = participants.read(user);
-    return (res=allocation);
+    with_attr error_message("AstralyINOContract::getAllocation Registration window not closed") {
+        let (the_reg) = registration.read();
+        let (block_timestamp) = get_block_timestamp();
+        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
+    }
+
+    let (count: felt) = winners.read(address);
+    return (res=count);
 }
 
 @view
@@ -317,7 +323,11 @@ func isWinner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(a
     }
 
     let (count: felt) = winners.read(address);
-    return (res=count);
+    if (count == 0) {
+        return (res=FALSE);
+    }
+
+    return (res=TRUE);
 }
 
 //############################################
@@ -503,19 +513,19 @@ func registerUser{
     let (block_timestamp) = get_block_timestamp();
     let (caller) = get_caller_address();
 
-    with_attr error_message("AstralyINOContract::register_user Registration window is closed") {
+    with_attr error_message("AstralyINOContract::registerUser Registration window is closed") {
         assert_le_felt(the_reg.registration_time_starts, block_timestamp);
         assert_le_felt(block_timestamp, the_reg.registration_time_ends);
     }
 
-    with_attr error_message("AstralyINOContract::register_user invalid signature") {
+    with_attr error_message("AstralyINOContract::registerUser invalid signature") {
         check_registration_signature(signature_len, signature, signature_expiration, caller);
     }
-    with_attr error_message("AstralyINOContract::register_user signature expired") {
+    with_attr error_message("AstralyINOContract::registerUser signature expired") {
         assert_lt_felt(block_timestamp, signature_expiration);
     }
     let (is_user_reg) = is_registered.read(caller);
-    with_attr error_message("AstralyINOContract::register_user user already registered") {
+    with_attr error_message("AstralyINOContract::registerUser user already registered") {
         assert is_user_reg = FALSE;
     }
 

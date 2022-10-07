@@ -17,6 +17,9 @@ AstralyINOContractMock = [
 AstralyIDOContract = [
     "contracts/AstralyIDOContract.cairo",
 ]
+AstralyIDOContractMock = [
+    "contracts/mocks/AstralyIDOContract_mock.cairo",
+]
 AstralyIDOFactory = [
     "contracts/AstralyIDOFactory.cairo",
 ]

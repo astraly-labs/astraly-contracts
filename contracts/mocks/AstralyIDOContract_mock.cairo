@@ -5,12 +5,14 @@ from starkware.cairo.common.math import assert_not_zero, assert_lt_felt
 from starkware.cairo.common.alloc import alloc
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from contracts.AstralyINOContract import (
+from contracts.AstralyIDOContract import (
     sale_created,
     registration_time_set,
     set_purchase_round_params,
     set_registration_time,
     set_sale_params,
+    set_vesting_params,
+    deposit_tokens,
     participate,
     users_registrations,
     users_registrations_len,
