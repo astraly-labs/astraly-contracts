@@ -849,6 +849,11 @@ async def test_registration_works(contracts_factory, setup_sale):
         sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
+    await deployer.send_transaction(
+        deployer_account, rnd_nbr_gen.contract_address, "update_seed", [
+            randint(1, 9999999999999999999)]
+    )
+
     tx = await sale_participant.send_transaction(
         participant, ido.contract_address, "registerUser", [
             len(sig), *sig, sig_exp]
