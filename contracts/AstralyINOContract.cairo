@@ -565,21 +565,39 @@ func _register_user{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
     let (winners_max_len: felt) = _uint_to_felt(the_sale.amount_of_tokens_to_sell);  // number of winners
     let _is_lt: felt = is_lt(curr_winners_len, winners_max_len);
 
+    tempvar caller_registration_details = UserRegistrationDetails(caller, score);
+
     if (_is_lt == TRUE) {
-        winners_arr.write(curr_winners_len, UserRegistrationDetails(caller, score));
+        winners_arr.write(curr_winners_len, caller_registration_details);
         winners_arr_len.write(curr_winners_len + 1);
         increase_winner_count(caller);
         return ();
     } else {
         let (rnd: felt) = get_random_number();
         let (_, rnd_index) = unsigned_div_rem(rnd, curr_winners_len);
+        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(rnd_index);
 
         let (rnd2: felt) = get_random_number();
         let (_users_registrations_len: felt) = users_registrations_len.read();
         let (_, rnd_index2) = unsigned_div_rem(rnd2, _users_registrations_len);
-        let (rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(rnd_index2);
+        let (local rnd_user_reg_values: UserRegistrationDetails) = users_registrations.read(
+            rnd_index2
+        );
 
-        let (curr_user_reg_values: UserRegistrationDetails) = winners_arr.read(rnd_index);
+        let replace_with_caller: felt = is_le_felt(rnd_user_reg_values.score, score);
+
+        if (replace_with_caller == TRUE) {
+            let have_lower_score: felt = is_le_felt(
+                curr_user_reg_values.score, caller_registration_details.score
+            );
+            if (have_lower_score == TRUE) {
+                winners_arr.write(rnd_index, caller_registration_details);
+                increase_winner_count(caller_registration_details.address);
+                decrease_winner_count(curr_user_reg_values.address);
+                return ();
+            }
+        }
+
         let have_lower_score: felt = is_le_felt(
             curr_user_reg_values.score, rnd_user_reg_values.score
         );
