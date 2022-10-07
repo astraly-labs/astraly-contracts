@@ -1,0 +1,4 @@
+usage: starknet [-h] [--salt SALT] [--inputs [INPUTS ...]] [--token TOKEN]
+                [--class_hash CLASS_HASH] [--nonce NONCE] [--max_fee MAX_FEE]
+                [--contract CONTRACT] [--deploy_from_zero]
+starknet: error: argument --contract: can't open './artifacts/AstralyIDOFactory.json': [Errno 2] No such file or directory: './artifacts/AstralyIDOFactory.json'
