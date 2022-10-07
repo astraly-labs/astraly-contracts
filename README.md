@@ -4,9 +4,9 @@
 
 ![banner](https://testnet.astraly.xyz/images/home/banner_3d_full.png)
 
-# ☄️ Astraly Smart Contracts
+# ☄️ Astraly Launch Smart Contracts
 
-_Smart Contracts for Astraly, Fundraising powered by on-chain reputation on Starknet. Learn more about it [here](https://wp.astraly.xyz)._
+_Smart Contracts for Astraly Launch, Fundraising powered by on-chain reputation on Starknet. Learn more about it [here](https://wp.astraly.xyz)._
 
 ## Contracts
 

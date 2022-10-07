@@ -5,7 +5,9 @@ from signers import MockSigner
 from random import randint
 from utils import *
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
-from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
+from starkware.starknet.business_logic.transaction.objects import (
+    TransactionExecutionInfo,
+)
 
 from datetime import datetime, timedelta
 from utils import get_block_timestamp, set_block_timestamp
@@ -64,6 +66,7 @@ def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
 
     return signer.sign(message_hash=digest)
 
+
 #   function signRegistration(signatureExpirationTimestamp, userAddress, roundId, contractAddress, privateKey) {
 #     // compute keccak256(abi.encodePacked(user, roundId, address(this)))
 #     const digest = ethers.utils.keccak256(
@@ -81,8 +84,7 @@ def sign_registration(
     signature_expiration_timestamp, user_address, contract_address, signer: Signer
 ):
     digest = pedersen_hash(
-        pedersen_hash(signature_expiration_timestamp,
-                      user_address), contract_address
+        pedersen_hash(signature_expiration_timestamp, user_address), contract_address
     )
 
     return generate_signature(digest, signer)
@@ -148,18 +150,15 @@ async def contracts_init(contract_defs, get_starknet):
         contract_class=account_def, constructor_calldata=[staking.public_key]
     )
     sale_owner_account = await starknet.deploy(
-        contract_class=account_def, constructor_calldata=[
-            sale_owner.public_key]
+        contract_class=account_def, constructor_calldata=[sale_owner.public_key]
     )
 
     sale_participant_account = await starknet.deploy(
-        contract_class=account_def, constructor_calldata=[
-            sale_participant.public_key]
+        contract_class=account_def, constructor_calldata=[sale_participant.public_key]
     )
 
     sale_participant_2_account = await starknet.deploy(
-        contract_class=account_def, constructor_calldata=[
-            sale_participant_2.public_key]
+        contract_class=account_def, constructor_calldata=[sale_participant_2.public_key]
     )
 
     await starknet.declare(contract_class=rnd_nbr_gen_def)
@@ -172,8 +171,7 @@ async def contracts_init(contract_defs, get_starknet):
     await starknet.declare(contract_class=zk_pad_ido_factory_def)
     zk_pad_ido_factory = await starknet.deploy(
         contract_class=zk_pad_ido_factory_def,
-        constructor_calldata=[ido_class.class_hash,
-                              deployer_account.contract_address],
+        constructor_calldata=[ido_class.class_hash, deployer_account.contract_address],
     )
 
     await deployer.send_transaction(
@@ -223,8 +221,7 @@ async def contracts_init(contract_defs, get_starknet):
         deployer_account,
         erc20_eth_token.contract_address,
         "transfer",
-        [sale_participant_2_account.contract_address,
-            *to_uint(50000 * 10**18)],
+        [sale_participant_2_account.contract_address, *to_uint(50000 * 10**18)],
     )
 
     await deployer.send_transaction(
@@ -284,8 +281,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet):
     admin1_cached = cached_contract(_state, account_def, admin1_account)
     staking_cached = cached_contract(_state, account_def, staking_account)
     owner_cached = cached_contract(_state, account_def, sale_owner_account)
-    participant_cached = cached_contract(
-        _state, account_def, sale_participant_account)
+    participant_cached = cached_contract(_state, account_def, sale_participant_account)
     participant_2_cached = cached_contract(
         _state, account_def, sale_participant_2_account
     )
@@ -294,8 +290,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet):
         _state, zk_pad_ido_factory_def, zk_pad_ido_factory
     )
     ido_cached = cached_contract(_state, zk_pad_ido_def, ido)
-    erc20_eth_token_cached = cached_contract(
-        _state, erc20_eth_def, erc20_eth_token)
+    erc20_eth_token_cached = cached_contract(_state, erc20_eth_def, erc20_eth_token)
     erc721_token_cached = cached_contract(_state, erc721_def, erc721_token)
     return (
         deployer_cached,
@@ -842,26 +837,25 @@ async def test_registration_works(contracts_factory, setup_sale):
     time_delta_one_day = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + time_delta_one_day).timestamp()))
+    set_block_timestamp(starknet_state, int((day + time_delta_one_day).timestamp()))
 
     sig = sign_registration(
         sig_exp, participant.contract_address, ido.contract_address, admin1.signer
     )
 
     await deployer.send_transaction(
-        deployer_account, rnd_nbr_gen.contract_address, "update_seed", [
-            randint(1, 9999999999999999999)]
+        deployer_account,
+        rnd_nbr_gen.contract_address,
+        "update_seed",
+        [randint(1, 9999999999999999999)],
     )
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     assert_event_emitted(
-        tx, ido.contract_address, "user_registered", [
-            participant.contract_address]
+        tx, ido.contract_address, "user_registered", [participant.contract_address]
     )
 
     current_registration = (await ido.get_registration().call()).result.res
@@ -876,16 +870,22 @@ async def test_registration_works(contracts_factory, setup_sale):
         users_score.append(randint(1, 100))
 
     await deployer.send_transaction(
-        deployer_account, ido.contract_address, "register_users", [
-            len(users_addresses), *list(users_addresses),
-            len(users_score), *list(users_score)]
+        deployer_account,
+        ido.contract_address,
+        "register_users",
+        [
+            len(users_addresses),
+            *list(users_addresses),
+            len(users_score),
+            *list(users_score),
+        ],
     )
 
-    set_block_timestamp(
-        starknet_state, current_registration.registration_time_ends + 1)
+    set_block_timestamp(starknet_state, current_registration.registration_time_ends + 1)
 
     # Check the winners array integrity
     winners_arr = (await ido.getWinners().call()).result.arr
+    print(winners_arr)
     winners_arr.sort()
     for winner in winners_arr:
         is_winner = (await ido.isWinner(winner).call()).result.res
@@ -922,8 +922,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
     timeDelta1Days = timedelta(days=1)
 
     # Go to AFTER registration round end
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta8Days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta8Days).timestamp()))
 
     await assert_revert(
         sale_participant.send_transaction(
@@ -935,8 +934,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         reverted_with="AstralyINOContract::register_user Registration window is closed",
     )
     # Go to BEFORE registration round start
-    set_block_timestamp(starknet_state, int(
-        (day - timeDelta1Days).timestamp()))
+    set_block_timestamp(starknet_state, int((day - timeDelta1Days).timestamp()))
 
     await assert_revert(
         sale_participant.send_transaction(
@@ -980,8 +978,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     await assert_revert(
         sale_participant.send_transaction(
@@ -1025,12 +1022,10 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     await assert_revert(
@@ -1075,17 +1070,14 @@ async def test_participation_works(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
@@ -1164,12 +1156,10 @@ async def test_participation_double(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
     tx = await sale_participant_2.send_transaction(
         participant_2,
@@ -1179,15 +1169,14 @@ async def test_participation_double(contracts_factory, setup_sale):
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     # 1st participation
     sig = sign_participation(
         participant.contract_address,
         PARTICIPATION_AMOUNT,
         ido.contract_address,
-        admin1.signer
+        admin1.signer,
     )
 
     await admin1.send_transaction(
@@ -1282,17 +1271,14 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     INVALID_PARTICIPATION_AMOUNT = to_uint(501 * 10**18)
 
@@ -1320,8 +1306,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *
-                INVALID_PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE, *INVALID_PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
         reverted_with="AstralyINOContract::participate Crossing max participation",
     )
@@ -1353,17 +1338,14 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
@@ -1431,12 +1413,10 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     sig = sign_participation(
@@ -1469,8 +1449,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
     )
 
     # Go to purchase round after end
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta45days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta45days).timestamp()))
 
     await assert_revert(
         sale_participant.send_transaction(
@@ -1509,15 +1488,13 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     # Omit registration
     # tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
@@ -1576,17 +1553,14 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
@@ -1639,17 +1613,14 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
@@ -1678,8 +1649,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
             participant,
             ido.contract_address,
             "participate",
-            [*INVALID_PARTICIPATION_VALUE, *
-                PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*INVALID_PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
         reverted_with="AstralyINOContract::participate Exceeding allowance",
     )
@@ -1718,17 +1688,14 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     timeDeltaOneDay = timedelta(days=1)
 
     # Go to registration round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDeltaOneDay).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
-            len(sig), *sig, sig_exp]
+        participant, ido.contract_address, "registerUser", [len(sig), *sig, sig_exp]
     )
 
     # Go to purchase round start
-    set_block_timestamp(starknet_state, int(
-        (day + timeDelta10days).timestamp()))
+    set_block_timestamp(starknet_state, int((day + timeDelta10days).timestamp()))
 
     sig = sign_participation(
         participant.contract_address,
