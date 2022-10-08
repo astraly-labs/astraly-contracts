@@ -20,7 +20,7 @@ user_array = list(
     ]
 )
 
-for x in range(50000):
+for x in range(20000):
     user_array.append(UserParticipation(randint(99999, 9999999999999), randint(1, 100)))
 print("AVG SCORE : ", sum([u.score for u in user_array]) / len(user_array))
 
@@ -31,6 +31,14 @@ for user in user_array:
     R.append(user)
     if len(W) < k:
         W.append(user)
+        j = randint(0, len(W) - 1)
+        i = randint(0, len(R) - 1)
+        if R[i].score <= user.score:
+            if W[j].score <= user.score:
+                W[j] = user
+
+        if W[j].score <= R[i].score:
+            W[j] = R[i]
     else:
         j = randint(0, k - 1)
         i = randint(0, len(R) - 1)
@@ -38,7 +46,7 @@ for user in user_array:
             if W[j].score <= user.score:
                 W[j] = user
 
-        if user.score <= R[i].score:
+        if W[j].score <= R[i].score:
             W[j] = R[i]
 
 # print("Registrants", R)
