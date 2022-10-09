@@ -64,6 +64,15 @@ func get_ido_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 }
 
 @view
+func get_ino_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(id: felt) -> (
+    address: felt
+) {
+    alloc_locals;
+    let (the_address: felt) = ido_contract_addresses.read(id);
+
+    return (the_address,);
+}
+@view
 func get_random_number_generator_address{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }() -> (res: felt) {

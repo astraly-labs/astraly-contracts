@@ -12,11 +12,6 @@ STARKNET_VERSION="0.10.0"
 . $SCRIPT_DIR/logging.sh # Logging utilities
 . $SCRIPT_DIR/tools.sh   # script utilities
 
-# clean the protostar project
-clean() {
-    log_info "Cleaning..."
-    if [ $? -ne 0 ]; then exit_error "Problem during clean"; fi
-}
 
 # build the protostar project
 build() {
@@ -115,82 +110,66 @@ send_declare_contract_transaction() {
 
     echo $contract_class_hash
 }
-
-
-deploy_ido_factory() {
-    owner_address=$1
-    log_info "Deploying IDO Factory"
-    RESULT=`send_transaction "starknet $NETWORK_OPT deploy --no_wallet --contract ./artifacts/AstralyIDOFactory.json --inputs $owner_address"`
-    echo $RESULT
+set_vesting_params(){
+    _unlocking_times=1
+    _percents=1
+    _max_vesting_time_shift=1
+    contract=$1
+    ido_ino_contract_address=$2
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_vesting_params --inputs $_unlocking_times $_percents $_max_vesting_time_shift"` || exit_error  
 }
 
-create_ido() {
-    factory_address=$1
-    ido_admin=$2
-    scorer=$3
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ido --inputs $ido_admin $scorer"` || exit_error
+set_registration_time(){
+    _registration_time_starts=1
+    _registration_time_ends=1
+    contract=$1
+    ido_ino_contract_address=$2
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_registration_time --inputs $_registration_time_starts $_registration_time_ends"` || exit_error  
 }
 
-create_ino(){
-    factory_address=$1
-    ino_admin=$2
-    scorer=$3
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ino --inputs $ido_admin $scorer"` || exit_error  
+set_purchase_round_params(){
+    _purchase_time_starts=1
+    _purchase_time_ends=1
+    max_participation=1
+    contract=$1
+    ido_ino_contract_address=$2
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_purchase_round_params --inputs $_purchase_time_starts $_purchase_time_ends $max_participation"` || exit_error  
+
 }
 
-# Deploy all contracts and log the deployed addresses in the cache file
-deploy_all_contracts() {
-    [ -f $CACHE_FILE ] && {
-        . $CACHE_FILE
-        log_info "Found those deployed accounts:"
-        cat $CACHE_FILE
-        ask "\nDo you want to deploy missing contracts and initialize them" || return 
-    }
+set_sale_params(){
+    _token_address=0xe858cbbdebb793977a9dbbbed0afc78e2a4c841c0af1165308b58d84565
+    _sale_owner_address=0xaaaaaaaab793977a9dbbbed0afc78e2a4c841c0af1165308b58d84565
+    _token_price=1
+    _amount_of_tokens_to_sell=1
+    _sale_end_time=1
+    _tokens_unlock_time=1
+    _portion_vesting_precision=1
+    _base_allocation=1
+    contract=$1
+    ido_ino_contract_address=$2
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_sale_params --inputs $_token_address $_sale_owner_address $_token_price $_amount_of_tokens_to_sell $_sale_end_time $_tokens_unlock_time $_portion_vesting_precision $_base_allocation"` || exit_error  
 
-    print Admin account alias: $ADMIN_ACCOUNT
-    print Admin account address: $ADMIN_ADDRESS
-    print Network option: $NETWORK_OPT
-
-    ask "Are you OK to deploy with those parameters" || return 
-    ask "Is the factory deployed ?"
-    if [ $? -ne 0 ]; then
-        log_info "Deploying factory"
-        FACTORY_ADDRESS=`deploy_ido_factory $ADMIN_ADDRESS` || exit_error
-        (
-        echo "FACTORY_ADDRESS=$FACTORY_ADDRESS"
-        ) | tee>&2 $CACHE_FILE
-    fi
-    # factory_address=$(cat $CACHE_FILE)
-    factory_address=$(awk '/FACTORY_ADDRESS/{print substr($0,length($0)-65)}' $CACHE_FILE)
-    ask "create IDO ?"
+}
+setup_ido_ino () {
+    ask "Do you want to setup an IDO?"
     case $? in 
-        0) log_info "Creating IDO"
+        0) log_info "Setting up an IDO..."
         contract="AstralyIDOContract"
-        factory="AstralyIDOFactory"
-        ask "Do you want to upgrade contract hash"
-        if [ $? -eq 0 ]; then 
-            log_info "Updating the contract hash"
-            ido_class_hash=`send_declare_contract_transaction "starknet declare $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --contract ./artifacts/${contract}.json"` || exit_error
-            send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/${factory}.json --function set_ido_contract_class_hash --inputs $ido_class_hash" || exit_error  
-        fi
-        `create_ido $factory_address $ADMIN_ADDRESS $SCORER `
         ;;
-        1) log_info "Creating INO"
+        1) log_info "Setting up an INO"
         contract="AstralyINOContract"
-        factory="AstralyIDOFactory"
-        ask "Do you want to upgrade contract hash"
-        if [ $? -eq 0 ]; then 
-            log_info "Updating the contract hash"
-            ino_class_hash=`send_declare_contract_transaction "starknet declare $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --contract ./artifacts/${contract}.json"` || exit_error
-            send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/${factory}.json --function set_ino_contract_class_hash --inputs $ino_class_hash" || exit_error  
-        fi
-        `create_ino $factory_address $ADMIN_ADDRESS $SCORER  `
         ;;
         esac
+    `set_sale_params $contract $IDO_INO_CONTRACT_ADDRESS `
+    # `set_vesting_params $contract $IDO_INO_CONTRACT_ADDRESS `
+    # `set_registration_time $contract $IDO_INO_CONTRACT_ADDRESS `
+    # `set_purchase_round_params $contract $IDO_INO_CONTRACT_ADDRESS `
 }
 
+
 ### ARGUMENT PARSING
-while getopts a:s:m:p:yh option
+while getopts a:m:p:yh option
 do
     case "${option}"
     in
@@ -199,7 +178,6 @@ do
         m) MAX_FEE=${OPTARG};;
         y) AUTO_YES="true";;
         h) usage; exit_success;;
-        s) SCORER=${OPTARG};;
         \?) usage; exit_error;;
     esac
 done
@@ -207,7 +185,6 @@ done
 export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAccount
 
 [ -z "$ADMIN_ACCOUNT" ] && exit_error "Admin account is mandatory (use -a option) and must be set to the alias of the admin account"
-[ -z $SCORER ] && exit_error "Scorer is mandatory (use -s option)"
 
 CACHE_FILE="${CACHE_FILE_BASE}.txt"
 
@@ -219,14 +196,12 @@ ADMIN_ADDRESS=`get_account_address $ADMIN_ACCOUNT`
 ACCOUNT_OPT="--account $ADMIN_ACCOUNT"
 NETWORK_OPT="--network $NETWORK"
 MAX_FEE_OPT="--max_fee $MAX_FEE"
-
+IDO_INO_CONTRACT_ADDRESS=0xe858cbbdebb793977a9dbbbed0afc78e2a4c841c0af1165308b58d822553b9
 ### PRE_CONDITIONS
 check_starknet
 
 ### BUSINESS LOGIC
-
-clean # Need to remove ABI and compiled contracts that may not exist anymore (eg. migrations)
-build # Need to generate ABI and compiled contracts
-deploy_all_contracts
+# build # Need to generate ABI and compiled contracts
+setup_ido_ino
 
 exit_success
