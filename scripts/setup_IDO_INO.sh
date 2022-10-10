@@ -133,34 +133,29 @@ set_registration_time(){
 set_purchase_round_params(){
     _purchase_time_starts=1
     _purchase_time_ends=1
-    max_participation_hi=1
-    max_participation_lo=0
+    max_participation="1 0"
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_purchase_round_params --inputs $_purchase_time_starts $_purchase_time_ends $max_participation_lo $max_participation_hi"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_purchase_round_params --inputs $_purchase_time_starts $_purchase_time_ends $max_participation"` || exit_error  
 
 }
 
 set_sale_params(){
     _token_address=0xe858cbbdebb793977a9dbbbed0afc78e2a4c841c0af1165308b58d82255343
     _sale_owner_address=0xe858cbbdebb793977a9dbbbed0afc78e2a4c841c0af1165308b58d82255
-    _token_price_hi=1
-    _token_price_lo=0
-    _amount_of_tokens_to_sell_hi=1
-    _amount_of_tokens_to_sell_lo=0
+    _token_price="1 0"
+    _amount_of_tokens_to_sell="1 0"
     _sale_end_time=1
     _tokens_unlock_time=1
-    _portion_vesting_precision_hi=0
-    _portion_vesting_precision_lo=30
-    _base_allocation_hi=1
-    _base_allocation_lo=0
+    _portion_vesting_precision="30 0"
+    _base_allocation="1 0"
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_sale_params --inputs $_token_address $_sale_owner_address $_token_price_lo $_token_price_hi $_amount_of_tokens_to_sell_lo $_amount_of_tokens_to_sell_hi $_sale_end_time $_tokens_unlock_time $_portion_vesting_precision_lo $_portion_vesting_precision_hi $_base_allocation_lo $_base_allocation_hi"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_sale_params --inputs $_token_address $_sale_owner_address $_token_price $_amount_of_tokens_to_sell $_sale_end_time $_tokens_unlock_time $_portion_vesting_precision $_base_allocation"` || exit_error  
 
 }
 setup_ido_ino () {
-    ask "Do you want to setup an IDO?"
+    ask "Do you want to setup an IDO or an INO ? [0/1]"
     case $? in 
         0) log_info "Setting up an IDO..."
         contract="AstralyIDOContract"
@@ -169,10 +164,10 @@ setup_ido_ino () {
         contract="AstralyINOContract"
         ;;
         esac
-    # `set_sale_params $contract $IDO_INO_CONTRACT_ADDRESS `
+    `set_sale_params $contract $IDO_INO_CONTRACT_ADDRESS `
     `set_vesting_params $contract $IDO_INO_CONTRACT_ADDRESS `
-    # `set_registration_time $contract $IDO_INO_CONTRACT_ADDRESS `
-    # `set_purchase_round_params $contract $IDO_INO_CONTRACT_ADDRESS `
+    `set_registration_time $contract $IDO_INO_CONTRACT_ADDRESS `
+    `set_purchase_round_params $contract $IDO_INO_CONTRACT_ADDRESS `
 }
 
 
