@@ -9,17 +9,17 @@ cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
 AstralyINOContract = [
-    "contracts/AstralyINOContract.cairo",
+    "contracts/IDO/AstralyINOContract.cairo",
 ]
 AstralyINOContractMock = [
     "contracts/mocks/AstralyINOContract_mock.cairo",
 ]
 AstralyIDOContract = [
-    "contracts/AstralyIDOContract.cairo",
+    "contracts/IDO/AstralyIDOContract.cairo",
 ]
 AstralyIDOContractMock = [
     "contracts/mocks/AstralyIDOContract_mock.cairo",
 ]
 AstralyIDOFactory = [
-    "contracts/AstralyIDOFactory.cairo",
+    "contracts/IDO/AstralyIDOFactory.cairo",
 ]

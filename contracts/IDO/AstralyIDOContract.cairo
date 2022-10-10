@@ -14,7 +14,7 @@ from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.AstralyAccessControl import AstralyAccessControl
 from contracts.utils.Uint256_felt_conv import _uint_to_felt
-from contracts.ido_library import IDO, Sale, Participation, PurchaseRound, Registration
+from contracts.IDO.ido_library import IDO, Sale, Participation, PurchaseRound, Registration
 
 const SALE_OWNER_ROLE = 'SALE_OWNER';
 
