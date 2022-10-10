@@ -1,19 +1,16 @@
 import pytest
 import pytest_asyncio
-
-from signers import MockSigner
-from random import randint
-from utils import *
-from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
-from starkware.starknet.business_logic.transaction.objects import (
-    TransactionExecutionInfo,
-)
-
 from datetime import datetime, timedelta
-from utils import get_block_timestamp, set_block_timestamp
+from random import randint
 from pprint import pprint as pp
 from typing import Tuple
-from random import randrange
+
+from signers import MockSigner
+from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
+from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
+
+from utils import *
+from nile.signer import Signer
 
 TRUE = 1
 FALSE = 0
@@ -98,15 +95,6 @@ def sign_participation(user_address, amount, contract_address, signer: Signer):
     )
 
     return generate_signature(digest, signer)
-
-
-@pytest_asyncio.fixture(scope="module")
-async def get_starknet():
-    starknet = await Starknet.empty()
-    set_block_timestamp(
-        starknet.state, int(datetime.today().timestamp())
-    )  # time.time()
-    return starknet
 
 
 @pytest.fixture(scope="module")

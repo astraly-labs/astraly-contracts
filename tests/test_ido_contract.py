@@ -1,16 +1,21 @@
 import pytest
 import pytest_asyncio
-
-from signers import MockSigner
 from random import randint
-from utils import *
-from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
-from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
-
 from datetime import datetime, timedelta
-from utils import get_block_timestamp, set_block_timestamp
 from pprint import pprint as pp
 from typing import Tuple
+
+from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
+from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
+from starkware.starknet.testing.starknet import Starknet
+from starkware.starknet.testing.contract import DeclaredClass
+from starkware.starknet.testing.state import StarknetState
+from starkware.starknet.compiler.compile import ContractClass
+
+from signers import MockSigner
+from nile.signer import Signer
+from utils import *
+
 
 TRUE = 1
 FALSE = 0
@@ -98,17 +103,8 @@ def sign_participation(user_address, amount, contract_address, signer: Signer):
     return generate_signature(digest, signer)
 
 
-@pytest_asyncio.fixture(scope="module")
-async def get_starknet():
-    starknet = await Starknet.empty()
-    set_block_timestamp(
-        starknet.state, int(datetime.today().timestamp())
-    )  # time.time()
-    return starknet
-
-
 @pytest.fixture(scope="module")
-def contract_defs():
+def contract_defs() -> Tuple[ContractClass, ...]:
     account_def = get_contract_def(account_path)
     zk_pad_ido_factory_def = get_contract_def(ido_factory_path)
     rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
@@ -125,7 +121,7 @@ def contract_defs():
 
 
 @pytest_asyncio.fixture(scope="module")
-async def contracts_init(contract_defs, get_starknet):
+async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet: Starknet) -> Tuple[StarknetContract, ...]:
     starknet = get_starknet
     (
         account_def,
@@ -166,14 +162,19 @@ async def contracts_init(contract_defs, get_starknet):
         constructor_calldata=[RND_NBR_GEN_SEED],
     )
 
-    ido_class = await starknet.declare(contract_class=zk_pad_ido_def)
+    ido_class: DeclaredClass = await starknet.declare(contract_class=zk_pad_ido_def)
     await starknet.declare(contract_class=zk_pad_ido_factory_def)
     zk_pad_ido_factory = await starknet.deploy(
         contract_class=zk_pad_ido_factory_def,
-        constructor_calldata=[ido_class.class_hash,
-                              deployer_account.contract_address],
+        constructor_calldata=[deployer_account.contract_address],
     )
 
+    await deployer.send_transaction(
+        deployer_account,
+        zk_pad_ido_factory.contract_address,
+        "set_ido_contract_class_hash",
+        [ido_class.class_hash],
+    )
     await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
@@ -245,7 +246,17 @@ async def contracts_init(contract_defs, get_starknet):
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contracts_init, get_starknet):
+def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> Tuple[StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetContract,
+                                                                                      StarknetState]:
     (
         account_def,
         zk_pad_ido_factory_def,
@@ -265,7 +276,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet):
         ido,
         erc20_eth_token,
     ) = contracts_init
-    _state = get_starknet.state.copy()
+    _state: StarknetState = get_starknet.state.copy()
     deployer_cached = cached_contract(_state, account_def, deployer_account)
     admin1_cached = cached_contract(_state, account_def, admin1_account)
     staking_cached = cached_contract(_state, account_def, staking_account)
@@ -442,7 +453,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "sale_created",
+        "SaleCreated",
         data=[
             owner.contract_address,
             *to_uint(100),
@@ -496,7 +507,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "registration_time_set",
+        "RegistrationTimeSet",
         data=[int(reg_start.timestamp()), int(reg_end.timestamp())],
     )
 
@@ -517,7 +528,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "purchase_round_set",
+        "PurchaseRoundSet",
         data=[
             int(purchase_round_start.timestamp()),
             int(purchase_round_end.timestamp()),
@@ -909,13 +920,13 @@ async def test_registration_works(contracts_factory, setup_sale):
         [randint(1, 9999999999999999999)],
     )
 
-    tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+    tx: TransactionExecutionInfo = await sale_participant.send_transaction(
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
     assert_event_emitted(
-        tx, ido.contract_address, "user_registered", [
+        tx, ido.contract_address, "UserRegistered", [
             participant.contract_address]
     )
 
@@ -950,9 +961,9 @@ async def test_registration_works(contracts_factory, setup_sale):
     print(winners_arr)
     winners_arr.sort()
     for winner in set(winners_arr):
-        is_winner = (await ido.isWinner(winner).call()).result.res
+        is_winner = (await ido.is_winner(winner).call()).result.res
         assert is_winner == 1
-        allocation = from_uint((await ido.getAllocation(winner).call()).result.res)
+        allocation = from_uint((await ido.get_allocation(winner).call()).result.res)
         assert allocation == winners_arr.count(
             winner) * from_uint(BASE_ALLOCATION)
 
@@ -993,10 +1004,10 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyIDOContract::registerUser Registration window is closed",
+        reverted_with="AstralyIDOContract::register_user Registration window is closed",
     )
     # Go to BEFORE registration round start
     set_block_timestamp(starknet_state, int(
@@ -1006,10 +1017,10 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyIDOContract::registerUser Registration window is closed",
+        reverted_with="AstralyIDOContract::register_user Registration window is closed",
     )
 
 
@@ -1050,10 +1061,10 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyIDOContract::registerUser invalid signature",
+        reverted_with="AstralyIDOContract::register_user invalid signature",
     )
 
 
@@ -1091,7 +1102,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1099,10 +1110,10 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyIDOContract::registerUser user already registered",
+        reverted_with="AstralyIDOContract::register_user user already registered",
     )
 
 
@@ -1140,7 +1151,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1177,7 +1188,7 @@ async def test_participation_works(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_sold",
+        "TokensSold",
         [participant.contract_address, *to_uint(2 * 10**18)],
         order=2,
     )
@@ -1228,13 +1239,13 @@ async def test_participation_double(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
-        "registerUser",
+        "register_user",
         [len(sig2), *sig2, sig_exp],
     )
 
@@ -1293,7 +1304,7 @@ async def test_participation_double(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_sold",
+        "TokensSold",
         [participant_2.contract_address, *to_uint(2 * 10**18)],
         order=2,
     )
@@ -1345,7 +1356,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1415,7 +1426,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1492,7 +1503,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1569,7 +1580,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
         (day + timeDeltaOneDay).timestamp()))
 
     # Omit registration
-    # tx = await sale_participant.send_transaction(participant, ido.contract_address, 'registerUser', [len(sig), *sig, sig_exp])
+    # tx = await sale_participant.send_transaction(participant, ido.contract_address, 'register_user', [len(sig), *sig, sig_exp])
 
     # Go to purchase round start
     set_block_timestamp(starknet_state, int(
@@ -1635,7 +1646,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1697,7 +1708,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1775,7 +1786,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1841,7 +1852,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_withdrawn",
+        "TokensWithdrawn",
         [participant.contract_address, *to_uint(2 * 10**17)],
         order=1,
     )
@@ -1865,7 +1876,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_withdrawn",
+        "TokensWithdrawn",
         [participant.contract_address, *to_uint(18 * 10**17)],
         order=1,
     )
@@ -1938,7 +1949,7 @@ async def test_select_winners(contracts_factory):
 
     winners = []
     for i in range(0, len(users_registrations_arr), 2):
-        res = await ido.getAllocation(users_registrations_arr[i]).call()
+        res = await ido.get_allocation(users_registrations_arr[i]).call()
         if res.result.res > 0:
             winners.append((res.result.res, users_registrations_arr[i]))
 
@@ -2032,7 +2043,7 @@ async def test_select_winners_multicall(contracts_factory):
 
     winners = []
     for i in range(0, len(users_registrations_arr), 2):
-        res = await ido.getAllocation(users_registrations_arr[i]).call()
+        res = await ido.get_allocation(users_registrations_arr[i]).call()
         if res.result.res > 0:
             winners.append((res.result.res, users_registrations_arr[i]))
 
