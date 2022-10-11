@@ -111,23 +111,22 @@ send_declare_contract_transaction() {
     echo $contract_class_hash
 }
 set_vesting_params(){
-    _unlocking_times=1
-    _percents_lo_0=1
-    _percent_hi_0=0
-    _percent_lo_1=1
-    _percent_hi_1=1
-    _max_vesting_time_shift=1
+    VESTING_PERCENTAGES_LEN=4
+    VESTING_PERCENTAGES="100 0 200 0 300 0 400 0"
+    VESTING_TIMES_UNLOCKED_LEN=4
+    VESTING_TIMES_UNLOCKED="1656345600 1656518400 1656691200 1656864000"
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_vesting_params --inputs $_unlocking_times $_percents_lo_0 $_percents_hi_0 $_percents_lo_1 $_percents_hi_1 $_max_vesting_time_shift"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_vesting_params --inputs ${VESTING_TIMES_UNLOCKED_LEN} ${VESTING_TIMES_UNLOCKED} ${VESTING_PERCENTAGES_LEN} ${VESTING_PERCENTAGES}"` || exit_error  
 }
 
 set_registration_time(){
-    _registration_time_starts=1
-    _registration_time_ends=1
+    day=1655481600 # LAUNCH TIMESTAMP
+    REGISTRATION_START=$((day + (4 * 24 * 60 * 60))) # 4 day after
+    REGISTRATION_END=$((day + (6 * 24 * 60 * 60))) # 6 days after
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_registration_time --inputs $_registration_time_starts $_registration_time_ends"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_registration_time --inputs ${REGISTRATION_START} ${REGISTRATION_END}"` || exit_error  
 }
 
 set_purchase_round_params(){

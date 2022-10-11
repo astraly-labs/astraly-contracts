@@ -25,7 +25,7 @@ from contracts.IDO.ido_library import (
     Registration,
     TokensWithdrawn,
 )
-from contracts.utils.Uint256_felt_conv import _uint_to_felt
+from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
 from contracts.utils import is_lt
 from InterfaceAll import IAstralyIDOFactory, IXoroshiro, IERC721
 
@@ -95,27 +95,10 @@ func get_registration{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 @view
 func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     address: felt
-) -> (res: felt) {
+) -> (res: Uint256) {
     let count: felt = IDO.get_allocation(address);
-    return (res=count);
-}
-
-@view
-func is_winner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(address: felt) -> (
-    res: felt
-) {
-    with_attr error_message("AstralyINOContract::isWinner Registration window not closed") {
-        let (the_reg) = get_registration();
-        let (block_timestamp) = get_block_timestamp();
-        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
-    }
-
-    let count: felt = IDO.get_allocation(address);
-    if (count == 0) {
-        return (res=FALSE);
-    }
-
-    return (res=TRUE);
+    let (ucount) = _felt_to_uint(count);
+    return (res=ucount);
 }
 
 //############################################
@@ -183,8 +166,10 @@ func register_user{
 @external
 func participate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(amount_paid: Uint256, test: Uint256, sig_len: felt, sig: felt*) {
-    IDO.participate(amount_paid, test, sig_len, sig);
+}(amount_paid: Uint256) {
+    let (account: felt) = get_caller_address();
+    let (amount) = get_allocation(account);
+    IDO.participate(account, amount_paid, amount);
     return ();
 }
 

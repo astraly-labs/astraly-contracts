@@ -42,11 +42,6 @@ func portion_vesting_precision() -> (res: Uint256) {
 func number_of_vesting_portions() -> (res: felt) {
 }
 
-// Max vesting time shift
-@storage_var
-func max_vesting_time_shift() -> (res: felt) {
-}
-
 // Times when portions are getting unlocked
 @storage_var
 func vesting_portions_unlock_time_array(i: felt) -> (res: felt) {
@@ -129,23 +124,6 @@ func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 }
 
 @view
-func is_winner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(address: felt) -> (
-    res: felt
-) {
-    with_attr error_message("AstralyINOContract::isWinner Registration window not closed") {
-        let (the_reg) = get_registration();
-        let (block_timestamp) = get_block_timestamp();
-        assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
-    }
-
-    let count: felt = IDO.get_allocation(address);
-    if (count == 0) {
-        return (res=FALSE);
-    }
-
-    return (res=TRUE);
-}
-@view
 func get_vesting_portion_percent{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     portion_id: felt
 ) -> (res: Uint256) {
@@ -172,27 +150,17 @@ func get_number_of_vesting_portions{
 
 @external
 func set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    _unlocking_times_len: felt,
-    _unlocking_times: felt*,
-    _percents_len: felt,
-    _percents: Uint256*,
-    _max_vesting_time_shift: felt,
+    _unlocking_times_len: felt, _unlocking_times: felt*, _percents_len: felt, _percents: Uint256*
 ) {
     AstralyAccessControl.assert_only_owner();
 
-    _set_vesting_params(
-        _unlocking_times_len, _unlocking_times, _percents_len, _percents, _max_vesting_time_shift
-    );
+    _set_vesting_params(_unlocking_times_len, _unlocking_times, _percents_len, _percents);
 
     return ();
 }
 
 func _set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    _unlocking_times_len: felt,
-    _unlocking_times: felt*,
-    _percents_len: felt,
-    _percents: Uint256*,
-    _max_vesting_time_shift: felt,
+    _unlocking_times_len: felt, _unlocking_times: felt*, _percents_len: felt, _percents: Uint256*
 ) {
     alloc_locals;
 
@@ -215,12 +183,6 @@ func _set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
         assert percision_check = TRUE;
     }
 
-    with_attr error_message(
-            "AstralyIDOContract::set_vesting_params max vesting time shift more than 30 days") {
-        assert_le_felt(_max_vesting_time_shift, DAYS_30);
-    }
-
-    max_vesting_time_shift.write(_max_vesting_time_shift);
     number_of_vesting_portions.write(_percents_len);
 
     let percent_sum = Uint256(0, 0);
@@ -365,8 +327,11 @@ func register_user{
 @external
 func participate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
-}(amount_paid: Uint256, test: Uint256, sig_len: felt, sig: felt*) {
-    IDO.participate(amount_paid, test, sig_len, sig);
+}(amount_paid: Uint256) {
+    alloc_locals;
+    let (account: felt) = get_caller_address();
+    let (amount) = get_allocation(account);
+    IDO.participate(account, amount_paid, amount);
     return ();
 }
 
@@ -509,9 +474,7 @@ func withdraw_multiple_portions_rec{
         _address_caller=_address_caller,
     );
 
-    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(
-        current_portion
-    );
+    let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(current_portion);
     with_attr error_message(
             "AstralyIDOContract::withdraw_multiple_portions_rec invalid portion vesting unlock time") {
         assert_not_zero(vesting_portions_unlock_time);

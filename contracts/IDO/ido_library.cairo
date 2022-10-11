@@ -489,14 +489,10 @@ namespace IDO {
         return ();
     }
 
-    func participate{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-        ecdsa_ptr: SignatureBuiltin*,
-    }(amount_paid: Uint256, test: Uint256, sig_len: felt, sig: felt*) {
+    func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        account: felt, amount_paid: Uint256, amount: Uint256
+    ) {
         alloc_locals;
-        let (account: felt) = get_caller_address();
         let (the_round) = IDO_purchase_round.read();
         let (block_timestamp) = get_block_timestamp();
 
@@ -514,10 +510,8 @@ namespace IDO {
         with_attr error_message("AstralyIDOContract::participate no allocation") {
             assert_lt_felt(0, allocation);
         }
-        // let (allocation_uint) = _felt_to_uint(allocation);
-        // let (amount) = SafeUint256.mul(allocation_uint, smth?);
-        // TODO: compute allocation amount
-        _participate(account, amount_paid, the_round.max_participation, block_timestamp, the_round);
+
+        _participate(account, amount_paid, amount, block_timestamp, the_round);
         return ();
     }
 
