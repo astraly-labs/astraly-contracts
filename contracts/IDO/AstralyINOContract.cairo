@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
-from starkware.cairo.common.math import assert_lt_felt
+from starkware.cairo.common.math import assert_lt_felt, assert_not_zero
 from starkware.cairo.common.pow import pow
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import FALSE, TRUE
@@ -167,9 +167,26 @@ func register_user{
 func participate{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, ecdsa_ptr: SignatureBuiltin*
 }(amount_paid: Uint256) {
+    alloc_locals;
     let (account: felt) = get_caller_address();
+    let (address_this: felt) = get_contract_address();
     let (amount) = get_allocation(account);
-    IDO.participate(account, amount_paid, amount);
+    let pmt_token_addr = IDO.get_pmt_token_addr();
+    with_attr error_message("participate::Payment token address not set") {
+        assert_not_zero(pmt_token_addr);
+    }
+
+    let (the_sale: Sale) = get_current_sale();
+    let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price);
+    IDO.participate(account, amount_paid, amount, number_of_tokens_buying_mod);
+
+    let (pmt_amount) = SafeUint256.mul(number_of_tokens_buying_mod, the_sale.token_price);
+    let (pmt_success: felt) = IERC20.transferFrom(
+        pmt_token_addr, account, address_this, pmt_amount
+    );
+    with_attr error_message("AstralyINOContract::participate Participation payment failed") {
+        assert pmt_success = TRUE;
+    }
     return ();
 }
 

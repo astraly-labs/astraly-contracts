@@ -1074,7 +1074,7 @@ async def test_participation_works(contracts_factory, setup_sale):
     tx = await ido.get_user_info(participant.contract_address).call()
     pp(tx.result)
 
-    assert tx.result.has_participated == True
+    assert tx.result.has_participated is True
     assert tx.result.participation.amount_bought == to_uint(2)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 

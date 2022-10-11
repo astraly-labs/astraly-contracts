@@ -26,7 +26,6 @@ from contracts.IDO.ido_library import (
     Registration,
     TokensWithdrawn,
 )
-
 const SALE_OWNER_ROLE = 'SALE_OWNER';
 
 @storage_var
@@ -164,8 +163,7 @@ func _set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 ) {
     alloc_locals;
 
-    with_attr error_message(
-            "set_vesting_params::Unlocking times array length 0") {
+    with_attr error_message("set_vesting_params::Unlocking times array length 0") {
         assert_not_zero(_unlocking_times_len);
     }
     with_attr error_message("set_vesting_params::Percents array length 0") {
@@ -177,8 +175,7 @@ func _set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     }
 
     let (local _portion_vesting_precision: Uint256) = portion_vesting_precision.read();
-    with_attr error_message(
-            "set_vesting_params::Portion vesting precision is zero") {
+    with_attr error_message("set_vesting_params::Portion vesting precision is zero") {
         let (percision_check: felt) = uint256_lt(Uint256(0, 0), _portion_vesting_precision);
         assert percision_check = TRUE;
     }
@@ -196,8 +193,7 @@ func _set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let (percent_sum) = array_sum(_percents, _percents_len);
     let (percent_sum_check) = uint256_eq(percent_sum, _portion_vesting_precision);
 
-    with_attr error_message(
-            "set_vesting_params::Vesting percentages do not add up") {
+    with_attr error_message("set_vesting_params::Vesting percentages do not add up") {
         assert percent_sum_check = TRUE;
     }
 
@@ -261,8 +257,7 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 ) {
     AstralyAccessControl.assert_only_owner();
 
-    with_attr error_message(
-            "set_sale_params::Portion vesting percision should be at least 100") {
+    with_attr error_message("set_sale_params::Portion vesting percision should be at least 100") {
         let (vesting_precision_check: felt) = uint256_le(
             Uint256(100, 0), _portion_vesting_precision
         );
@@ -330,8 +325,28 @@ func participate{
 }(amount_paid: Uint256) {
     alloc_locals;
     let (account: felt) = get_caller_address();
+    let (address_this: felt) = get_contract_address();
     let (amount) = get_allocation(account);
-    IDO.participate(account, amount_paid, amount);
+
+    let pmt_token_addr = IDO.get_pmt_token_addr();
+    with_attr error_message("participate::Payment token address not set") {
+        assert_not_zero(pmt_token_addr);
+    }
+    let (the_sale: Sale) = get_current_sale();
+    let (decimals) = IERC20.decimals(pmt_token_addr);
+    let (local power) = pow(10, decimals);
+    let (number_of_tokens_buying: Uint256) = SafeUint256.mul(amount_paid, Uint256(power, 0));
+    let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(
+        number_of_tokens_buying, the_sale.token_price
+    );
+    IDO.participate(account, amount_paid, amount, number_of_tokens_buying_mod);
+
+    let (pmt_success: felt) = IERC20.transferFrom(
+        pmt_token_addr, account, address_this, amount_paid
+    );
+    with_attr error_message("participate::Participation payment failed") {
+        assert pmt_success = TRUE;
+    }
     return ();
 }
 
@@ -348,13 +363,11 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     alloc_locals;
     let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(portion_id);
 
-    with_attr error_message(
-            "withdraw_tokens::Invalid portion vesting unlock time") {
+    with_attr error_message("withdraw_tokens::Invalid portion vesting unlock time") {
         assert_not_zero(vesting_portions_unlock_time);
     }
 
-    with_attr error_message(
-            "withdraw_tokens::Portion has not been unlocked yet") {
+    with_attr error_message("withdraw_tokens::Portion has not been unlocked yet") {
         let (block_timestamp) = get_block_timestamp();
         assert_le_felt(vesting_portions_unlock_time, block_timestamp);
     }
@@ -430,8 +443,7 @@ func _withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
         let (token_transfer_success: felt) = IERC20.transfer(
             token_address, address_caller, amt_withdrawn_sum
         );
-        with_attr error_message(
-                "withdraw_multiple_portions::Token transfer failed") {
+        with_attr error_message("withdraw_multiple_portions::Token transfer failed") {
             assert token_transfer_success = TRUE;
         }
 
@@ -455,8 +467,7 @@ func withdraw_multiple_portions_rec{
 
     let current_portion = _portion_ids[0];
     let participation = IDO.get_user_participation(_address_caller);
-    with_attr error_message(
-            "withdraw_multiple_portions_rec::Invalid portion Id") {
+    with_attr error_message("withdraw_multiple_portions_rec::Invalid portion Id") {
         assert_lt_felt(participation.last_portion_withdrawn, current_portion);
     }
     let participation_upd = Participation(
@@ -475,18 +486,15 @@ func withdraw_multiple_portions_rec{
     );
 
     let (vesting_portions_unlock_time) = vesting_portions_unlock_time_array.read(current_portion);
-    with_attr error_message(
-            "withdraw_multiple_portions_rec::Invalid portion vesting unlock time") {
+    with_attr error_message("withdraw_multiple_portions_rec::Invalid portion vesting unlock time") {
         assert_not_zero(vesting_portions_unlock_time);
     }
-    with_attr error_message(
-            "withdraw_multiple_portions_rec::Portion has not been unlocked yet") {
+    with_attr error_message("withdraw_multiple_portions_rec::Portion has not been unlocked yet") {
         assert_le_felt(vesting_portions_unlock_time, _block_timestamp);
     }
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(current_portion);
-    with_attr error_message(
-            "withdraw_multiple_portions_rec::Invalid vestion portion percent") {
+    with_attr error_message("withdraw_multiple_portions_rec::Invalid vestion portion percent") {
         uint256_lt(Uint256(0, 0), vesting_portion_percent);
     }
 

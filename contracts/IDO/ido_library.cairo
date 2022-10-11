@@ -222,6 +222,20 @@ namespace IDO {
         return IDO_sale.read();
     }
 
+    func get_ido_factory_contract_address{
+        syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
+    }() -> felt {
+        let (res: felt) = IDO_ido_factory_contract_address.read();
+        return (res);
+    }
+
+    func get_pmt_token_addr{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        ) -> felt {
+        let factory_address: felt = get_ido_factory_contract_address();
+        let (pmt_token_addr: felt) = IAstralyIDOFactory.get_payment_token_address(factory_address);
+        return (pmt_token_addr);
+    }
+
     func get_user_info{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         account: felt
     ) -> (
@@ -486,7 +500,7 @@ namespace IDO {
     }
 
     func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        account: felt, amount_paid: Uint256, amount: Uint256
+        account: felt, amount_paid: Uint256, amount: Uint256, number_of_tokens_buying_mod: Uint256
     ) {
         alloc_locals;
         let (the_round) = IDO_purchase_round.read();
@@ -503,7 +517,9 @@ namespace IDO {
             assert_lt_felt(0, allocation);
         }
 
-        _participate(account, amount_paid, amount, block_timestamp, the_round);
+        _participate(
+            account, amount_paid, amount, block_timestamp, the_round, number_of_tokens_buying_mod
+        );
         return ();
     }
 
@@ -513,6 +529,7 @@ namespace IDO {
         amount: Uint256,
         block_timestamp: felt,
         the_round: PurchaseRound,
+        number_of_tokens_buying_mod: Uint256,
     ) {
         alloc_locals;
         let (address_this: felt) = get_contract_address();
@@ -542,21 +559,6 @@ namespace IDO {
             let (token_price_check: felt) = uint256_lt(Uint256(0, 0), the_sale.token_price);
             assert token_price_check = TRUE;
         }
-
-        let (factory_address) = IDO_ido_factory_contract_address.read();
-        let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
-            contract_address=factory_address
-        );
-        with_attr error_message("participate::Payment token address not set") {
-            assert_not_zero(pmt_token_addr);
-        }
-
-        let (decimals) = IERC20.decimals(pmt_token_addr);
-        let (local power) = pow(10, decimals);
-        let (number_of_tokens_buying: Uint256) = SafeUint256.mul(amount_paid, Uint256(power, 0));
-        let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(
-            number_of_tokens_buying, the_sale.token_price
-        );
 
         // Must buy more than 0 tokens
         with_attr error_message("participate::Can't buy 0 tokens") {
@@ -620,12 +622,6 @@ namespace IDO {
         );
         set_user_participation(account, new_purchase);
 
-        let (pmt_success: felt) = IERC20.transferFrom(
-            pmt_token_addr, account, address_this, amount_paid
-        );
-        with_attr error_message("participate::Participation payment failed") {
-            assert pmt_success = TRUE;
-        }
         TokensSold.emit(user_address=account, amount=number_of_tokens_buying_mod);
         return ();
     }

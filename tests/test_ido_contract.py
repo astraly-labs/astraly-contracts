@@ -327,7 +327,7 @@ async def setup_sale(contracts_factory):
         admin_user,
         ido.contract_address,
         "set_vesting_params",
-        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES), 0],
+        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES)],
     )
 
     # SET REGISTRATION ROUND PARAMS
@@ -434,7 +434,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         admin_user,
         ido.contract_address,
         "set_vesting_params",
-        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES), 0],
+        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES)],
     )
 
     number_of_portions = await ido.get_number_of_vesting_portions().call()
