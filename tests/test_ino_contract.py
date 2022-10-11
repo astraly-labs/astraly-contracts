@@ -40,41 +40,9 @@ PARTICIPATION_VALUE = to_uint(200 * 10**18)
 TOKEN_PRICE = to_uint(100 * 10**18)
 TOKENS_TO_SELL = to_uint(50)
 
-BATCH_SIZE = 1  # ONLY ONE USER IS REGISTERED FOR MOST TESTS
-
-# function generateSignature(digest, privateKey) {
-# // prefix with "\x19Ethereum Signed Message:\n32"
-# // Reference: https: // github.com/OpenZeppelin/openzeppelin-contracts/issues/890
-# const prefixedHash = ethUtil.hashPersonalMessage(ethUtil.toBuffer(digest));
-
-# // sign message
-# const {v, r, s} = ethUtil.ecsign(prefixedHash, Buffer.from (privateKey, 'hex'))
-
-# // generate signature by concatenating r(32), s(32), v(1) in this order
-# // Reference: https: // github.com/OpenZeppelin/openzeppelin-contracts/blob/76fe1548aee183dfcc395364f0745fe153a56141/contracts/ECRecovery.sol  # L39-L43
-# const vb = Buffer.from ([v]);
-# const signature = Buffer.concat([r, s, vb]);
-
-# return signature; }
-
 
 def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
-    # signer = Signer(pk)
-
     return signer.sign(message_hash=digest)
-
-
-#   function signRegistration(signatureExpirationTimestamp, userAddress, roundId, contractAddress, privateKey) {
-#     // compute keccak256(abi.encodePacked(user, roundId, address(this)))
-#     const digest = ethers.utils.keccak256(
-#       ethers.utils.solidityPack(
-#         ['uint256', 'address', 'uint256', 'address'],
-#         [signatureExpirationTimestamp, userAddress, roundId, contractAddress]
-#       )
-#     );
-
-#     return generateSignature(digest, privateKey);
-#   }
 
 
 def sign_registration(
@@ -516,7 +484,7 @@ async def test_only_admin_can_setup_sale(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AccessControl: caller is missing role",
+        reverted_with="AccessControl::Caller is missing role",
     )
 
 
@@ -572,7 +540,7 @@ async def test_can_only_create_sale_once(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        "AstralyINOContract::set_sale_params Sale is already created",
+        "set_sale_params::Sale is already created",
     )
 
 
@@ -614,7 +582,7 @@ async def test_fail_setup_sale_zero_address(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params Sale owner address can not be 0",
+        reverted_with="set_sale_params::Sale owner address can not be 0",
     )
 
 
@@ -656,7 +624,7 @@ async def test_fail_setup_token_zero_address(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params Token address can not be 0",
+        reverted_with="set_sale_params::Token address can not be 0",
     )
 
 
@@ -698,7 +666,7 @@ async def test_fail_setup_token_price_zero(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params IDO Token price must be greater than zero",
+        reverted_with="set_sale_params::IDO Token price must be greater than zero",
     )
 
 
@@ -740,7 +708,7 @@ async def test_fail_setup_tokens_sold_zero(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params Number of IDO Tokens to sell must be greater than zero",
+        reverted_with="set_sale_params::Number of IDO Tokens to sell must be greater than zero",
     )
 
 
@@ -782,7 +750,7 @@ async def test_fail_setup_bad_timestamps(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params Sale end time in the past",
+        reverted_with="set_sale_params::Sale end time in the past",
     )
 
     sale_end = day + timeDelta90days
@@ -802,7 +770,7 @@ async def test_fail_setup_bad_timestamps(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AstralyINOContract::set_sale_params Tokens unlock time in the past",
+        reverted_with="set_sale_params::Tokens unlock time in the past",
     )
 
 
@@ -938,7 +906,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
             "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyINOContract::register_user Registration window is closed",
+        reverted_with="register_user::Registration window is closed",
     )
     # Go to BEFORE registration round start
     set_block_timestamp(starknet_state, int(
@@ -951,7 +919,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
             "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyINOContract::register_user Registration window is closed",
+        reverted_with="register_user::Registration window is closed",
     )
 
 
@@ -996,7 +964,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
             "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyINOContract::register_user invalid signature",
+        reverted_with="register_user::Invalid signature",
     )
 
 
@@ -1046,7 +1014,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
             "register_user",
             [len(sig), *sig, sig_exp],
         ),
-        reverted_with="AstralyINOContract::register_user user already registered",
+        reverted_with="register_user::User already registered",
     )
 
 
@@ -1099,13 +1067,6 @@ async def test_participation_works(contracts_factory, setup_sale):
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1194,13 +1155,6 @@ async def test_participation_double(contracts_factory, setup_sale):
         PARTICIPATION_AMOUNT,
         ido.contract_address,
         admin1.signer,
-    )
-
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 1, 2],
     )
 
     await sale_participant.send_transaction(
@@ -1308,12 +1262,6 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     await sale_participant.send_transaction(
         participant,
@@ -1329,7 +1277,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
             [*PARTICIPATION_VALUE, *
                 INVALID_PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate Crossing max participation",
+        reverted_with="participate::Crossing max participation",
     )
 
 
@@ -1377,12 +1325,6 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     await sale_participant.send_transaction(
         participant,
@@ -1406,7 +1348,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
             "participate",
             [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate user participated",
+        reverted_with="participate::User participated",
     )
 
 
@@ -1451,12 +1393,6 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         ido.contract_address,
         admin1.signer,
     )
-    # await admin1.send_transaction(
-    #     admin_user,
-    #     ido.contract_address,
-    #     "selectWinners",
-    #     [0, 0, BATCH_SIZE],
-    # )
 
     await sale_participant.send_transaction(
         participant,
@@ -1471,7 +1407,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
             "participate",
             [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate Purchase round has not started yet",
+        reverted_with="participate::Purchase round has not started yet",
     )
 
     # Go to purchase round after end
@@ -1485,7 +1421,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
             "participate",
             [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate Purchase round is over",
+        reverted_with="participate::Purchase round is over",
     )
 
 
@@ -1531,12 +1467,6 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
         ido.contract_address,
         admin1.signer,
     )
-    # await admin1.send_transaction(
-    #     admin_user,
-    #     ido.contract_address,
-    #     "selectWinners",
-    #     [0, 0, BATCH_SIZE],
-    # )
 
     await sale_participant.send_transaction(
         participant,
@@ -1552,7 +1482,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
             "participate",
             [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate no allocation",
+        reverted_with="participate::No allocation",
     )
 
 
@@ -1600,12 +1530,6 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     # await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
     await assert_revert(
@@ -1615,7 +1539,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
             "participate",
             [*to_uint(0), *PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate Can't buy 0 tokens",
+        reverted_with="participate::Can't buy 0 tokens",
     )
 
 
@@ -1663,12 +1587,6 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     # 50_005 / 100 = 500,05 > PARTICIPATION_AMOUNT
     INVALID_PARTICIPATION_VALUE = to_uint(50005 * 10**18)
@@ -1687,7 +1605,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
             [*INVALID_PARTICIPATION_VALUE, *
                 PARTICIPATION_AMOUNT, len(sig), *sig],
         ),
-        reverted_with="AstralyINOContract::participate Exceeding allowance",
+        reverted_with="participate::Exceeding allowance",
     )
 
 
@@ -1742,12 +1660,6 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     await sale_participant.send_transaction(
         participant,
@@ -1766,7 +1678,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant, ido.contract_address, "withdraw_tokens", []
         ),
-        reverted_with="AstralyINOContract::withdraw_tokens Tokens can not be withdrawn yet",
+        reverted_with="withdraw_tokens::Tokens can not be withdrawn yet",
     )
 
     # Go to distribution round start
@@ -1799,68 +1711,3 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
 #############
 # WINNER SELECTION
 #############
-
-
-@pytest.mark.asyncio
-async def test_select_winners(contracts_factory):
-    (
-        deployer_account,
-        admin_user,
-        stakin_contract,
-        owner,
-        participant,
-        participant_2,
-        rnd_nbr_gen,
-        ido_factory,
-        ido,
-        erc20_eth_token,
-        erc721_token,
-        starknet_state,
-    ) = contracts_factory
-
-    users_registrations_arr = list()
-    users_registrations_arr += [participant.contract_address, 2]
-    users_registrations_arr += [participant_2.contract_address, 3]
-
-    for x in range(150):
-        a = [randint(1, 1000000), randint(1, 50)]
-        users_registrations_arr += a
-
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_user_registration_mock",
-        [
-            len(users_registrations_arr) // 2,  # size of the struct
-            *users_registrations_arr,
-        ],
-    )
-
-    # SELECT A BATCH OF WINNERS AMONG THE ARRAY
-    tx: TransactionExecutionInfo = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, (len(users_registrations_arr) // 2) - 1, BATCH_SIZE],
-    )
-
-    # res = await ido.selectWinners(
-    #     0, len(users_registrations_arr) // 2 - 1, BATCH_SIZE
-    # ).call()
-
-    # winners = [
-    #     (
-    #         address,
-    #         users_registrations_arr[users_registrations_arr.index(address) + 1],
-    #     )
-    #     for address in res.result.winners_array
-    # ]
-    # print(winners)
-
-    winners = []
-    for i in range(0, len(users_registrations_arr), 2):
-        res = await ido.get_allocation(users_registrations_arr[i]).call()
-        if res.result.res > 0:
-            winners.append((res.result.res, users_registrations_arr[i]))
-
-    assert len(winners) == BATCH_SIZE

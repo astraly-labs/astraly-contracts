@@ -47,12 +47,12 @@ func register_users_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 }
 
 @view
-func getWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+func get_winners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
     arr_len: felt, arr: felt*
 ) {
     alloc_locals;
 
-    with_attr error_message("AstralyINOContract::getWinners Registration window not closed") {
+    with_attr error_message("get_winners::Registration window not closed") {
         let (the_reg) = get_registration();
         let (block_timestamp) = get_block_timestamp();
         assert_lt_felt(the_reg.registration_time_ends, block_timestamp);

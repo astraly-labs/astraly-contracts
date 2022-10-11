@@ -270,7 +270,7 @@ namespace IDO {
         address: felt
     ) -> felt {
         with_attr error_message(
-                "AstralyINOContract::get_allocation Registration window not closed") {
+                "get_allocation::Registration window not closed") {
             let (the_reg) = IDO_registration.read();
             let (block_timestamp) = get_block_timestamp();
             assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
@@ -328,25 +328,25 @@ namespace IDO {
     ) {
         let (the_reg) = get_registration();
         let (the_purchase) = get_purchase_round();
-        with_attr error_message("AstralyIDOContract::set_purchase_round_params Bad input") {
+        with_attr error_message("set_purchase_round_params::Bad input") {
             assert_not_zero(_purchase_time_starts);
             assert_not_zero(_purchase_time_ends);
         }
         with_attr error_message(
-                "AstralyIDOContract::set_purchase_round_params end time must be after start end") {
+                "set_purchase_round_params::End time must be after start end") {
             assert_lt_felt(_purchase_time_starts, _purchase_time_ends);
         }
-        with_attr error_message("AstralyIDOContract::max_participation must be non-null") {
+        with_attr error_message("set_purchase_round_params::Must be non-null") {
             let (participation_check: felt) = uint256_lt(Uint256(0, 0), max_participation);
             assert participation_check = TRUE;
         }
         with_attr error_message(
-                "AstralyIDOContract::set_purchase_round_params registration time not set yet") {
+                "set_purchase_round_params::Registration time not set yet") {
             assert_not_zero(the_reg.registration_time_starts);
             assert_not_zero(the_reg.registration_time_ends);
         }
         with_attr error_message(
-                "AstralyIDOContract::set_purchase_round_params start time must be after registration end") {
+                "set_purchase_round_params::Start time must be after registration end") {
             assert_lt_felt(the_reg.registration_time_ends, _purchase_time_starts);
         }
         let upd_purchase = PurchaseRound(
@@ -374,31 +374,31 @@ namespace IDO {
         alloc_locals;
         let (the_sale) = get_current_sale();
         let (block_timestamp) = get_block_timestamp();
-        with_attr error_message("AstralyIDOContract::set_sale_params Sale is already created") {
+        with_attr error_message("set_sale_params::Sale is already created") {
             assert the_sale.is_created = FALSE;
         }
         with_attr error_message(
-                "AstralyIDOContract::set_sale_params Sale owner address can not be 0") {
+                "set_sale_params::Sale owner address can not be 0") {
             assert_not_zero(_sale_owner_address);
         }
-        with_attr error_message("AstralyIDOContract::set_sale_params Token address can not be 0") {
+        with_attr error_message("set_sale_params::Token address can not be 0") {
             assert_not_zero(_token_address);
         }
         with_attr error_message(
-                "AstralyIDOContract::set_sale_params IDO Token price must be greater than zero") {
+                "set_sale_params::IDO Token price must be greater than zero") {
             let (token_price_check: felt) = uint256_lt(Uint256(0, 0), _token_price);
             assert token_price_check = TRUE;
         }
         with_attr error_message(
-                "AstralyIDOContract::set_sale_params Number of IDO Tokens to sell must be greater than zero") {
+                "set_sale_params::Number of IDO Tokens to sell must be greater than zero") {
             let (token_to_sell_check: felt) = uint256_lt(Uint256(0, 0), _amount_of_tokens_to_sell);
             assert token_to_sell_check = TRUE;
         }
-        with_attr error_message("AstralyIDOContract::set_sale_params Sale end time in the past") {
+        with_attr error_message("set_sale_params::Sale end time in the past") {
             assert_lt_felt(block_timestamp, _sale_end_time);
         }
         with_attr error_message(
-                "AstralyIDOContract::set_sale_params Tokens unlock time in the past") {
+                "set_sale_params::Tokens unlock time in the past") {
             assert_lt_felt(block_timestamp, _tokens_unlock_time);
         }
 
@@ -460,20 +460,20 @@ namespace IDO {
         let (the_sale) = get_current_sale();
         let (the_reg) = get_registration();
         let (block_timestamp) = get_block_timestamp();
-        with_attr error_message("AstralyIDOContract::set_registration_time Sale not created yet") {
+        with_attr error_message("set_registration_time::Sale not created yet") {
             assert the_sale.is_created = TRUE;
         }
         // with_attr error_message(
-        //         "AstralyIDOContract::set_registration_time the registration start time is already set"):
+        //         "set_registration_time::The registration start time is already set"):
         //     assert the_reg.registration_time_starts = 0
         // end
         with_attr error_message(
-                "AstralyIDOContract::set_registration_time registration start/end times issue") {
+                "set_registration_time::Registration start/end times issue") {
             assert_le_felt(block_timestamp, _registration_time_starts);
             assert_lt_felt(_registration_time_starts, _registration_time_ends);
         }
         with_attr error_message(
-                "AstralyIDOContract::set_registration_time registration end has to be before sale end") {
+                "set_registration_time::Registration end has to be before sale end") {
             assert_lt_felt(_registration_time_ends, the_sale.sale_end);
         }
         let upd_reg = Registration(
@@ -496,18 +496,18 @@ namespace IDO {
         let (the_round) = IDO_purchase_round.read();
         let (block_timestamp) = get_block_timestamp();
 
-        // with_attr error_message("AstralyIDOContract::participate invalid signature") {
+        // with_attr error_message("participate::invalid signature") {
         //     check_participation_signature(sig_len, sig, account, amount);
         // }
         with_attr error_message(
-                "AstralyIDOContract::participate Purchase round has not started yet") {
+                "participate::Purchase round has not started yet") {
             assert_le_felt(the_round.time_starts, block_timestamp);
         }
-        with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
+        with_attr error_message("participate::Purchase round is over") {
             assert_le_felt(block_timestamp, the_round.time_ends);
         }
-        let (allocation) = IDO_participants.read(account);
-        with_attr error_message("AstralyIDOContract::participate no allocation") {
+        let allocation = get_allocation(account);
+        with_attr error_message("participate::No allocation") {
             assert_lt_felt(0, allocation);
         }
 
@@ -526,36 +526,36 @@ namespace IDO {
         let (address_this: felt) = get_contract_address();
 
         // Validations
-        with_attr error_message("AstralyIDOContract::participate Crossing max participation") {
+        with_attr error_message("participate::Crossing max participation") {
             let (amount_check: felt) = uint256_le(amount, the_round.max_participation);
             assert amount_check = TRUE;
         }
-        // with_attr error_message("AstralyIDOContract::participate User not registered") {
+        // with_attr error_message("participate::User not registered") {
         //     let (_is_registered) = is_registered.read(account);
         //     assert _is_registered = TRUE;
         // }
         with_attr error_message(
-                "AstralyIDOContract::participate Purchase round has not started yet") {
+                "participate::Purchase round has not started yet") {
             assert_le_felt(the_round.time_starts, block_timestamp);
         }
-        with_attr error_message("AstralyIDOContract::participate user participated") {
+        with_attr error_message("participate::User participated") {
             let user_participated = have_user_participated(account);
             assert user_participated = FALSE;
         }
-        with_attr error_message("AstralyIDOContract::participate Purchase round is over") {
+        with_attr error_message("participate::Purchase round is over") {
             assert_le_felt(block_timestamp, the_round.time_ends);
         }
 
-        // with_attr error_message("AstralyIDOContract::participate Account address is the zero address") {
+        // with_attr error_message("participate::Account address is the zero address") {
         //     assert_not_zero(account);
         // }
-        // with_attr error_message("AstralyIDOContract::participate Amount paid is zero") {
+        // with_attr error_message("participate::Amount paid is zero") {
         //     let (amount_paid_check: felt) = uint256_lt(Uint256(0, 0), amount_paid);
         //     assert amount_paid_check = TRUE;
         // }
 
         let (the_sale: Sale) = get_current_sale();
-        with_attr error_message("AstralyIDOContract::participate the IDO token price is not set") {
+        with_attr error_message("participate::The IDO token price is not set") {
             let (token_price_check: felt) = uint256_lt(Uint256(0, 0), the_sale.token_price);
             assert token_price_check = TRUE;
         }
@@ -564,7 +564,7 @@ namespace IDO {
         let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(
             contract_address=factory_address
         );
-        with_attr error_message("AstralyIDOContract::participate Payment token address not set") {
+        with_attr error_message("participate::Payment token address not set") {
             assert_not_zero(pmt_token_addr);
         }
 
@@ -576,7 +576,7 @@ namespace IDO {
         );
 
         // Must buy more than 0 tokens
-        with_attr error_message("AstralyIDOContract::participate Can't buy 0 tokens") {
+        with_attr error_message("participate::Can't buy 0 tokens") {
             let (is_tokens_buying_valid: felt) = uint256_lt(
                 Uint256(0, 0), number_of_tokens_buying_mod
             );
@@ -584,13 +584,13 @@ namespace IDO {
         }
 
         // Check user allocation
-        with_attr error_message("AstralyIDOContract::participate Exceeding allowance") {
+        with_attr error_message("participate::Exceeding allowance") {
             let (valid_allocation: felt) = uint256_le(number_of_tokens_buying_mod, amount);
             assert valid_allocation = TRUE;
         }
 
         // Require that amountOfTokensBuying is less than sale token leftover cap
-        with_attr error_message("AstralyIDOContract::participate Not enough tokens to sell") {
+        with_attr error_message("participate::Not enough tokens to sell") {
             let (tokens_left) = SafeUint256.sub_le(
                 the_sale.amount_of_tokens_to_sell, the_sale.total_tokens_sold
             );
@@ -640,7 +640,7 @@ namespace IDO {
         let (pmt_success: felt) = IERC20.transferFrom(
             pmt_token_addr, account, address_this, amount_paid
         );
-        with_attr error_message("AstralyIDOContract::participate Participation payment failed") {
+        with_attr error_message("participate::Participation payment failed") {
             assert pmt_success = TRUE;
         }
         TokensSold.emit(user_address=account, amount=number_of_tokens_buying_mod);
@@ -653,7 +653,7 @@ namespace IDO {
         let (address_this: felt) = get_contract_address();
         let (the_sale) = get_current_sale();
         with_attr error_message(
-                "AstralyIDOContract::deposit_tokens Tokens deposit can be done only once") {
+                "deposit_tokens::Tokens deposit can be done only once") {
             assert the_sale.tokens_deposited = FALSE;
         }
         let upd_sale = Sale(
@@ -678,7 +678,7 @@ namespace IDO {
         let (transfer_success: felt) = IERC20.transferFrom(
             token_address, address_caller, address_this, tokens_to_transfer
         );
-        with_attr error_message("AstralyIDOContract::deposit_tokens token transfer failed") {
+        with_attr error_message("deposit_tokens::Token transfer failed") {
             assert transfer_success = TRUE;
         }
         return ();
@@ -694,16 +694,16 @@ namespace IDO {
         let (block_timestamp) = get_block_timestamp();
         let (participation) = IDO_user_to_participation.read(address_caller);
 
-        with_attr error_message("AstralyIDOContract::withdraw_tokens portion id can't be zero") {
+        with_attr error_message("withdraw_tokens::Portion id can't be zero") {
             assert_not_zero(portion_id);
         }
 
         with_attr error_message(
-                "AstralyIDOContract::withdraw_tokens Tokens can not be withdrawn yet") {
+                "withdraw_tokens::Tokens can not be withdrawn yet") {
             assert_le_felt(the_sale.tokens_unlock_time, block_timestamp);
         }
 
-        with_attr error_message("AstralyIDOContract::withdraw_tokens Invlaid portion id") {
+        with_attr error_message("withdraw_tokens::Invlaid portion id") {
             assert_le_felt(participation.last_portion_withdrawn, portion_id);
         }
 
@@ -725,7 +725,7 @@ namespace IDO {
         let (the_sale: Sale) = get_current_sale();
 
         with_attr error_message(
-                "AstralyIDOContract::withdraw_from_contract raised funds already withdrawn") {
+                "withdraw_from_contract::Raised funds already withdrawn") {
             assert the_sale.raised_funds_withdrawn = FALSE;
         }
 
@@ -750,7 +750,7 @@ namespace IDO {
             pmt_token_addr, address_caller, the_sale.total_raised
         );
         with_attr error_message(
-                "AstralyIDOContract::withdraw_from_contract token transfer failed") {
+                "withdraw_from_contract::Token transfer failed") {
             assert token_transfer_success = TRUE;
         }
 
@@ -763,12 +763,12 @@ namespace IDO {
 
         let (block_timestamp) = get_block_timestamp();
 
-        with_attr error_message("AstralyIDOContract::withdraw_leftovers sale not ended") {
+        with_attr error_message("withdraw_leftovers::Sale not ended") {
             assert_le_felt(the_sale.sale_end, block_timestamp);
         }
 
         with_attr error_message(
-                "AstralyIDOContract::withdraw_leftovers leftovers already withdrawn") {
+                "withdraw_leftovers::Leftovers already withdrawn") {
             assert the_sale.leftover_withdrawn = FALSE;
         }
 
@@ -795,7 +795,7 @@ namespace IDO {
         let (token_transfer_success: felt) = IERC20.transfer(
             the_sale.token, address_caller, leftover
         );
-        with_attr error_message("AstralyIDOContract::withdraw_leftovers token transfer failed") {
+        with_attr error_message("withdraw_leftovers::Token transfer failed") {
             assert token_transfer_success = TRUE;
         }
 
@@ -810,12 +810,12 @@ namespace IDO {
             contract_address=ido_factory_address
         );
         with_attr error_message(
-                "AstralyIDOContract::get_random_number random number generator address not set in the factory") {
+                "get_random_number::Random number generator address not set in the factory") {
             assert_not_zero(rnd_nbr_gen_addr);
         }
         let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
         with_attr error_message(
-                "AstralyIDOContract::get_random_number invalid random number value") {
+                "get_random_number::Invalid random number value") {
             assert_not_zero(rnd_felt);
         }
         return (rnd=rnd_felt);
@@ -832,19 +832,19 @@ namespace IDO {
         let (block_timestamp) = get_block_timestamp();
         let (caller) = get_caller_address();
 
-        with_attr error_message("AstralyINOContract::register_user Registration window is closed") {
+        with_attr error_message("register_user::Registration window is closed") {
             assert_le_felt(the_reg.registration_time_starts, block_timestamp);
             assert_le_felt(block_timestamp, the_reg.registration_time_ends);
         }
 
-        with_attr error_message("AstralyINOContract::register_user invalid signature") {
+        with_attr error_message("register_user::Invalid signature") {
             check_registration_signature(signature_len, signature, signature_expiration, caller);
         }
-        with_attr error_message("AstralyINOContract::register_user signature expired") {
+        with_attr error_message("register_user::Signature expired") {
             assert_lt_felt(block_timestamp, signature_expiration);
         }
         let is_user_reg: felt = is_registered(caller);
-        with_attr error_message("AstralyINOContract::register_user user already registered") {
+        with_attr error_message("register_user::User already registered") {
             assert is_user_reg = FALSE;
         }
 
