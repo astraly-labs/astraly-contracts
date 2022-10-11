@@ -135,7 +135,7 @@ set_purchase_round_params(){
     max_participation="1 0"
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_purchase_round_params --inputs $_purchase_time_starts $_purchase_time_ends $max_participation"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_purchase_round_params --inputs $_purchase_time_starts $_purchase_time_ends ${max_participation}"` || exit_error  
 
 }
 
@@ -150,7 +150,7 @@ set_sale_params(){
     _base_allocation="1 0"
     contract=$1
     ido_ino_contract_address=$2
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_sale_params --inputs $_token_address $_sale_owner_address $_token_price $_amount_of_tokens_to_sell $_sale_end_time $_tokens_unlock_time $_portion_vesting_precision $_base_allocation"` || exit_error  
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $ido_ino_contract_address --abi ./artifacts/abis/${contract}.json --function set_sale_params --inputs $_token_address $_sale_owner_address ${_token_price} ${_amount_of_tokens_to_sell} $_sale_end_time $_tokens_unlock_time ${_portion_vesting_precision} ${_base_allocation}"` || exit_error  
 
 }
 setup_ido_ino () {
@@ -203,7 +203,7 @@ IDO_INO_CONTRACT_ADDRESS=0xe858cbbdebb793977a9dbbbed0afc78e2a4c841c0af1165308b58
 check_starknet
 
 ### BUSINESS LOGIC
-# build # Need to generate ABI and compiled contracts
+build # Need to generate ABI and compiled contracts
 setup_ido_ino
 
 exit_success
