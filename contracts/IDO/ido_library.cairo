@@ -269,8 +269,7 @@ namespace IDO {
     func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         address: felt
     ) -> felt {
-        with_attr error_message(
-                "get_allocation::Registration window not closed") {
+        with_attr error_message("get_allocation::Registration window not closed") {
             let (the_reg) = IDO_registration.read();
             let (block_timestamp) = get_block_timestamp();
             assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
@@ -306,7 +305,10 @@ namespace IDO {
         alloc_locals;
         let (user_participation: Participation) = IDO_user_to_participation.read(address);
         let res: felt = uint256_is_zero(user_participation.amount_bought);
-        return (res);
+        if (res == TRUE) {
+            return (FALSE);
+        }
+        return (TRUE);
     }
 
     func set_max_winners_len{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -332,16 +334,14 @@ namespace IDO {
             assert_not_zero(_purchase_time_starts);
             assert_not_zero(_purchase_time_ends);
         }
-        with_attr error_message(
-                "set_purchase_round_params::End time must be after start end") {
+        with_attr error_message("set_purchase_round_params::End time must be after start end") {
             assert_lt_felt(_purchase_time_starts, _purchase_time_ends);
         }
         with_attr error_message("set_purchase_round_params::Must be non-null") {
             let (participation_check: felt) = uint256_lt(Uint256(0, 0), max_participation);
             assert participation_check = TRUE;
         }
-        with_attr error_message(
-                "set_purchase_round_params::Registration time not set yet") {
+        with_attr error_message("set_purchase_round_params::Registration time not set yet") {
             assert_not_zero(the_reg.registration_time_starts);
             assert_not_zero(the_reg.registration_time_ends);
         }
@@ -377,15 +377,13 @@ namespace IDO {
         with_attr error_message("set_sale_params::Sale is already created") {
             assert the_sale.is_created = FALSE;
         }
-        with_attr error_message(
-                "set_sale_params::Sale owner address can not be 0") {
+        with_attr error_message("set_sale_params::Sale owner address can not be 0") {
             assert_not_zero(_sale_owner_address);
         }
         with_attr error_message("set_sale_params::Token address can not be 0") {
             assert_not_zero(_token_address);
         }
-        with_attr error_message(
-                "set_sale_params::IDO Token price must be greater than zero") {
+        with_attr error_message("set_sale_params::IDO Token price must be greater than zero") {
             let (token_price_check: felt) = uint256_lt(Uint256(0, 0), _token_price);
             assert token_price_check = TRUE;
         }
@@ -397,8 +395,7 @@ namespace IDO {
         with_attr error_message("set_sale_params::Sale end time in the past") {
             assert_lt_felt(block_timestamp, _sale_end_time);
         }
-        with_attr error_message(
-                "set_sale_params::Tokens unlock time in the past") {
+        with_attr error_message("set_sale_params::Tokens unlock time in the past") {
             assert_lt_felt(block_timestamp, _tokens_unlock_time);
         }
 
@@ -467,8 +464,7 @@ namespace IDO {
         //         "set_registration_time::The registration start time is already set"):
         //     assert the_reg.registration_time_starts = 0
         // end
-        with_attr error_message(
-                "set_registration_time::Registration start/end times issue") {
+        with_attr error_message("set_registration_time::Registration start/end times issue") {
             assert_le_felt(block_timestamp, _registration_time_starts);
             assert_lt_felt(_registration_time_starts, _registration_time_ends);
         }
@@ -496,11 +492,7 @@ namespace IDO {
         let (the_round) = IDO_purchase_round.read();
         let (block_timestamp) = get_block_timestamp();
 
-        // with_attr error_message("participate::invalid signature") {
-        //     check_participation_signature(sig_len, sig, account, amount);
-        // }
-        with_attr error_message(
-                "participate::Purchase round has not started yet") {
+        with_attr error_message("participate::Purchase round has not started yet") {
             assert_le_felt(the_round.time_starts, block_timestamp);
         }
         with_attr error_message("participate::Purchase round is over") {
@@ -534,8 +526,7 @@ namespace IDO {
         //     let (_is_registered) = is_registered.read(account);
         //     assert _is_registered = TRUE;
         // }
-        with_attr error_message(
-                "participate::Purchase round has not started yet") {
+        with_attr error_message("participate::Purchase round has not started yet") {
             assert_le_felt(the_round.time_starts, block_timestamp);
         }
         with_attr error_message("participate::User participated") {
@@ -545,14 +536,6 @@ namespace IDO {
         with_attr error_message("participate::Purchase round is over") {
             assert_le_felt(block_timestamp, the_round.time_ends);
         }
-
-        // with_attr error_message("participate::Account address is the zero address") {
-        //     assert_not_zero(account);
-        // }
-        // with_attr error_message("participate::Amount paid is zero") {
-        //     let (amount_paid_check: felt) = uint256_lt(Uint256(0, 0), amount_paid);
-        //     assert amount_paid_check = TRUE;
-        // }
 
         let (the_sale: Sale) = get_current_sale();
         with_attr error_message("participate::The IDO token price is not set") {
@@ -652,8 +635,7 @@ namespace IDO {
         let (address_caller: felt) = get_caller_address();
         let (address_this: felt) = get_contract_address();
         let (the_sale) = get_current_sale();
-        with_attr error_message(
-                "deposit_tokens::Tokens deposit can be done only once") {
+        with_attr error_message("deposit_tokens::Tokens deposit can be done only once") {
             assert the_sale.tokens_deposited = FALSE;
         }
         let upd_sale = Sale(
@@ -698,8 +680,7 @@ namespace IDO {
             assert_not_zero(portion_id);
         }
 
-        with_attr error_message(
-                "withdraw_tokens::Tokens can not be withdrawn yet") {
+        with_attr error_message("withdraw_tokens::Tokens can not be withdrawn yet") {
             assert_le_felt(the_sale.tokens_unlock_time, block_timestamp);
         }
 
@@ -724,8 +705,7 @@ namespace IDO {
         let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(factory_address);
         let (the_sale: Sale) = get_current_sale();
 
-        with_attr error_message(
-                "withdraw_from_contract::Raised funds already withdrawn") {
+        with_attr error_message("withdraw_from_contract::Raised funds already withdrawn") {
             assert the_sale.raised_funds_withdrawn = FALSE;
         }
 
@@ -749,8 +729,7 @@ namespace IDO {
         let (token_transfer_success: felt) = IERC20.transfer(
             pmt_token_addr, address_caller, the_sale.total_raised
         );
-        with_attr error_message(
-                "withdraw_from_contract::Token transfer failed") {
+        with_attr error_message("withdraw_from_contract::Token transfer failed") {
             assert token_transfer_success = TRUE;
         }
 
@@ -767,8 +746,7 @@ namespace IDO {
             assert_le_felt(the_sale.sale_end, block_timestamp);
         }
 
-        with_attr error_message(
-                "withdraw_leftovers::Leftovers already withdrawn") {
+        with_attr error_message("withdraw_leftovers::Leftovers already withdrawn") {
             assert the_sale.leftover_withdrawn = FALSE;
         }
 
@@ -814,8 +792,7 @@ namespace IDO {
             assert_not_zero(rnd_nbr_gen_addr);
         }
         let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
-        with_attr error_message(
-                "get_random_number::Invalid random number value") {
+        with_attr error_message("get_random_number::Invalid random number value") {
             assert_not_zero(rnd_felt);
         }
         return (rnd=rnd_felt);

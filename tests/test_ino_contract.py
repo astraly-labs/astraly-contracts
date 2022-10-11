@@ -56,15 +56,6 @@ def sign_registration(
     return generate_signature(digest, signer)
 
 
-def sign_participation(user_address, amount, contract_address, signer: Signer):
-    digest = pedersen_hash(
-        pedersen_hash(pedersen_hash(user_address, amount[0]), amount[1]),
-        contract_address,
-    )
-
-    return generate_signature(digest, signer)
-
-
 @pytest.fixture(scope="module")
 def contract_defs():
     account_def = get_contract_def(account_path)
@@ -1059,12 +1050,6 @@ async def test_participation_works(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1075,7 +1060,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         participant,
         ido.contract_address,
         "participate",
-        [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+        [*PARTICIPATION_VALUE],
     )
 
     assert_event_emitted(
@@ -1147,14 +1132,6 @@ async def test_participation_double(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    # 1st participation
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1165,27 +1142,21 @@ async def test_participation_double(contracts_factory, setup_sale):
         participant,
         ido.contract_address,
         "participate",
-        [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+        [*PARTICIPATION_VALUE],
     )
 
-    # 2nd participation
-    sig2 = sign_participation(
-        participant_2.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
     await sale_participant_2.send_transaction(
         participant_2,
         erc20_eth_token.contract_address,
         "approve",
         [ido.contract_address, *PARTICIPATION_VALUE],
     )
+
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
         "participate",
-        [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig2), *sig2],
+        [*PARTICIPATION_VALUE],
     )
 
     assert_event_emitted(
@@ -1254,13 +1225,6 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
 
     INVALID_PARTICIPATION_AMOUNT = to_uint(501 * 10**18)
 
-    sig = sign_participation(
-        participant.contract_address,
-        INVALID_PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1272,8 +1236,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *
-                INVALID_PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE],
         ),
         reverted_with="participate::Crossing max participation",
     )
@@ -1317,13 +1280,6 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1335,7 +1291,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         participant,
         ido.contract_address,
         "participate",
-        [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+        [*PARTICIPATION_VALUE],
     )
 
     # Then
@@ -1344,7 +1300,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE],
         ),
         reverted_with="participate::User participated",
     )
@@ -1385,13 +1341,6 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
             len(sig), *sig, sig_exp]
     )
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1403,7 +1352,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE],
         ),
         reverted_with="participate::Purchase round has not started yet",
     )
@@ -1417,7 +1366,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE],
         ),
         reverted_with="participate::Purchase round is over",
     )
@@ -1459,13 +1408,6 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1478,7 +1420,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
             participant,
             ido.contract_address,
             "participate",
-            [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*PARTICIPATION_VALUE],
         ),
         reverted_with="participate::No allocation",
     )
@@ -1522,20 +1464,13 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     # await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
     await assert_revert(
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
             "participate",
-            [*to_uint(0), *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*to_uint(0)],
         ),
         reverted_with="participate::Can't buy 0 tokens",
     )
@@ -1579,13 +1514,6 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     # 50_005 / 100 = 500,05 > PARTICIPATION_AMOUNT
     INVALID_PARTICIPATION_VALUE = to_uint(50005 * 10**18)
 
@@ -1600,8 +1528,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
             participant,
             ido.contract_address,
             "participate",
-            [*INVALID_PARTICIPATION_VALUE, *
-                PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*INVALID_PARTICIPATION_VALUE],
         ),
         reverted_with="participate::Exceeding allowance",
     )
@@ -1652,13 +1579,6 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
-    sig = sign_participation(
-        participant.contract_address,
-        PARTICIPATION_AMOUNT,
-        ido.contract_address,
-        admin1.signer,
-    )
-
     await sale_participant.send_transaction(
         participant,
         erc20_eth_token.contract_address,
@@ -1669,7 +1589,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         participant,
         ido.contract_address,
         "participate",
-        [*PARTICIPATION_VALUE, *PARTICIPATION_AMOUNT, len(sig), *sig],
+        [*PARTICIPATION_VALUE],
     )
 
     await assert_revert(
