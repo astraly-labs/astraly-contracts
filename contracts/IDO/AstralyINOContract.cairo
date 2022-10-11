@@ -104,7 +104,6 @@ func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 //############################################
 // #                 EXTERNALS               ##
 //############################################
-
 @external
 func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     _token_address: felt,
@@ -128,6 +127,7 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     AstralyAccessControl.grant_role(SALE_OWNER_ROLE, _sale_owner_address);
     return ();
 }
+
 @external
 func set_sale_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     _sale_token_address: felt

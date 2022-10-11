@@ -18,7 +18,7 @@ RND_NBR_GEN_SEED = 76823
 ONE_DAY = 24 * 60 * 60
 
 account_path = "openzeppelin/account/presets/Account.cairo"
-ido_factory_path = "AstralyIDOFactory.cairo"
+ido_factory_path = "IDO/AstralyIDOFactory.cairo"
 ido_path = "mocks/AstralyINOContract_mock.cairo"
 rnd_nbr_gen_path = "utils/xoroshiro128_starstar.cairo"
 erc20_eth_path = "mocks/Astraly_ETH_ERC20_mock.cairo"
@@ -163,8 +163,14 @@ async def contracts_init(contract_defs, get_starknet):
     await starknet.declare(contract_class=zk_pad_ido_factory_def)
     zk_pad_ido_factory = await starknet.deploy(
         contract_class=zk_pad_ido_factory_def,
-        constructor_calldata=[ido_class.class_hash,
-                              deployer_account.contract_address],
+        constructor_calldata=[deployer_account.contract_address],
+    )
+
+    await deployer.send_transaction(
+        deployer_account,
+        zk_pad_ido_factory.contract_address,
+        "set_ino_contract_class_hash",
+        [ido_class.class_hash],
     )
 
     await deployer.send_transaction(
@@ -177,7 +183,7 @@ async def contracts_init(contract_defs, get_starknet):
     tx = await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
-        "create_ido",
+        "create_ino",
         [admin1_account.contract_address, 0],
     )
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
@@ -419,7 +425,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "sale_created",
+        "SaleCreated",
         data=[
             owner.contract_address,
             *to_uint(100),
@@ -427,7 +433,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
         ],
-        order=2,
     )
 
     reg_start = day + timeDeltaOneDay
@@ -443,7 +448,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "registration_time_set",
+        "RegistrationTimeSet",
         data=[int(reg_start.timestamp()), int(reg_end.timestamp())],
     )
 
@@ -464,7 +469,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "purchase_round_set",
+        "PurchaseRoundSet",
         data=[
             int(purchase_round_start.timestamp()),
             int(purchase_round_end.timestamp()),
@@ -509,7 +514,6 @@ async def test_only_admin_can_setup_sale(contracts_factory):
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
             ],
         ),
         reverted_with="AccessControl: caller is missing role",
@@ -848,12 +852,12 @@ async def test_registration_works(contracts_factory, setup_sale):
     )
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
     assert_event_emitted(
-        tx, ido.contract_address, "user_registered", [
+        tx, ido.contract_address, "UserRegistered", [
             participant.contract_address]
     )
 
@@ -884,13 +888,13 @@ async def test_registration_works(contracts_factory, setup_sale):
         starknet_state, current_registration.registration_time_ends + 1)
 
     # Check the winners array integrity
-    winners_arr = (await ido.getWinners().call()).result.arr
+    winners_arr = (await ido.get_winners().call()).result.arr
     print(winners_arr)
     winners_arr.sort()
     for winner in set(winners_arr):
-        is_winner = (await ido.isWinner(winner).call()).result.res
+        is_winner = (await ido.is_winner(winner).call()).result.res
         assert is_winner == 1
-        allocation = from_uint((await ido.getAllocation(winner).call()).result.res)
+        allocation = from_uint((await ido.get_allocation(winner).call()).result.res)
         assert allocation == winners_arr.count(winner)
 
 
@@ -931,7 +935,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user Registration window is closed",
@@ -944,7 +948,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user Registration window is closed",
@@ -989,7 +993,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user invalid signature",
@@ -1031,7 +1035,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1039,7 +1043,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant,
             ido.contract_address,
-            "registerUser",
+            "register_user",
             [len(sig), *sig, sig_exp],
         ),
         reverted_with="AstralyINOContract::register_user user already registered",
@@ -1081,7 +1085,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1118,7 +1122,7 @@ async def test_participation_works(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_sold",
+        "TokensSold",
         [participant.contract_address, *to_uint(2)],
         order=2,
     )
@@ -1170,13 +1174,13 @@ async def test_participation_double(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
-        "registerUser",
+        "register_user",
         [len(sig2), *sig2, sig_exp],
     )
 
@@ -1235,7 +1239,7 @@ async def test_participation_double(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_sold",
+        "TokensSold",
         [participant_2.contract_address, *to_uint(2)],
         order=2,
     )
@@ -1288,7 +1292,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1359,7 +1363,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1437,7 +1441,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1582,7 +1586,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1645,7 +1649,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1724,7 +1728,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         (day + timeDeltaOneDay).timestamp()))
 
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "registerUser", [
+        participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
 
@@ -1781,7 +1785,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     assert_event_emitted(
         tx,
         ido.contract_address,
-        "tokens_withdrawn",
+        "TokensWithdrawn",
         [participant.contract_address, *to_uint(2)],
         order=1,
     )
