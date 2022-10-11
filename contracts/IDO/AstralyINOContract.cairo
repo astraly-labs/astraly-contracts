@@ -25,7 +25,7 @@ from contracts.IDO.ido_library import (
     Registration,
     TokensWithdrawn,
 )
-from contracts.utils.Uint256_felt_conv import _uint_to_felt
+from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
 from contracts.utils import is_lt
 from InterfaceAll import IAstralyIDOFactory, IXoroshiro, IERC721
 
@@ -95,9 +95,10 @@ func get_registration{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 @view
 func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     address: felt
-) -> (res: felt) {
+) -> (res: Uint256) {
     let count: felt = IDO.get_allocation(address);
-    return (res=count);
+    let (res: Uint256) = _felt_to_uint(count);
+    return (res=res);
 }
 
 @view
@@ -121,7 +122,6 @@ func is_winner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 //############################################
 // #                 EXTERNALS               ##
 //############################################
-
 @external
 func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     _token_address: felt,
@@ -145,6 +145,7 @@ func set_sale_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     AstralyAccessControl.grant_role(SALE_OWNER_ROLE, _sale_owner_address);
     return ();
 }
+
 @external
 func set_sale_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     _sale_token_address: felt

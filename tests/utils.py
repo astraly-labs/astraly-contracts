@@ -13,6 +13,8 @@ from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event, OrderedEvent
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
+from starkware.starknet.business_logic.transaction.objects import InternalTransaction, TransactionExecutionInfo
+
 
 from nile.utils import felt_to_str, str_to_felt, to_uint, from_uint, add_uint, sub_uint, mul_uint, div_rem_uint, assert_revert
 from nile.signer import Signer
@@ -57,7 +59,7 @@ def assert_event_emitted(tx_exec_info, from_address, name, data, order=0):
     assert_events_emitted(tx_exec_info, [(order, from_address, name, data)])
 
 
-def assert_events_emitted(tx_exec_info, events):
+def assert_events_emitted(tx_exec_info: TransactionExecutionInfo, events):
     """Assert events are fired with correct data."""
     for event in events:
         order, from_address, name, data = event

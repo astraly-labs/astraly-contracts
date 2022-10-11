@@ -18,6 +18,8 @@ from contracts.IDO.AstralyIDOContract import (
     get_registration,
     get_current_sale,
     get_allocation,
+    get_number_of_vesting_portions,
+    get_vesting_portion_percent,
     register_user,
     is_winner,
     Registration,

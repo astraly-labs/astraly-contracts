@@ -23,7 +23,7 @@ RND_NBR_GEN_SEED = 76823
 ONE_DAY = 24 * 60 * 60
 
 account_path = "openzeppelin/account/presets/Account.cairo"
-ido_factory_path = "AstralyIDOFactory.cairo"
+ido_factory_path = "IDO/AstralyIDOFactory.cairo"
 ido_path = "mocks/AstralyIDOContract_mock.cairo"
 rnd_nbr_gen_path = "utils/xoroshiro128_starstar.cairo"
 erc20_eth_path = "mocks/Astraly_ETH_ERC20_mock.cairo"
@@ -461,7 +461,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
         ],
-        order=2,
     )
 
     VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
@@ -1800,12 +1799,6 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         ido.contract_address,
         admin1.signer,
     )
-    await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, 0, BATCH_SIZE],
-    )
 
     await sale_participant.send_transaction(
         participant,
@@ -1925,27 +1918,6 @@ async def test_select_winners(contracts_factory):
             *users_registrations_arr,
         ],
     )
-
-    # SELECT A BATCH OF WINNERS AMONG THE ARRAY
-    tx: TransactionExecutionInfo = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "selectWinners",
-        [0, (len(users_registrations_arr) // 2) - 1, BATCH_SIZE],
-    )
-
-    # res = await ido.selectWinners(
-    #     0, len(users_registrations_arr) // 2 - 1, BATCH_SIZE
-    # ).call()
-
-    # winners = [
-    #     (
-    #         address,
-    #         users_registrations_arr[users_registrations_arr.index(address) + 1],
-    #     )
-    #     for address in res.result.winners_array
-    # ]
-    # print(winners)
 
     winners = []
     for i in range(0, len(users_registrations_arr), 2):

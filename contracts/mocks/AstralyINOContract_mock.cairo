@@ -7,12 +7,10 @@ from starkware.starknet.common.syscalls import get_block_timestamp
 
 from contracts.IDO.ido_library import IDO, UserRegistrationDetails, IDO_winners_arr_len, IDO_winners_arr
 
-from contracts.IDO.AstralyIDOContract import (
+from contracts.IDO.AstralyINOContract import (
     set_purchase_round_params,
     set_registration_time,
     set_sale_params,
-    set_vesting_params,
-    deposit_tokens,
     participate,
     constructor,
     get_registration,
@@ -45,7 +43,7 @@ func register_users_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 }
 
 @view
-func getWinners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+func get_winners{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
     arr_len: felt, arr: felt*
 ) {
     alloc_locals;
