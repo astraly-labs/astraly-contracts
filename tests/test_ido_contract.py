@@ -928,8 +928,6 @@ async def test_registration_works(contracts_factory, setup_sale):
     print(winners_arr)
     winners_arr.sort()
     for winner in set(winners_arr):
-        is_winner = (await ido.is_winner(winner).call()).result.res
-        assert is_winner == 1
         allocation = from_uint((await ido.get_allocation(winner).call()).result.res)
         assert allocation == winners_arr.count(
             winner) * from_uint(BASE_ALLOCATION)

@@ -17,7 +17,6 @@ from contracts.IDO.AstralyINOContract import (
     get_current_sale,
     get_allocation,
     register_user,
-    is_winner,
     Registration,
 )
 
