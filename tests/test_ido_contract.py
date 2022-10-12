@@ -534,7 +534,7 @@ async def test_only_admin_can_setup_sale(contracts_factory):
                 *BASE_ALLOCATION
             ],
         ),
-        reverted_with="AccessControl::Caller is missing role",
+        reverted_with=f"AccessControl: caller is missing role {str_to_felt('OWNER')}",
     )
 
 
