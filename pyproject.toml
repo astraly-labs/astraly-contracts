@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "astraly-contracts"
-version = "0.1.0"
-description = ""
-authors = ["astraly"]
+version = "0.3.0"
+description = "Token Distribution powered by on-chain reputation."
+authors = ["Astraly"]
 
 [tool.poetry.dependencies]
 python = "^3.9.1"

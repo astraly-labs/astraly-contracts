@@ -27,7 +27,7 @@ from contracts.IDO.ido_library import (
 )
 from contracts.utils.Uint256_felt_conv import _uint_to_felt, _felt_to_uint
 from contracts.utils import is_lt
-from InterfaceAll import IAstralyIDOFactory, IXoroshiro, IERC721
+from interfaces.i_ERC721 import IERC721
 
 const SALE_OWNER_ROLE = 'SALE_OWNER';
 

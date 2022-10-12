@@ -8,8 +8,6 @@ from starkware.starknet.common.syscalls import get_caller_address, get_block_tim
 
 from contracts.AstralyAccessControl import AstralyAccessControl, OWNER_ROLE
 
-from InterfaceAll import IAstralyIDOContract
-
 @storage_var
 func ido_contract_addresses(id: felt) -> (address: felt) {
 }

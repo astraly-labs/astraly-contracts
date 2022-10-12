@@ -23,3 +23,6 @@ AstralyIDOContractMock = [
 AstralyIDOFactory = [
     "contracts/IDO/AstralyIDOFactory.cairo",
 ]
+Xoroshiro = [
+    "contracts/utils/xoroshiro128_starstar.cairo",
+]

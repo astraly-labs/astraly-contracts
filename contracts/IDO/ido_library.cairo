@@ -20,8 +20,10 @@ from starkware.starknet.common.syscalls import (
 
 from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc20.IERC20 import IERC20
+from openzeppelin.account.IAccount import IAccount
 
-from InterfaceAll import IAstralyIDOFactory, IXoroshiro, IAccount
+from interfaces.i_AstralyIDOFactory import IAstralyidofactory
+from interfaces.i_xoroshiro128_starstar import IXoroshiro128Starstar
 from contracts.utils import uint256_is_zero, uint256_assert_not_zero, is_lt
 
 struct Sale {
@@ -234,7 +236,7 @@ namespace IDO {
     func get_pmt_token_addr{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         ) -> felt {
         let factory_address: felt = get_ido_factory_contract_address();
-        let (pmt_token_addr: felt) = IAstralyIDOFactory.get_payment_token_address(factory_address);
+        let (pmt_token_addr: felt) = IAstralyidofactory.get_payment_token_address(factory_address);
         return (pmt_token_addr);
     }
 
@@ -684,7 +686,7 @@ namespace IDO {
     func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
         let (address_caller: felt) = get_caller_address();
         let (factory_address) = IDO_ido_factory_contract_address.read();
-        let (pmt_token_addr) = IAstralyIDOFactory.get_payment_token_address(factory_address);
+        let (pmt_token_addr) = IAstralyidofactory.get_payment_token_address(factory_address);
         let (the_sale: Sale) = get_current_sale();
 
         with_attr error_message("withdraw_from_contract::Raised funds already withdrawn") {
@@ -766,14 +768,14 @@ namespace IDO {
         rnd: felt
     ) {
         let (ido_factory_address) = IDO_ido_factory_contract_address.read();
-        let (rnd_nbr_gen_addr) = IAstralyIDOFactory.get_random_number_generator_address(
+        let (rnd_nbr_gen_addr) = IAstralyidofactory.get_random_number_generator_address(
             contract_address=ido_factory_address
         );
         with_attr error_message(
                 "get_random_number::Random number generator address not set in the factory") {
             assert_not_zero(rnd_nbr_gen_addr);
         }
-        let (rnd_felt) = IXoroshiro.next(contract_address=rnd_nbr_gen_addr);
+        let (rnd_felt) = IXoroshiro128Starstar.next(contract_address=rnd_nbr_gen_addr);
         with_attr error_message("get_random_number::Invalid random number value") {
             assert_not_zero(rnd_felt);
         }
