@@ -475,7 +475,7 @@ async def test_only_admin_can_setup_sale(contracts_factory):
                 int(token_unlock.timestamp()),
             ],
         ),
-        reverted_with="AccessControl::Caller is missing role",
+        reverted_with=f"AccessControl::Caller is missing role {str_to_felt('OWNER')}",
     )
 
 
