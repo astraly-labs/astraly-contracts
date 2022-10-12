@@ -1,40 +1,25 @@
 ["protostar.config"]
-protostar_version = "0.3.2"
+protostar_version = "0.5.0"
 
 ["protostar.project"]
 libs_path = "./lib"
 
-["protostar.build"]
+["protostar.shared_command_configs"]
 cairo-path = ["./lib/cairo_contracts/src"]
 
 ["protostar.contracts"]
-AstralyFaucet = [
-    "contracts/AstralyFaucet.cairo",
-]
 AstralyINOContract = [
-    "contracts/AstralyINOContract.cairo",
+    "contracts/IDO/AstralyINOContract.cairo",
+]
+AstralyINOContractMock = [
+    "contracts/mocks/AstralyINOContract_mock.cairo",
 ]
 AstralyIDOContract = [
-    "contracts/AstralyIDOContract.cairo",
+    "contracts/IDO/AstralyIDOContract.cairo",
+]
+AstralyIDOContractMock = [
+    "contracts/mocks/AstralyIDOContract_mock.cairo",
 ]
 AstralyIDOFactory = [
-    "contracts/AstralyIDOFactory.cairo",
-]
-AstralyLotteryToken = [
-    "contracts/AstralyLotteryToken.cairo",
-]
-AstralyStaking = [
-    "contracts/AstralyStaking.cairo",
-]
-AstralyTask = [
-    "contracts/AstralyTask.cairo",
-]
-AstralyToken = [
-    "contracts/AstralyTask.cairo",
-]
-AstralyVaultHarvestTask = [
-    "contracts/AstralyVaultHarvestTask.cairo",
-]
-JediSwapWrapper = [
-    "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo",
+    "contracts/IDO/AstralyIDOFactory.cairo",
 ]

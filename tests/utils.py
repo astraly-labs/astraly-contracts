@@ -1,21 +1,25 @@
 """Utilities for testing Cairo contracts."""
 from collections import namedtuple
 from pathlib import Path
+from functools import cache
 import math
-import asyncio
+
 from starkware.cairo.common.hash_state import compute_hash_on_elements
 from starkware.crypto.signature.signature import private_to_stark_key, sign
 from starkware.starknet.business_logic.state.state import BlockInfo
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
-from starkware.starknet.testing.starknet import StarknetContract, Starknet
-from starkware.starknet.business_logic.execution.objects import Event
+from starkware.starknet.testing.starknet import StarknetContract
+from starkware.starknet.business_logic.execution.objects import Event, OrderedEvent
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
+from starkware.starknet.business_logic.transaction.objects import InternalTransaction, TransactionExecutionInfo
 
-from nile.signer import Signer, from_call_to_call_array, get_transaction_hash
 
-MAX_UINT256 = (2 ** 128 - 1, 2 ** 128 - 1)
+from nile.utils import felt_to_str, str_to_felt, to_uint, from_uint, add_uint, sub_uint, mul_uint, div_rem_uint, assert_revert
+from nile.signer import Signer
+
+MAX_UINT256 = (2**128 - 1, 2**128 - 1)
 INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
@@ -31,36 +35,17 @@ def contract_path(name):
         return str(_root / "lib/cairo_contracts/src" / name)
     elif name.startswith("tests/"):
         return str(_root / name)
-    elif name.startswith('/'):
+    elif name.startswith("/"):
         return str(_root / "contracts" / name[1:])
     else:
         return str(_root / "contracts" / name)
-
-
-def str_to_felt(text):
-    b_text = bytes(text, "ascii")
-    return int.from_bytes(b_text, "big")
-
-
-def felt_to_str(felt):
-    b_felt = felt.to_bytes(31, "big")
-    return b_felt.decode()
-
-
-def assert_event_emitted(tx_exec_info, from_address, name, data):
-    assert Event(
-        from_address=from_address,
-        keys=[get_selector_from_name(name)],
-        data=data,
-    ) in tx_exec_info.raw_events
 
 
 def get_contract_class(path):
     """Return the contract class from the contract path"""
     path = contract_path(path)
     contract_class = compile_starknet_files(
-        files=[path],
-        debug_info=True
+        files=[path], debug_info=True, disable_hint_validation=True
     )
     return contract_class
 
@@ -69,74 +54,47 @@ def uint(a):
     return (a, 0)
 
 
-def to_uint(a):
-    """Takes in value, returns uint256-ish tuple."""
-    return (a & ((1 << 128) - 1), a >> 128)
+def assert_event_emitted(tx_exec_info, from_address, name, data, order=0):
+    """Assert one single event is fired with correct data."""
+    assert_events_emitted(tx_exec_info, [(order, from_address, name, data)])
 
 
-def to_uint_typed(a):
-    Uint256 = namedtuple("Uint256", "low high")
-    return Uint256(low=a & ((1 << 128) - 1), high=a >> 128)
+def assert_events_emitted(tx_exec_info: TransactionExecutionInfo, events):
+    """Assert events are fired with correct data."""
+    for event in events:
+        order, from_address, name, data = event
+        event_obj = OrderedEvent(
+            order=order,
+            keys=[get_selector_from_name(name)],
+            data=data,
+        )
+
+        base = tx_exec_info.call_info.internal_calls[0]
+        if event_obj in base.events and from_address == base.contract_address:
+            return
+
+        try:
+            base2 = base.internal_calls[0]
+            if event_obj in base2.events and from_address == base2.contract_address:
+                return
+        except IndexError:
+            pass
+
+        raise BaseException("Event not fired or not fired correctly")
 
 
-def from_uint(uint):
-    """Takes in uint256-ish tuple, returns value."""
-    return uint[0] + (uint[1] << 128)
-
-
-def add_uint(a, b):
-    """Returns the sum of two uint256-ish tuples."""
-    a = from_uint(a)
-    b = from_uint(b)
-    c = a + b
-    return to_uint(c)
-
-
-def sub_uint(a, b):
-    """Returns the difference of two uint256-ish tuples."""
-    a = from_uint(a)
-    b = from_uint(b)
-    c = a - b
-    return to_uint(c)
-
-
-def mul_uint(a, b):
-    """Returns the product of two uint256-ish tuples."""
-    a = from_uint(a)
-    b = from_uint(b)
-    c = a * b
-    return to_uint(c)
-
-
-def div_rem_uint(a, b):
-    """Returns the quotient and remainder of two uint256-ish tuples."""
-    a = from_uint(a)
-    b = from_uint(b)
-    c = math.trunc(a / b)
-    m = a % b
-    return (to_uint(c), to_uint(m))
-
-
-async def assert_revert(fun, reverted_with=None, error_code=None):
-    try:
-        await fun
-        assert False
-    except StarkException as err:
-        _, error = err.args
-        if reverted_with is not None:
-            assert reverted_with in error['message']
-
-        if error_code is not None:
-            assert error['code'] == error_code
-
-
+@cache
 def get_contract_def(path):
     """Returns the contract definition from the contract path"""
     path = contract_path(path)
     contract_def = compile_starknet_files(
         files=[path],
         debug_info=True,
-        cairo_path=[str(_root / "lib/cairo_contracts/src"), str(_root / "lib/starknet_attestations")]
+        cairo_path=[
+            str(_root / "lib/cairo_contracts/src"),
+            str(_root / "lib/starknet_attestations"),
+        ],
+        disable_hint_validation=True,
     )
     return contract_def
 
@@ -147,26 +105,9 @@ def cached_contract(state, definition, deployed):
         state=state,
         abi=definition.abi,
         contract_address=deployed.contract_address,
-        deploy_execution_info=deployed.deploy_execution_info
+        deploy_call_info=deployed.deploy_call_info,
     )
     return contract
-
-
-def hash_multicall(sender, calls, nonce, max_fee):
-    hash_array = []
-    for call in calls:
-        call_elements = [call[0], call[1], compute_hash_on_elements(call[2])]
-        hash_array.append(compute_hash_on_elements(call_elements))
-
-    message = [
-        str_to_felt('StarkNet Transaction'),
-        sender,
-        compute_hash_on_elements(hash_array),
-        nonce,
-        max_fee,
-        TRANSACTION_VERSION
-    ]
-    return compute_hash_on_elements(message)
 
 
 def get_block_timestamp(starknet_state):
@@ -187,6 +128,16 @@ def set_block_number(starknet_state, block_number):
     starknet_state.state.block_info = BlockInfo.create_for_testing(
         block_number, starknet_state.state.block_info.block_timestamp
     )
+
+
+def advance_clock(starknet_state, num_seconds):
+    set_block_timestamp(
+        starknet_state, get_block_timestamp(starknet_state) + num_seconds
+    )
+
+
+def days_to_seconds(days: int):
+    return days * 24 * 60 * 60
 
 
 def assert_approx_eq(a: int, b: int, max_delta: int):

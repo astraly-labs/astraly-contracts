@@ -1,21 +1,16 @@
 import pytest
 import pytest_asyncio
-from random import randint
 from datetime import datetime, timedelta
+from random import randint
 from pprint import pprint as pp
 from typing import Tuple
 
+from signers import MockSigner
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.starknet.business_logic.transaction.objects import TransactionExecutionInfo
-from starkware.starknet.testing.starknet import Starknet
-from starkware.starknet.testing.contract import DeclaredClass
-from starkware.starknet.testing.state import StarknetState
-from starkware.starknet.compiler.compile import ContractClass
 
-from signers import MockSigner
-from nile.signer import Signer
 from utils import *
-
+from nile.signer import Signer
 
 TRUE = 1
 FALSE = 0
@@ -24,9 +19,10 @@ ONE_DAY = 24 * 60 * 60
 
 account_path = "openzeppelin/account/presets/Account.cairo"
 ido_factory_path = "IDO/AstralyIDOFactory.cairo"
-ido_path = "mocks/AstralyIDOContract_mock.cairo"
+ido_path = "mocks/AstralyINOContract_mock.cairo"
 rnd_nbr_gen_path = "utils/xoroshiro128_starstar.cairo"
 erc20_eth_path = "mocks/Astraly_ETH_ERC20_mock.cairo"
+erc721_path = "mocks/Astraly_ERC721_mock.cairo"
 
 deployer = MockSigner(1234321)
 admin1 = MockSigner(2345432)
@@ -38,13 +34,11 @@ sale_participant_2 = MockSigner(678909876)
 sig_exp = 3000000000
 
 PARTICIPATION_AMOUNT = to_uint(300 * 10**18)
-MAX_PARTICIPATION = to_uint(500 * 10**18)
-PARTICIPATION_VALUE = to_uint(200 * 10**18)
+MAX_PARTICIPATION = to_uint(5)
+PARTICIPATION_VALUE = to_uint(100 * 10**18)
 
 TOKEN_PRICE = to_uint(100 * 10**18)
-TOKENS_TO_SELL = to_uint(100000 * 10**18)
-BASE_ALLOCATION = to_uint(200 * (10 ** 18))
-VESTING_PRECISION = to_uint(1000)
+TOKENS_TO_SELL = to_uint(50)
 
 
 def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
@@ -63,12 +57,13 @@ def sign_registration(
 
 
 @pytest.fixture(scope="module")
-def contract_defs() -> Tuple[ContractClass, ...]:
+def contract_defs():
     account_def = get_contract_def(account_path)
     zk_pad_ido_factory_def = get_contract_def(ido_factory_path)
     rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
     zk_pad_ido_def = get_contract_def(ido_path)
     erc20_eth_def = get_contract_def(erc20_eth_path)
+    erc721_def = get_contract_def(erc721_path)
 
     return (
         account_def,
@@ -76,11 +71,12 @@ def contract_defs() -> Tuple[ContractClass, ...]:
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        erc721_def,
     )
 
 
 @pytest_asyncio.fixture(scope="module")
-async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet: Starknet) -> Tuple[StarknetContract, ...]:
+async def contracts_init(contract_defs, get_starknet):
     starknet = get_starknet
     (
         account_def,
@@ -88,6 +84,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        erc721_def,
     ) = contract_defs
     await starknet.declare(contract_class=account_def)
     deployer_account = await starknet.deploy(
@@ -121,7 +118,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         constructor_calldata=[RND_NBR_GEN_SEED],
     )
 
-    ido_class: DeclaredClass = await starknet.declare(contract_class=zk_pad_ido_def)
+    ido_class = await starknet.declare(contract_class=zk_pad_ido_def)
     await starknet.declare(contract_class=zk_pad_ido_factory_def)
     zk_pad_ido_factory = await starknet.deploy(
         contract_class=zk_pad_ido_factory_def,
@@ -131,9 +128,10 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
     await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
-        "set_ido_contract_class_hash",
+        "set_ino_contract_class_hash",
         [ido_class.class_hash],
     )
+
     await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
@@ -144,7 +142,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
     tx = await deployer.send_transaction(
         deployer_account,
         zk_pad_ido_factory.contract_address,
-        "create_ido",
+        "create_ino",
         [admin1_account.contract_address, 0],
     )
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
@@ -157,6 +155,15 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         contract_class=erc20_eth_def,
         constructor_calldata=[
             deployer_account.contract_address,
+            deployer_account.contract_address,
+        ],
+    )
+
+    await starknet.declare(contract_class=erc721_def)
+
+    erc721_token = await starknet.deploy(
+        contract_class=erc721_def,
+        constructor_calldata=[
             deployer_account.contract_address,
         ],
     )
@@ -201,27 +208,19 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         zk_pad_ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
     )
 
 
 @pytest.fixture
-def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> Tuple[StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetContract,
-                                                                                      StarknetState]:
+def contracts_factory(contract_defs, contracts_init, get_starknet):
     (
         account_def,
         zk_pad_ido_factory_def,
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        erc721_def,
     ) = contract_defs
     (
         deployer_account,
@@ -234,8 +233,9 @@ def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> 
         zk_pad_ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
     ) = contracts_init
-    _state: StarknetState = get_starknet.state.copy()
+    _state = get_starknet.state.copy()
     deployer_cached = cached_contract(_state, account_def, deployer_account)
     admin1_cached = cached_contract(_state, account_def, admin1_account)
     staking_cached = cached_contract(_state, account_def, staking_account)
@@ -252,6 +252,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> 
     ido_cached = cached_contract(_state, zk_pad_ido_def, ido)
     erc20_eth_token_cached = cached_contract(
         _state, erc20_eth_def, erc20_eth_token)
+    erc721_token_cached = cached_contract(_state, erc721_def, erc721_token)
     return (
         deployer_cached,
         admin1_cached,
@@ -263,6 +264,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> 
         ido_factory_cached,
         ido_cached,
         erc20_eth_token_cached,
+        erc721_token_cached,
         _state,
     )
 
@@ -285,6 +287,7 @@ async def setup_sale(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -302,32 +305,13 @@ async def setup_sale(contracts_factory):
         ido.contract_address,
         "set_sale_params",
         [
-            erc20_eth_token.contract_address,
+            erc721_token.contract_address,
             owner.contract_address,
             *TOKEN_PRICE,  # token price
             *TOKENS_TO_SELL,  # amount of tokens to sell
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
-            *VESTING_PRECISION,  # portion vesting precision
-            *BASE_ALLOCATION
         ],
-    )
-
-    # SET VESTING PARAMS
-
-    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
-
-    VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60),
-    ]
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_vesting_params",
-        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES)],
     )
 
     # SET REGISTRATION ROUND PARAMS
@@ -358,17 +342,6 @@ async def setup_sale(contracts_factory):
         ],
     )
 
-    # DEPOSIT TOKENS
-    await sale_owner.send_transaction(
-        owner,
-        erc20_eth_token.contract_address,
-        "approve",
-        [ido.contract_address, *TOKENS_TO_SELL],
-    )
-    tx = await sale_owner.send_transaction(
-        owner, ido.contract_address, "deposit_tokens", []
-    )
-
 
 @pytest.mark.asyncio
 async def test_setup_sale_success_with_events(contracts_factory):
@@ -383,6 +356,7 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -398,14 +372,12 @@ async def test_setup_sale_success_with_events(contracts_factory):
         ido.contract_address,
         "set_sale_params",
         [
-            erc20_eth_token.contract_address,
+            erc721_token.contract_address,
             owner.contract_address,
             *to_uint(100),  # token price
             *to_uint(1000000),  # amount of tokens to sell
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
-            *to_uint(1000),  # portion vesting precision
-            *BASE_ALLOCATION
         ],
     )
 
@@ -421,36 +393,6 @@ async def test_setup_sale_success_with_events(contracts_factory):
             int(token_unlock.timestamp()),
         ],
     )
-
-    VESTING_PERCENTAGES = uint_array([100, 200, 300, 400])
-
-    VESTING_TIMES_UNLOCKED = [
-        int(token_unlock.timestamp()) + (1 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (8 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (15 * 24 * 60 * 60),
-        int(token_unlock.timestamp()) + (22 * 24 * 60 * 60),
-    ]
-    tx = await admin1.send_transaction(
-        admin_user,
-        ido.contract_address,
-        "set_vesting_params",
-        [4, *VESTING_TIMES_UNLOCKED, *uarr2cd(VESTING_PERCENTAGES)],
-    )
-
-    number_of_portions = await ido.get_number_of_vesting_portions().call()
-    assert number_of_portions.result.res == 4
-
-    portion_1 = await ido.get_vesting_portion_percent(1).call()
-    assert portion_1.result.res == uint(100)
-
-    portion_2 = await ido.get_vesting_portion_percent(2).call()
-    assert portion_2.result.res == uint(200)
-
-    portion_3 = await ido.get_vesting_portion_percent(3).call()
-    assert portion_3.result.res == uint(300)
-
-    portion_4 = await ido.get_vesting_portion_percent(4).call()
-    assert portion_4.result.res == uint(400)
 
     reg_start = day + timeDeltaOneDay
     reg_end = reg_start + timeDeltaOneWeek
@@ -508,6 +450,7 @@ async def test_only_admin_can_setup_sale(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -524,14 +467,12 @@ async def test_only_admin_can_setup_sale(contracts_factory):
             ido.contract_address,
             "set_sale_params",
             [
-                erc20_eth_token.contract_address,
+                erc721_token.contract_address,
                 owner.contract_address,
                 *to_uint(100),  # token price
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with=f"AccessControl: caller is missing role {str_to_felt('OWNER')}",
@@ -551,6 +492,7 @@ async def test_can_only_create_sale_once(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -566,14 +508,12 @@ async def test_can_only_create_sale_once(contracts_factory):
         ido.contract_address,
         "set_sale_params",
         [
-            erc20_eth_token.contract_address,
+            erc721_token.contract_address,
             owner.contract_address,
             *to_uint(100),  # token price
             *to_uint(1000000),  # amount of tokens to sell
             int(sale_end.timestamp()),
             int(token_unlock.timestamp()),
-            *to_uint(1000),  # portion vesting precision
-            *BASE_ALLOCATION
         ],
     )
 
@@ -583,14 +523,12 @@ async def test_can_only_create_sale_once(contracts_factory):
             ido.contract_address,
             "set_sale_params",
             [
-                erc20_eth_token.contract_address,
+                erc721_token.contract_address,
                 owner.contract_address,
                 *to_uint(100),  # token price
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         "set_sale_params::Sale is already created",
@@ -610,6 +548,7 @@ async def test_fail_setup_sale_zero_address(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -626,14 +565,12 @@ async def test_fail_setup_sale_zero_address(contracts_factory):
             ido.contract_address,
             "set_sale_params",
             [
-                erc20_eth_token.contract_address,
+                erc721_token.contract_address,
                 0,
                 *to_uint(100),  # token price
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::Sale owner address can not be 0",
@@ -653,6 +590,7 @@ async def test_fail_setup_token_zero_address(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -675,8 +613,6 @@ async def test_fail_setup_token_zero_address(contracts_factory):
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::Token address can not be 0",
@@ -696,6 +632,7 @@ async def test_fail_setup_token_price_zero(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -718,8 +655,6 @@ async def test_fail_setup_token_price_zero(contracts_factory):
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::IDO Token price must be greater than zero",
@@ -739,6 +674,7 @@ async def test_fail_setup_tokens_sold_zero(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -761,8 +697,6 @@ async def test_fail_setup_tokens_sold_zero(contracts_factory):
                 *to_uint(0),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::Number of IDO Tokens to sell must be greater than zero",
@@ -782,6 +716,7 @@ async def test_fail_setup_bad_timestamps(contracts_factory):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
     day = datetime.today()
@@ -804,8 +739,6 @@ async def test_fail_setup_bad_timestamps(contracts_factory):
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::Sale end time in the past",
@@ -826,8 +759,6 @@ async def test_fail_setup_bad_timestamps(contracts_factory):
                 *to_uint(1000000),  # amount of tokens to sell
                 int(sale_end.timestamp()),
                 int(token_unlock.timestamp()),
-                *to_uint(1000),  # portion vesting precision
-                *BASE_ALLOCATION
             ],
         ),
         reverted_with="set_sale_params::Tokens unlock time in the past",
@@ -852,6 +783,7 @@ async def test_registration_works(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -878,7 +810,7 @@ async def test_registration_works(contracts_factory, setup_sale):
         [randint(1, 9999999999999999999)],
     )
 
-    tx: TransactionExecutionInfo = await sale_participant.send_transaction(
+    tx = await sale_participant.send_transaction(
         participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
@@ -920,8 +852,7 @@ async def test_registration_works(contracts_factory, setup_sale):
     winners_arr.sort()
     for winner in set(winners_arr):
         allocation = from_uint((await ido.get_allocation(winner).call()).result.res)
-        assert allocation == winners_arr.count(
-            winner) * from_uint(BASE_ALLOCATION)
+        assert allocation == winners_arr.count(winner)
 
 
 @pytest.mark.asyncio
@@ -937,6 +868,7 @@ async def test_registration_fails_bad_timestamps(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -993,6 +925,7 @@ async def test_registration_fails_signature_invalid(contracts_factory, setup_sal
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1037,6 +970,7 @@ async def test_registration_fails_register_twice(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1091,6 +1025,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1132,20 +1067,20 @@ async def test_participation_works(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant.contract_address, *to_uint(2 * 10**18)]
+        [participant.contract_address, *to_uint(1)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()
     pp(tx.result)
 
     assert tx.result.has_participated == True
-    assert tx.result.participation.amount_bought == to_uint(2 * 10**18)
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_current_sale().call()
 
     assert tx.result.res.number_of_participants == to_uint(1)
-    assert tx.result.res.total_tokens_sold == to_uint(2 * 10**18)
+    assert tx.result.res.total_tokens_sold == to_uint(1)
     assert tx.result.res.total_raised == PARTICIPATION_VALUE
 
 
@@ -1162,6 +1097,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1184,7 +1120,6 @@ async def test_participation_double(contracts_factory, setup_sale):
         participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
-
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
@@ -1215,6 +1150,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         "approve",
         [ido.contract_address, *PARTICIPATION_VALUE],
     )
+
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
@@ -1226,24 +1162,24 @@ async def test_participation_double(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant_2.contract_address, *to_uint(2 * 10**18)]
+        [participant_2.contract_address, *to_uint(1)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()
     assert tx.result.has_participated == True
-    assert tx.result.participation.amount_bought == to_uint(2 * 10**18)
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_user_info(participant_2.contract_address).call()
     assert tx.result.has_participated == True
-    assert tx.result.participation.amount_bought == to_uint(2 * 10**18)
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_current_sale().call()
 
     assert tx.result.res.number_of_participants == to_uint(2)
-    assert tx.result.res.total_tokens_sold == to_uint(4 * 10**18)
-    assert tx.result.res.total_raised == to_uint(400 * 10**18)
+    assert tx.result.res.total_tokens_sold == to_uint(2)
+    assert tx.result.res.total_raised == to_uint(200 * 10**18)
 
 
 @pytest.mark.skip
@@ -1260,6 +1196,7 @@ async def test_participation_fails_max_participation(contracts_factory, setup_sa
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1316,6 +1253,7 @@ async def test_participation_fails_twice(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1379,6 +1317,7 @@ async def test_participation_fails_bad_timestamps(contracts_factory, setup_sale)
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1444,6 +1383,7 @@ async def test_participation_fails_not_registered(contracts_factory, setup_sale)
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1497,6 +1437,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1521,6 +1462,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
     set_block_timestamp(starknet_state, int(
         (day + timeDelta10days).timestamp()))
 
+    # await sale_participant.send_transaction(participant, erc20_eth_token.contract_address, 'approve', [ido.contract_address, *PARTICIPATION_VALUE])
     await assert_revert(
         sale_participant.send_transaction(
             participant,
@@ -1545,6 +1487,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1607,6 +1550,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         ido_factory,
         ido,
         erc20_eth_token,
+        erc721_token,
         starknet_state,
     ) = contracts_factory
 
@@ -1650,7 +1594,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant, ido.contract_address, "withdraw_tokens", [1]
         ),
-        reverted_with="withdraw_tokens::Portion has not been unlocked yet",
+        reverted_with="withdraw_tokens::Tokens can not be withdrawn yet",
     )
 
     # Go to distribution round start
@@ -1661,16 +1605,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         starknet_state, int(token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60
     )
 
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant, ido.contract_address, "withdraw_tokens", [0]
-        ),
-        reverted_with="withdraw_tokens::Invalid portion vesting unlock time",
-    )
-
-    balance_before = await erc20_eth_token.balanceOf(
-        participant.contract_address
-    ).call()
+    balance_before = await erc721_token.balanceOf(participant.contract_address).call()
     tx = await sale_participant.send_transaction(
         participant, ido.contract_address, "withdraw_tokens", [1]
     )
@@ -1679,35 +1614,11 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensWithdrawn",
-        [participant.contract_address, *to_uint(2 * 10**17)],
+        [participant.contract_address, *to_uint(1)],
         order=1,
     )
-    balance_after = await erc20_eth_token.balanceOf(participant.contract_address).call()
+    balance_after = await erc721_token.balanceOf(participant.contract_address).call()
 
     assert int(balance_after.result.balance[0]) == int(
         balance_before.result.balance[0]
-    ) + int(PARTICIPATION_VALUE[0] / 1000)
-
-    set_block_timestamp(
-        starknet_state, int(token_unlock.timestamp()) + (23 * 24 * 60 * 60)
-    )
-    OTHER_PORTION_IDS = [2, 3, 4]
-    tx = await sale_participant.send_transaction(
-        participant,
-        ido.contract_address,
-        "withdraw_multiple_portions",
-        [3, *OTHER_PORTION_IDS],
-    )
-
-    assert_event_emitted(
-        tx,
-        ido.contract_address,
-        "TokensWithdrawn",
-        [participant.contract_address, *to_uint(18 * 10**17)],
-        order=1,
-    )
-
-    new_balance = await erc20_eth_token.balanceOf(participant.contract_address).call()
-    assert int(new_balance.result.balance[0]) == int(
-        balance_before.result.balance[0]
-    ) + int(PARTICIPATION_VALUE[0] / 100)
+    ) + int(PARTICIPATION_VALUE[0] / TOKEN_PRICE[0])
