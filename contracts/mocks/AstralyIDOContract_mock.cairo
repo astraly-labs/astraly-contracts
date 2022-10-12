@@ -25,6 +25,7 @@ from contracts.IDO.AstralyIDOContract import (
     get_allocation,
     get_number_of_vesting_portions,
     get_vesting_portion_percent,
+    get_user_info,
     register_user,
     Registration,
 )

@@ -43,7 +43,7 @@ PARTICIPATION_VALUE = to_uint(200 * 10**18)
 
 TOKEN_PRICE = to_uint(100 * 10**18)
 TOKENS_TO_SELL = to_uint(100000 * 10**18)
-BASE_ALLOCATION = to_uint(2000 * (10 ** 18))
+BASE_ALLOCATION = to_uint(200 * (10 ** 18))
 VESTING_PRECISION = to_uint(1000)
 
 
@@ -1132,8 +1132,7 @@ async def test_participation_works(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant.contract_address, *to_uint(2 * 10**18)],
-        order=2,
+        [participant.contract_address, *to_uint(2 * 10**18)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()
@@ -1185,6 +1184,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         participant, ido.contract_address, "register_user", [
             len(sig), *sig, sig_exp]
     )
+
     tx = await sale_participant_2.send_transaction(
         participant_2,
         ido.contract_address,
@@ -1226,8 +1226,7 @@ async def test_participation_double(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant_2.contract_address, *to_uint(2 * 10**18)],
-        order=2,
+        [participant_2.contract_address, *to_uint(2 * 10**18)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()

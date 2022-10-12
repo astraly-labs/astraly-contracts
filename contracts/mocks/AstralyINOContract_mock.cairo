@@ -21,6 +21,7 @@ from contracts.IDO.AstralyINOContract import (
     get_registration,
     get_current_sale,
     get_allocation,
+    get_user_info,
     register_user,
     Registration,
 )
