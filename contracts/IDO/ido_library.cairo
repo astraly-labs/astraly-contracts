@@ -206,6 +206,8 @@ namespace IDO {
         let (caller: felt) = get_caller_address();
         IDO_ido_factory_contract_address.write(caller);
 
+         IDO_users_registrations_len.write(1);
+
         return ();
     }
 
@@ -283,12 +285,6 @@ namespace IDO {
     func get_allocation{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         address: felt
     ) -> felt {
-        with_attr error_message("get_allocation::Registration window not closed") {
-            let (the_reg) = IDO_registration.read();
-            let (block_timestamp) = get_block_timestamp();
-            assert_lt_felt(the_reg.registration_time_ends, block_timestamp);
-        }
-
         let (count: felt) = IDO_winners.read(address);
         return (count);
     }

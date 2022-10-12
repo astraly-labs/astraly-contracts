@@ -1526,7 +1526,7 @@ async def test_participation_fails_0_tokens(contracts_factory, setup_sale):
             participant,
             ido.contract_address,
             "participate",
-            [*to_uint(0), *PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*to_uint(0)],
         ),
         reverted_with="participate::Can't buy 0 tokens",
     )
@@ -1583,8 +1583,7 @@ async def test_participation_fails_exceeds_allocation(contracts_factory, setup_s
             participant,
             ido.contract_address,
             "participate",
-            [*INVALID_PARTICIPATION_VALUE, *
-                PARTICIPATION_AMOUNT, len(sig), *sig],
+            [*INVALID_PARTICIPATION_VALUE],
         ),
         reverted_with="participate::Exceeding allowance",
     )
