@@ -35,7 +35,7 @@ sig_exp = 3000000000
 
 PARTICIPATION_AMOUNT = to_uint(300 * 10**18)
 MAX_PARTICIPATION = to_uint(5)
-PARTICIPATION_VALUE = to_uint(200 * 10**18)
+PARTICIPATION_VALUE = to_uint(100 * 10**18)
 
 TOKEN_PRICE = to_uint(100 * 10**18)
 TOKENS_TO_SELL = to_uint(50)
@@ -1067,21 +1067,20 @@ async def test_participation_works(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant.contract_address, *to_uint(2)],
-        order=2,
+        [participant.contract_address, *to_uint(1)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()
     pp(tx.result)
 
-    assert tx.result.has_participated is True
-    assert tx.result.participation.amount_bought == to_uint(2)
+    assert tx.result.has_participated == True
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_current_sale().call()
 
     assert tx.result.res.number_of_participants == to_uint(1)
-    assert tx.result.res.total_tokens_sold == to_uint(2)
+    assert tx.result.res.total_tokens_sold == to_uint(1)
     assert tx.result.res.total_raised == PARTICIPATION_VALUE
 
 
@@ -1163,25 +1162,24 @@ async def test_participation_double(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensSold",
-        [participant_2.contract_address, *to_uint(2)],
-        order=2,
+        [participant_2.contract_address, *to_uint(1)]
     )
 
     tx = await ido.get_user_info(participant.contract_address).call()
     assert tx.result.has_participated == True
-    assert tx.result.participation.amount_bought == to_uint(2)
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_user_info(participant_2.contract_address).call()
     assert tx.result.has_participated == True
-    assert tx.result.participation.amount_bought == to_uint(2)
+    assert tx.result.participation.amount_bought == to_uint(1)
     assert tx.result.participation.amount_paid == PARTICIPATION_VALUE
 
     tx = await ido.get_current_sale().call()
 
     assert tx.result.res.number_of_participants == to_uint(2)
-    assert tx.result.res.total_tokens_sold == to_uint(4)
-    assert tx.result.res.total_raised == to_uint(400 * 10**18)
+    assert tx.result.res.total_tokens_sold == to_uint(2)
+    assert tx.result.res.total_raised == to_uint(200 * 10**18)
 
 
 @pytest.mark.skip
@@ -1594,7 +1592,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
 
     await assert_revert(
         sale_participant.send_transaction(
-            participant, ido.contract_address, "withdraw_tokens", []
+            participant, ido.contract_address, "withdraw_tokens", [1]
         ),
         reverted_with="withdraw_tokens::Tokens can not be withdrawn yet",
     )
@@ -1609,14 +1607,14 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
 
     balance_before = await erc721_token.balanceOf(participant.contract_address).call()
     tx = await sale_participant.send_transaction(
-        participant, ido.contract_address, "withdraw_tokens", []
+        participant, ido.contract_address, "withdraw_tokens", [1]
     )
 
     assert_event_emitted(
         tx,
         ido.contract_address,
         "TokensWithdrawn",
-        [participant.contract_address, *to_uint(2)],
+        [participant.contract_address, *to_uint(1)],
         order=1,
     )
     balance_after = await erc721_token.balanceOf(participant.contract_address).call()

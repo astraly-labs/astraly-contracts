@@ -22,7 +22,7 @@ from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc20.IERC20 import IERC20
 
 from InterfaceAll import IAstralyIDOFactory, IXoroshiro, IAccount
-from contracts.utils import uint256_is_zero, is_lt
+from contracts.utils import uint256_is_zero, uint256_assert_not_zero, is_lt
 
 struct Sale {
     // Token being sold (interface)
@@ -206,7 +206,7 @@ namespace IDO {
         let (caller: felt) = get_caller_address();
         IDO_ido_factory_contract_address.write(caller);
 
-         IDO_users_registrations_len.write(1);
+        IDO_users_registrations_len.write(1);
 
         return ();
     }
@@ -496,7 +496,7 @@ namespace IDO {
     }
 
     func participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        account: felt, amount_paid: Uint256, amount: Uint256, number_of_tokens_buying_mod: Uint256
+        account: felt, amount_paid: Uint256, allocation: Uint256, number_of_tokens_buying: Uint256
     ) {
         alloc_locals;
         let (the_round) = IDO_purchase_round.read();
@@ -508,13 +508,13 @@ namespace IDO {
         with_attr error_message("participate::Purchase round is over") {
             assert_le_felt(block_timestamp, the_round.time_ends);
         }
-        let allocation = get_allocation(account);
+
         with_attr error_message("participate::No allocation") {
-            assert_lt_felt(0, allocation);
+            uint256_assert_not_zero(allocation);
         }
 
         _participate(
-            account, amount_paid, amount, block_timestamp, the_round, number_of_tokens_buying_mod
+            account, amount_paid, allocation, block_timestamp, the_round, number_of_tokens_buying
         );
         return ();
     }
@@ -522,23 +522,19 @@ namespace IDO {
     func _participate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         account: felt,
         amount_paid: Uint256,
-        amount: Uint256,
+        allocation: Uint256,
         block_timestamp: felt,
         the_round: PurchaseRound,
-        number_of_tokens_buying_mod: Uint256,
+        number_of_tokens_buying: Uint256,
     ) {
         alloc_locals;
         let (address_this: felt) = get_contract_address();
 
         // Validations
         with_attr error_message("participate::Crossing max participation") {
-            let (amount_check: felt) = uint256_le(amount, the_round.max_participation);
+            let (amount_check: felt) = uint256_le(allocation, the_round.max_participation);
             assert amount_check = TRUE;
         }
-        // with_attr error_message("participate::User not registered") {
-        //     let (_is_registered) = is_registered.read(account);
-        //     assert _is_registered = TRUE;
-        // }
         with_attr error_message("participate::Purchase round has not started yet") {
             assert_le_felt(the_round.time_starts, block_timestamp);
         }
@@ -558,15 +554,13 @@ namespace IDO {
 
         // Must buy more than 0 tokens
         with_attr error_message("participate::Can't buy 0 tokens") {
-            let (is_tokens_buying_valid: felt) = uint256_lt(
-                Uint256(0, 0), number_of_tokens_buying_mod
-            );
+            let (is_tokens_buying_valid: felt) = uint256_lt(Uint256(0, 0), number_of_tokens_buying);
             assert is_tokens_buying_valid = TRUE;
         }
 
         // Check user allocation
         with_attr error_message("participate::Exceeding allowance") {
-            let (valid_allocation: felt) = uint256_le(number_of_tokens_buying_mod, amount);
+            let (valid_allocation: felt) = uint256_le(number_of_tokens_buying, allocation);
             assert valid_allocation = TRUE;
         }
 
@@ -575,13 +569,13 @@ namespace IDO {
             let (tokens_left) = SafeUint256.sub_le(
                 the_sale.amount_of_tokens_to_sell, the_sale.total_tokens_sold
             );
-            let (enough_tokens: felt) = uint256_le(number_of_tokens_buying_mod, tokens_left);
+            let (enough_tokens: felt) = uint256_le(number_of_tokens_buying, tokens_left);
             assert enough_tokens = TRUE;
         }
 
         // Increase amount of sold tokens
         let (local total_tokens_sum: Uint256) = SafeUint256.add(
-            the_sale.total_tokens_sold, number_of_tokens_buying_mod
+            the_sale.total_tokens_sold, number_of_tokens_buying
         );
 
         // Increase total amount raised
@@ -611,14 +605,14 @@ namespace IDO {
 
         // Add participation for user.
         let new_purchase = Participation(
-            amount_bought=number_of_tokens_buying_mod,
+            amount_bought=number_of_tokens_buying,
             amount_paid=amount_paid,
             time_participated=block_timestamp,
             last_portion_withdrawn=0,
         );
         set_user_participation(account, new_purchase);
 
-        TokensSold.emit(user_address=account, amount=number_of_tokens_buying_mod);
+        TokensSold.emit(user_address=account, amount=number_of_tokens_buying);
         return ();
     }
 

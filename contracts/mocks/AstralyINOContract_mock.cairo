@@ -17,6 +17,7 @@ from contracts.IDO.AstralyINOContract import (
     set_registration_time,
     set_sale_params,
     participate,
+    withdraw_tokens,
     constructor,
     get_registration,
     get_current_sale,

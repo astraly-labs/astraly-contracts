@@ -326,7 +326,7 @@ func participate{
     alloc_locals;
     let (account: felt) = get_caller_address();
     let (address_this: felt) = get_contract_address();
-    let (amount) = get_allocation(account);
+    let (allocation) = get_allocation(account);
 
     let pmt_token_addr = IDO.get_pmt_token_addr();
     with_attr error_message("participate::Payment token address not set") {
@@ -336,10 +336,10 @@ func participate{
     let (decimals) = IERC20.decimals(pmt_token_addr);
     let (local power) = pow(10, decimals);
     let (number_of_tokens_buying: Uint256) = SafeUint256.mul(amount_paid, Uint256(power, 0));
-    let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(
+    let (number_of_tokens_buying, _) = SafeUint256.div_rem(
         number_of_tokens_buying, the_sale.token_price
     );
-    IDO.participate(account, amount_paid, amount, number_of_tokens_buying_mod);
+    IDO.participate(account, amount_paid, allocation, number_of_tokens_buying);
 
     let (pmt_success: felt) = IERC20.transferFrom(
         pmt_token_addr, account, address_this, amount_paid

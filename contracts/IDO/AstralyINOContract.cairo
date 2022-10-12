@@ -170,17 +170,17 @@ func participate{
     alloc_locals;
     let (account: felt) = get_caller_address();
     let (address_this: felt) = get_contract_address();
-    let (amount) = get_allocation(account);
+    let (allocation) = get_allocation(account);
     let pmt_token_addr = IDO.get_pmt_token_addr();
     with_attr error_message("participate::Payment token address not set") {
         assert_not_zero(pmt_token_addr);
     }
 
     let (the_sale: Sale) = get_current_sale();
-    let (number_of_tokens_buying_mod, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price);
-    IDO.participate(account, amount_paid, amount, number_of_tokens_buying_mod);
+    let (number_of_tokens_buying, _) = SafeUint256.div_rem(amount_paid, the_sale.token_price);
+    IDO.participate(account, amount_paid, allocation, number_of_tokens_buying);
 
-    let (pmt_amount) = SafeUint256.mul(number_of_tokens_buying_mod, the_sale.token_price);
+    let (pmt_amount) = SafeUint256.mul(number_of_tokens_buying, the_sale.token_price);
     let (pmt_success: felt) = IERC20.transferFrom(
         pmt_token_addr, account, address_this, pmt_amount
     );
@@ -206,18 +206,19 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     portion_id: felt
 ) {
     alloc_locals;
-    let amt_withdrawing: Uint256 = IDO.withdraw_tokens(portion_id);
-    let (amt_withdrawing_check: felt) = uint256_lt(Uint256(0, 0), amt_withdrawing);
+    IDO.withdraw_tokens(portion_id);
+
+    let (caller) = get_caller_address();
+    let participation: Participation = IDO.get_user_participation(caller);
+    let (amt_withdrawing_check: felt) = uint256_lt(Uint256(0, 0), participation.amount_bought);
 
     if (amt_withdrawing_check == TRUE) {
         let (_current_id: Uint256) = current_id.read();
         let (the_sale: Sale) = get_current_sale();
-        let (address_caller: felt) = get_caller_address();
-        let participation: Participation = IDO.get_user_participation(address_caller);
-        batch_mint(the_sale.token, address_caller, _current_id, participation.amount_bought);
+        batch_mint(the_sale.token, caller, _current_id, participation.amount_bought);
         let (new_id: Uint256) = SafeUint256.add(_current_id, participation.amount_bought);
         current_id.write(new_id);
-        TokensWithdrawn.emit(user_address=address_caller, amount=participation.amount_bought);
+        TokensWithdrawn.emit(caller, participation.amount_bought);
         return ();
     }
 
