@@ -672,15 +672,11 @@ namespace IDO {
         let (block_timestamp) = get_block_timestamp();
         let (participation) = IDO_user_to_participation.read(address_caller);
 
-        with_attr error_message("withdraw_tokens::Portion id can't be zero") {
-            assert_not_zero(portion_id);
-        }
-
         with_attr error_message("withdraw_tokens::Tokens can not be withdrawn yet") {
             assert_le_felt(the_sale.tokens_unlock_time, block_timestamp);
         }
 
-        with_attr error_message("withdraw_tokens::Invlaid portion id") {
+        with_attr error_message("withdraw_tokens::Invalid portion id") {
             assert_le_felt(participation.last_portion_withdrawn, portion_id);
         }
 

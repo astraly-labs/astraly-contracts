@@ -374,7 +374,7 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(portion_id);
 
-    with_attr error_message("withdraw_tokens::Invalid vestion portion percent") {
+    with_attr error_message("withdraw_tokens::Invalid vesting portion percent") {
         uint256_lt(Uint256(0, 0), vesting_portion_percent);
     }
 

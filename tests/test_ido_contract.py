@@ -1651,14 +1651,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         sale_participant.send_transaction(
             participant, ido.contract_address, "withdraw_tokens", [1]
         ),
-        reverted_with="withdraw_tokens::Tokens can not be withdrawn yet",
-    )
-
-    await assert_revert(
-        sale_participant.send_transaction(
-            participant, ido.contract_address, "withdraw_tokens", [0]
-        ),
-        reverted_with="withdraw_tokens::Portion id can't be zero",
+        reverted_with="withdraw_tokens::Portion has not been unlocked yet",
     )
 
     # Go to distribution round start
@@ -1667,6 +1660,13 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     # advance block time stamp to one minute after portion 1 vesting unlock time
     set_block_timestamp(
         starknet_state, int(token_unlock.timestamp()) + (1 * 24 * 60 * 60) + 60
+    )
+
+    await assert_revert(
+        sale_participant.send_transaction(
+            participant, ido.contract_address, "withdraw_tokens", [0]
+        ),
+        reverted_with="withdraw_tokens::Invalid portion vesting unlock time",
     )
 
     balance_before = await erc20_eth_token.balanceOf(

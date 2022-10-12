@@ -1624,8 +1624,3 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
     assert int(balance_after.result.balance[0]) == int(
         balance_before.result.balance[0]
     ) + int(PARTICIPATION_VALUE[0] / TOKEN_PRICE[0])
-
-
-#############
-# WINNER SELECTION
-#############

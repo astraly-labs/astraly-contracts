@@ -17,6 +17,8 @@ from contracts.IDO.AstralyIDOContract import (
     set_registration_time,
     set_sale_params,
     set_vesting_params,
+    withdraw_tokens,
+    withdraw_multiple_portions,
     deposit_tokens,
     participate,
     constructor,
