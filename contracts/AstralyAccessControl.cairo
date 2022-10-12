@@ -43,7 +43,7 @@ namespace AstralyAccessControl {
     ) {
         alloc_locals;
         assert_only_owner();
-        with_attr error_message("AccessControl: Can't grant owner role") {
+        with_attr error_message("AccessControl::Can't grant owner role") {
             assert_not_equal(role, OWNER_ROLE);
         }
         let (role_admin: felt) = AccessControl.get_role_admin(role);
