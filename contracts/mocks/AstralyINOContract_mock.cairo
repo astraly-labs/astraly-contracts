@@ -5,7 +5,12 @@ from starkware.cairo.common.math import assert_not_zero, assert_lt_felt
 from starkware.cairo.common.alloc import alloc
 from starkware.starknet.common.syscalls import get_block_timestamp
 
-from contracts.IDO.ido_library import IDO, UserRegistrationDetails, IDO_winners_arr_len, IDO_winners_arr
+from contracts.IDO.ido_library import (
+    IDO,
+    UserRegistrationDetails,
+    IDO_winners_arr_len,
+    IDO_winners_arr,
+)
 
 from contracts.IDO.AstralyINOContract import (
     set_purchase_round_params,
