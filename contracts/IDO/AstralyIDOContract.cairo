@@ -26,6 +26,7 @@ from contracts.IDO.ido_library import (
     Registration,
     TokensWithdrawn,
 )
+from interfaces.i_AstralyReferral import IAstralyreferral
 const SALE_OWNER_ROLE = 'SALE_OWNER';
 
 @storage_var
@@ -49,6 +50,10 @@ func vesting_portions_unlock_time_array(i: felt) -> (res: felt) {
 // Percent of the participation user can withdraw
 @storage_var
 func vesting_percent_per_portion_array(i: felt) -> (res: Uint256) {
+}
+
+@storage_var
+func _referral() -> (res: felt) {
 }
 
 //
@@ -146,6 +151,13 @@ func get_number_of_vesting_portions{
 //############################################
 // #                 EXTERNALS               ##
 //############################################
+
+@external
+func set_referral{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(referral: felt) {
+    AstralyAccessControl.assert_only_owner();
+    _referral.write(referral);
+    return ();
+}
 
 @external
 func set_vesting_params{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(

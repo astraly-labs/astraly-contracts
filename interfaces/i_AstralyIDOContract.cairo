@@ -40,6 +40,9 @@ namespace IAstralyidocontract {
     func get_number_of_vesting_portions() -> (res: felt) {
     }
 
+    func set_referral(referral: felt) {
+    }
+
     func set_vesting_params(
         _unlocking_times_len: felt,
         _unlocking_times: felt*,
