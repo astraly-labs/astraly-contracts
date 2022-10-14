@@ -66,10 +66,10 @@ func IDOCreated(new_ido_contract_address: felt) {
 
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    admin_address: felt
+    admin_address: felt, admin_cut: Uint256
 ) {
     AstralyAccessControl.initializer(admin_address);
-    IDO.initializer(admin_address);
+    IDO.initializer(admin_address, admin_cut);
 
     let (address_this: felt) = get_contract_address();
     IDOCreated.emit(address_this);
@@ -92,6 +92,14 @@ func get_performance_fee{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     res: Uint256
 ) {
     let (res) = IDO.get_performance_fee();
+    return (res,);
+}
+
+@view
+func get_amm_wrapper{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    res: felt
+) {
+    let (res) = IDO.get_amm_wrapper();
     return (res,);
 }
 
@@ -446,6 +454,7 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
 @external
 func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
     return IDO.withdraw_from_contract();
 }
 

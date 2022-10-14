@@ -5,6 +5,8 @@ from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import assert_not_zero
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.starknet.common.syscalls import get_caller_address, get_block_timestamp, deploy
+from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.hash import hash2
 
 from contracts.AstralyAccessControl import AstralyAccessControl, OWNER_ROLE
 
@@ -122,7 +124,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 
 @external
 func create_ido{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    ido_admin: felt, scorer: felt
+    ido_admin: felt, scorer: felt, admin_cut: Uint256
 ) -> (new_ido_contract_address: felt) {
     alloc_locals;
     AstralyAccessControl.assert_only_owner();
@@ -131,11 +133,20 @@ func create_ido{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
     with_attr error_message("IDO contract class hash is not set") {
         assert_not_zero(ido_contract_class);
     }
+
+    tempvar pedersen_ptr = pedersen_ptr;
+    let (salt) = hash2{hash_ptr=pedersen_ptr}(ido_admin, scorer);
+
+    let constructor_calldata: felt* = alloc();
+
+    assert [constructor_calldata] = ido_admin;
+    assert [constructor_calldata + 1] = admin_cut.low;
+    assert [constructor_calldata + 2] = admin_cut.high;
     let (new_ido_contract_address: felt) = deploy(
         class_hash=ido_contract_class,
         contract_address_salt=_id,
-        constructor_calldata_size=1,
-        constructor_calldata=cast(new (ido_admin), felt*),
+        constructor_calldata_size=3,
+        constructor_calldata=constructor_calldata,
         deploy_from_zero=0,
     );
     ido_contract_addresses.write(_id, new_ido_contract_address);

@@ -166,6 +166,10 @@ func IDO_amm_wrapper() -> (res: felt) {
 func IDO_performance_fee() -> (res: Uint256) {
 }
 
+@storage_var
+func IDO_admin_cut() -> (res: Uint256) {
+}
+
 //
 // Events
 //
@@ -210,7 +214,9 @@ func PurchaseRoundSet(
 }
 
 namespace IDO {
-    func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(admin: felt) {
+    func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        admin: felt, admin_cut: Uint256
+    ) {
         assert_not_zero(admin);
         IDO_admin_address.write(admin);
 
@@ -218,6 +224,8 @@ namespace IDO {
         IDO_ido_factory_contract_address.write(caller);
 
         IDO_users_registrations_len.write(1);
+
+        IDO_admin_cut.write(admin_cut);
 
         return ();
     }
@@ -719,11 +727,20 @@ namespace IDO {
         );
         IDO_sale.write(upd_sale);
 
+        let (admin_cut) = IDO_admin_cut.read();
+        let (fees, _) = SafeUint256.div_rem(the_sale.total_raised, admin_cut);
+        let (amt_transfer) = SafeUint256.sub_lt(the_sale.total_raised, fees);
+
         let (token_transfer_success: felt) = IERC20.transfer(
-            pmt_token_addr, address_caller, the_sale.total_raised
+            pmt_token_addr, address_caller, amt_transfer
         );
         with_attr error_message("withdraw_from_contract::Token transfer failed") {
             assert token_transfer_success = TRUE;
+        }
+        let (admin) = IDO_admin_address.read();
+        let (success: felt) = IERC20.transfer(pmt_token_addr, admin, fees);
+        with_attr error_message("withdraw_from_contract::Token transfer to admin failed") {
+            assert success = TRUE;
         }
 
         return ();

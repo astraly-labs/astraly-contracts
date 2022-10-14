@@ -41,10 +41,10 @@ func INOCreated(new_ino_contract_address: felt) {
 
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    admin_address: felt
+    admin_address: felt, admin_cut: Uint256
 ) {
     AstralyAccessControl.initializer(admin_address);
-    IDO.initializer(admin_address);
+    IDO.initializer(admin_address, admin_cut);
 
     let (address_this: felt) = get_contract_address();
     INOCreated.emit(address_this);

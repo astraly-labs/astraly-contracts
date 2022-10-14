@@ -14,6 +14,9 @@ namespace IAstralyidocontract {
     func get_performance_fee() -> (res: Uint256) {
     }
 
+    func get_amm_wrapper() -> (res: felt) {
+    }
+
     func get_current_sale() -> (res: Sale) {
     }
 
@@ -96,6 +99,9 @@ namespace IAstralyidocontract {
     }
 
     func withdraw_leftovers() {
+    }
+
+    func withdraw_fees() {
     }
 
     func withdraw_multiple_portions(portion_ids_len: felt, portion_ids: felt*) {

@@ -1,5 +1,7 @@
 %lang starknet
 
+from starkware.cairo.common.uint256 import Uint256
+
 @contract_interface
 namespace IAstralyidofactory {
     func get_ido_address(id: felt) -> (address: felt) {
@@ -26,7 +28,9 @@ namespace IAstralyidofactory {
     func grant_owner_role(address: felt) {
     }
 
-    func create_ido(ido_admin: felt, scorer: felt) -> (new_ido_contract_address: felt) {
+    func create_ido(ido_admin: felt, scorer: felt, admin_cut: Uint256) -> (
+        new_ido_contract_address: felt
+    ) {
     }
 
     func create_ino(ido_admin: felt, scorer: felt) -> (new_ino_contract_address: felt) {
