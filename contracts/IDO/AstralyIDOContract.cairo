@@ -438,7 +438,7 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
             assert token_transfer_success = TRUE;
         }
 
-        TokensWithdrawn.emit(user_address=address_caller, amount=amt_withdrawing);
+        TokensWithdrawn.emit(user_address=address_caller, amount=amt_transfer);
         return ();
     }
     return ();
@@ -509,7 +509,7 @@ func _withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
             assert token_transfer_success = TRUE;
         }
 
-        TokensWithdrawn.emit(user_address=address_caller, amount=amt_withdrawn_sum);
+        TokensWithdrawn.emit(user_address=address_caller, amount=amt_transfer);
         return ();
     }
 

@@ -27,6 +27,7 @@ ido_factory_path = "IDO/AstralyIDOFactory.cairo"
 ido_path = "mocks/AstralyIDOContract_mock.cairo"
 rnd_nbr_gen_path = "utils/xoroshiro128_starstar.cairo"
 erc20_eth_path = "mocks/Astraly_ETH_ERC20_mock.cairo"
+wrapper_path = "mocks/Wrapper_mock.cairo"
 
 deployer = MockSigner(1234321)
 admin1 = MockSigner(2345432)
@@ -69,6 +70,7 @@ def contract_defs() -> Tuple[ContractClass, ...]:
     rnd_nbr_gen_def = get_contract_def(rnd_nbr_gen_path)
     zk_pad_ido_def = get_contract_def(ido_path)
     erc20_eth_def = get_contract_def(erc20_eth_path)
+    wrapper_def = get_contract_def(wrapper_path)
 
     return (
         account_def,
@@ -76,6 +78,7 @@ def contract_defs() -> Tuple[ContractClass, ...]:
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        wrapper_def
     )
 
 
@@ -88,6 +91,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        wrapper_def
     ) = contract_defs
     await starknet.declare(contract_class=account_def)
     deployer_account = await starknet.deploy(
@@ -190,6 +194,19 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         [erc20_eth_token.contract_address],
     )
 
+    # Deploy wrapper and set it
+    wrapper = await starknet.deploy(
+        contract_class=wrapper_def,
+        constructor_calldata=[],
+    )
+
+    tx = await admin1.send_transaction(
+        admin1_account,
+        ido.contract_address,
+        "set_amm_wrapper",
+        [wrapper.contract_address],
+    )
+
     return (
         deployer_account,
         admin1_account,
@@ -222,6 +239,7 @@ def contracts_factory(contract_defs, contracts_init, get_starknet: Starknet) -> 
         rnd_nbr_gen_def,
         zk_pad_ido_def,
         erc20_eth_def,
+        _
     ) = contract_defs
     (
         deployer_account,
@@ -1679,7 +1697,7 @@ async def test_withdraw_tokens(contracts_factory, setup_sale):
         tx,
         ido.contract_address,
         "TokensWithdrawn",
-        [participant.contract_address, *to_uint(2 * 10**17)],
+        [participant.contract_address, *to_uint(2 * 10 ** 17)],
         order=1,
     )
     balance_after = await erc20_eth_token.balanceOf(participant.contract_address).call()
