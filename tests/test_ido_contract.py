@@ -47,6 +47,8 @@ TOKENS_TO_SELL = to_uint(100000 * 10**18)
 BASE_ALLOCATION = to_uint(200 * (10 ** 18))
 VESTING_PRECISION = to_uint(1000)
 
+ADMIN_CUT = to_uint(0)
+
 
 def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
     return signer.sign(message_hash=digest)
@@ -149,7 +151,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         deployer_account,
         zk_pad_ido_factory.contract_address,
         "create_ido",
-        [admin1_account.contract_address, 0],
+        [admin1_account.contract_address, 0, ADMIN_CUT],
     )
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
 
