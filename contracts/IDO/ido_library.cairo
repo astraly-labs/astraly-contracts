@@ -24,6 +24,7 @@ from openzeppelin.account.IAccount import IAccount
 
 from interfaces.i_AstralyIDOFactory import IAstralyidofactory
 from interfaces.i_xoroshiro128_starstar import IXoroshiro128Starstar
+from interfaces.i_JediSwapWrapper import IJediswapwrapper
 from contracts.utils import uint256_is_zero, uint256_assert_not_zero, is_lt
 
 struct Sale {
@@ -155,6 +156,14 @@ func IDO_max_winners_len() -> (max_len: felt) {
 
 @storage_var
 func IDO_participants(user_address: felt) -> (res: felt) {
+}
+
+@storage_var
+func IDO_amm_wrapper() -> (res: felt) {
+}
+
+@storage_var
+func IDO_performance_fee() -> (res: Uint256) {
 }
 
 //
@@ -944,23 +953,50 @@ namespace IDO {
         return ();
     }
 
-    func check_participation_signature{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-        ecdsa_ptr: SignatureBuiltin*,
-    }(sig_len: felt, sig: felt*, caller: felt, amount: Uint256) {
-        alloc_locals;
-        let (admin) = IDO_admin_address.read();
-        let (this) = get_contract_address();
+    func get_amm_wrapper{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+        wrapper: felt
+    ) {
+        let (wrapper) = IDO_amm_wrapper.read();
+        return (wrapper,);
+    }
 
-        let (hash1) = hash2{hash_ptr=pedersen_ptr}(caller, amount.low);
-        let (hash2_) = hash2{hash_ptr=pedersen_ptr}(hash1, amount.high);
-        let (hash3) = hash2{hash_ptr=pedersen_ptr}(hash2_, this);
+    func get_performance_fee{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+        performance_fee: Uint256
+    ) {
+        let (performance_fee) = IDO_performance_fee.read();
+        return (performance_fee,);
+    }
 
-        // Verify the user's signature.
-        let (is_valid) = IAccount.isValidSignature(admin, hash3, sig_len, sig);
-        assert is_valid = TRUE;
+    func set_amm_wrapper{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        wrapper: felt
+    ) {
+        IDO_amm_wrapper.write(wrapper);
         return ();
+    }
+
+    func set_performance_fee{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        performance_fee: Uint256
+    ) {
+        IDO_performance_fee.write(performance_fee);
+        return ();
+    }
+
+    func get_performance_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        amount_withdrawn: Uint256
+    ) -> (fees: Uint256) {
+        alloc_locals;
+        let (wrapper) = get_amm_wrapper();
+        let (performance_fee: Uint256) = IDO_performance_fee.read();
+        let (new_price) = IJediswapwrapper.get_token_price(wrapper, amount_withdrawn);
+        let (the_sale) = get_current_sale();
+        local old_price = the_sale.token_price;
+        let (is_valid) = uint256_lt(old_price, new_price);
+        if (is_valid == TRUE) {
+            return (fees=Uint256(0, 0),);
+        } else {
+            let (diff) = SafeUint256.sub_le(new_price, old_price);
+            let (fees) = SafeUint256.div_rem(diff, performance_fee);
+            return (fees,);
+        }
     }
 }

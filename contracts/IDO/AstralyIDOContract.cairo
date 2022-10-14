@@ -83,6 +83,14 @@ func get_ido_launch_date{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 }
 
 @view
+func get_performance_fee{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    res: Uint256
+) {
+    let (res) = IDO.get_performance_fee();
+    return (res,);
+}
+
+@view
 func get_current_sale{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
     res: Sale
 ) {
@@ -290,6 +298,24 @@ func set_sale_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 ) {
     AstralyAccessControl.assert_only_owner();
     IDO.set_sale_token(_sale_token_address);
+    return ();
+}
+
+@external
+func set_amm_wrapper{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    _amm_wrapper_address: felt
+) {
+    AstralyAccessControl.assert_only_owner();
+    IDO.set_amm_wrapper(_amm_wrapper_address);
+    return ();
+}
+
+@external
+func set_performance_fee{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    _performance_fee: Uint256
+) {
+    AstralyAccessControl.assert_only_owner();
+    IDO.set_performance_fee(_performance_fee);
     return ();
 }
 
