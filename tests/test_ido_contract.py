@@ -151,7 +151,7 @@ async def contracts_init(contract_defs: Tuple[ContractClass, ...], get_starknet:
         deployer_account,
         zk_pad_ido_factory.contract_address,
         "create_ido",
-        [admin1_account.contract_address, 0, ADMIN_CUT],
+        [admin1_account.contract_address, 0, *ADMIN_CUT],
     )
     ido_address = tx.call_info.internal_calls[0].events[0].data[1]
 
