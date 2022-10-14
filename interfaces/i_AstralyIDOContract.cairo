@@ -1,14 +1,20 @@
 %lang starknet
 
+from starkware.cairo.common.uint256 import Uint256
 from contracts.IDO.ido_library import Sale
 from contracts.IDO.ido_library import Participation
-from starkware.cairo.common.uint256 import Uint256
 from contracts.IDO.ido_library import PurchaseRound
 from contracts.IDO.ido_library import Registration
 
 @contract_interface
 namespace IAstralyidocontract {
     func get_ido_launch_date() -> (res: felt) {
+    }
+
+    func get_performance_fee() -> (res: Uint256) {
+    }
+
+    func get_amm_wrapper() -> (res: felt) {
     }
 
     func get_current_sale() -> (res: Sale) {
@@ -63,6 +69,12 @@ namespace IAstralyidocontract {
     func set_sale_token(_sale_token_address: felt) {
     }
 
+    func set_amm_wrapper(_amm_wrapper_address: felt) {
+    }
+
+    func set_performance_fee(_performance_fee: Uint256) {
+    }
+
     func set_registration_time(_registration_time_starts: felt, _registration_time_ends: felt) {
     }
 
@@ -87,6 +99,9 @@ namespace IAstralyidocontract {
     }
 
     func withdraw_leftovers() {
+    }
+
+    func withdraw_fees() {
     }
 
     func withdraw_multiple_portions(portion_ids_len: felt, portion_ids: felt*) {

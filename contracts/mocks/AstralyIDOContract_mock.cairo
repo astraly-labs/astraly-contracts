@@ -30,6 +30,7 @@ from contracts.IDO.AstralyIDOContract import (
     get_user_info,
     register_user,
     Registration,
+    set_amm_wrapper,
 )
 
 @external
