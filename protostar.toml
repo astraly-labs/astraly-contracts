@@ -29,3 +29,6 @@ Xoroshiro = [
 Referral = [
     "contracts/Referral/AstralyReferral.cairo",
 ]
+JediSwap = [
+    "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo"
+]

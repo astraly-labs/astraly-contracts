@@ -128,14 +128,16 @@ create_ido() {
     factory_address=$1
     ido_admin=$2
     scorer=$3
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ido --inputs $ido_admin $scorer"` || exit_error
+    admin_cut=$4
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ido --inputs $ido_admin $scorer $admin_cut"` || exit_error
 }
 
 create_ino(){
     factory_address=$1
     ino_admin=$2
     scorer=$3
-    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ino --inputs $ido_admin $scorer"` || exit_error  
+    admin_cut=$4
+    RESULT=`send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/AstralyIDOFactory.json --function create_ino --inputs $ido_admin $scorer $admin_cut"` || exit_error  
 }
 
 # Deploy all contracts and log the deployed addresses in the cache file
@@ -173,7 +175,7 @@ deploy_all_contracts() {
             ido_class_hash=`send_declare_contract_transaction "starknet declare $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --contract ./artifacts/${contract}.json"` || exit_error
             send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/${factory}.json --function set_ido_contract_class_hash --inputs $ido_class_hash" || exit_error  
         fi
-        `create_ido $factory_address $ADMIN_ADDRESS $SCORER `
+        `create_ido $factory_address $ADMIN_ADDRESS $SCORER $ADMIN_CUT `
         ;;
         1) log_info "Creating INO"
         contract="AstralyINOContract"
@@ -184,13 +186,13 @@ deploy_all_contracts() {
             ino_class_hash=`send_declare_contract_transaction "starknet declare $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --contract ./artifacts/${contract}.json"` || exit_error
             send_transaction "starknet invoke $ACCOUNT_OPT $NETWORK_OPT $MAX_FEE_OPT --address $factory_address --abi ./artifacts/abis/${factory}.json --function set_ino_contract_class_hash --inputs $ino_class_hash" || exit_error  
         fi
-        `create_ino $factory_address $ADMIN_ADDRESS $SCORER  `
+        `create_ino $factory_address $ADMIN_ADDRESS $SCORER $ADMIN_CUT `
         ;;
         esac
 }
 
 ### ARGUMENT PARSING
-while getopts a:s:m:p:yh option
+while getopts a:s:c:m:p:yh option
 do
     case "${option}"
     in
@@ -200,6 +202,7 @@ do
         y) AUTO_YES="true";;
         h) usage; exit_success;;
         s) SCORER=${OPTARG};;
+        c) ADMIN_CUT=${OPTARG};;
         \?) usage; exit_error;;
     esac
 done
@@ -208,6 +211,7 @@ export STARKNET_WALLET=starkware.starknet.wallets.open_zeppelin.OpenZeppelinAcco
 
 [ -z "$ADMIN_ACCOUNT" ] && exit_error "Admin account is mandatory (use -a option) and must be set to the alias of the admin account"
 [ -z $SCORER ] && exit_error "Scorer is mandatory (use -s option)"
+[ -z $ADMIN_CUT ] && exit_error "Admin cut is mandatory (use -s option)"
 
 CACHE_FILE="${CACHE_FILE_BASE}.txt"
 
