@@ -701,6 +701,7 @@ namespace IDO {
     }
 
     func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+        alloc_locals;
         let (address_caller: felt) = get_caller_address();
         let (factory_address) = IDO_ido_factory_contract_address.read();
         let (pmt_token_addr) = IAstralyidofactory.get_payment_token_address(factory_address);
