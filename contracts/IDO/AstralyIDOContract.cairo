@@ -51,6 +51,11 @@ func vesting_portions_unlock_time_array(i: felt) -> (res: felt) {
 func vesting_percent_per_portion_array(i: felt) -> (res: Uint256) {
 }
 
+// Accumulated performance fees
+@storage_var
+func performance_fees_acc() -> (res: Uint256) {
+}
+
 //
 // Events
 //
@@ -419,10 +424,17 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     if (amt_withdrawing_check == TRUE) {
         let (the_sale) = IDO.get_current_sale();
         let token_address = the_sale.token;
+        // Take performance fees
+        let (fees) = IDO.get_performance_fees(amt_withdrawing);
+        let (cur_fees) = performance_fees_acc.read();
+        let (fees_acc) = SafeUint256.add(fees, cur_fees);
+        performance_fees_acc.write(fees_acc);
+        // Transfer after fees
+        let (amt_transfer) = SafeUint256.sub_le(amt_withdrawing, fees);
         let (token_transfer_success: felt) = IERC20.transfer(
-            token_address, address_caller, amt_withdrawing
+            token_address, address_caller, amt_transfer
         );
-        with_attr error_message("withdraw_tokens::Token transfer failed") {
+        with_attr error_message("withdraw_tokens::Token transfer to user failed") {
             assert token_transfer_success = TRUE;
         }
 
@@ -441,6 +453,23 @@ func withdraw_from_contract{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 func withdraw_leftovers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
     return IDO.withdraw_leftovers();
+}
+
+@external
+func withdraw_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    AstralyAccessControl.assert_only_role(SALE_OWNER_ROLE);
+    let (caller) = get_caller_address();
+    let (fees) = performance_fees_acc.read();
+    let (the_sale) = get_current_sale();
+    let token_address = the_sale.token;
+    // Reset fees accumulator
+    performance_fees_acc.write(Uint256(0, 0));
+    let (token_transfer_success: felt) = IERC20.transfer(token_address, caller, fees);
+    with_attr error_message("withdraw_fees::Token transfer failed") {
+        assert token_transfer_success = TRUE;
+    }
+
+    return ();
 }
 
 @external
@@ -466,8 +495,15 @@ func _withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
     let (amt_withdrawing_check: felt) = uint256_lt(Uint256(0, 0), amt_withdrawn_sum);
     if (amt_withdrawing_check == TRUE) {
         let token_address = the_sale.token;
+        // Take performance fees
+        let (fees) = IDO.get_performance_fees(amt_withdrawn_sum);
+        let (cur_fees) = performance_fees_acc.read();
+        let (fees_acc) = SafeUint256.add(fees, cur_fees);
+        performance_fees_acc.write(fees_acc);
+        // Transfer after fees
+        let (amt_transfer) = SafeUint256.sub_le(amt_withdrawn_sum, fees);
         let (token_transfer_success: felt) = IERC20.transfer(
-            token_address, address_caller, amt_withdrawn_sum
+            token_address, address_caller, amt_transfer
         );
         with_attr error_message("withdraw_multiple_portions::Token transfer failed") {
             assert token_transfer_success = TRUE;

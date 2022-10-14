@@ -989,13 +989,12 @@ namespace IDO {
         let (performance_fee: Uint256) = IDO_performance_fee.read();
         let (new_price) = IJediswapwrapper.get_token_price(wrapper, amount_withdrawn);
         let (the_sale) = get_current_sale();
-        local old_price = the_sale.token_price;
-        let (is_valid) = uint256_lt(old_price, new_price);
+        let (is_valid) = uint256_lt(the_sale.token_price, new_price);
         if (is_valid == TRUE) {
             return (fees=Uint256(0, 0),);
         } else {
-            let (diff) = SafeUint256.sub_le(new_price, old_price);
-            let (fees) = SafeUint256.div_rem(diff, performance_fee);
+            let (diff) = SafeUint256.sub_le(new_price, the_sale.token_price);
+            let (fees, _) = SafeUint256.div_rem(diff, performance_fee);
             return (fees,);
         }
     }
