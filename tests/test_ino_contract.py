@@ -40,6 +40,8 @@ PARTICIPATION_VALUE = to_uint(100 * 10**18)
 TOKEN_PRICE = to_uint(100 * 10**18)
 TOKENS_TO_SELL = to_uint(50)
 
+ADMIN_CUT = to_uint(0)
+
 
 def generate_signature(digest, signer: Signer) -> Tuple[int, int]:
     return signer.sign(message_hash=digest)
