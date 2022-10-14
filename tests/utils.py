@@ -70,7 +70,6 @@ def assert_events_emitted(tx_exec_info: TransactionExecutionInfo, events):
         )
 
         base = tx_exec_info.call_info.internal_calls[0]
-        # print(base.events, event_obj)
         if event_obj in base.events and from_address == base.contract_address:
             return
 
