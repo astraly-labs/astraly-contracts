@@ -33,7 +33,9 @@ namespace IAstralyidofactory {
     ) {
     }
 
-    func create_ino(ido_admin: felt, scorer: felt) -> (new_ino_contract_address: felt) {
+    func create_ino(ido_admin: felt, scorer: felt, admin_cut: Uint256) -> (
+        new_ino_contract_address: felt
+    ) {
     }
 
     func set_random_number_generator_address(rnd_nbr_gen_adr: felt) {

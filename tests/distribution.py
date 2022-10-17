@@ -1,6 +1,6 @@
 from random import randint
 from collections import namedtuple, Counter
-
+from starkware.starknet.public.abi import get_selector_from_name
 
 UserParticipation = namedtuple("UserParticipation", ["address", "score"])
 
@@ -21,7 +21,8 @@ user_array = list(
 )
 
 for x in range(20000):
-    user_array.append(UserParticipation(randint(99999, 9999999999999), randint(1, 100)))
+    user_array.append(UserParticipation(
+        randint(99999, 9999999999999), randint(1, 100)))
 print("AVG SCORE : ", sum([u.score for u in user_array]) / len(user_array))
 
 k = 10000

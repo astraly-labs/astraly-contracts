@@ -17,6 +17,9 @@ namespace IAstralyidocontract {
     func get_amm_wrapper() -> (res: felt) {
     }
 
+    func get_referral_earnings(user: felt) -> (res: Uint256) {
+    }
+
     func get_current_sale() -> (res: Sale) {
     }
 
@@ -44,6 +47,12 @@ namespace IAstralyidocontract {
     }
 
     func get_number_of_vesting_portions() -> (res: felt) {
+    }
+
+    func get_referral() -> (res: felt) {
+    }
+
+    func set_referral(referral: felt) {
     }
 
     func set_vesting_params(
@@ -102,6 +111,9 @@ namespace IAstralyidocontract {
     }
 
     func withdraw_fees() {
+    }
+
+    func withdraw_referral_fees() {
     }
 
     func withdraw_multiple_portions(portion_ids_len: felt, portion_ids: felt*) {

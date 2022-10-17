@@ -26,6 +26,9 @@ AstralyIDOFactory = [
 Xoroshiro = [
     "contracts/utils/xoroshiro128_starstar.cairo",
 ]
+Referral = [
+    "contracts/Referral/AstralyReferral.cairo",
+]
 JediSwap = [
     "contracts/AMMs/jedi_swap/JediSwapWrapper.cairo"
 ]
