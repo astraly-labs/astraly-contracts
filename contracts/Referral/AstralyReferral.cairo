@@ -1,21 +1,38 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.uint256 import Uint256
 from contracts.Referral.library import Referral
 
 @view
-func get_referrers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(user: felt) -> (
-    referrers_len: felt, referrers: felt*
+func get_referrer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(user: felt) -> (
+    res: felt
 ) {
-    let (referrers_len, referrers) = Referral.get_referrers(user);
-    return (referrers_len, referrers);
+    let (res) = Referral.get_referrer(user);
+    return (res,);
 }
 
 @view
-func is_referred{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    user: felt, referrer: felt
+func get_referral_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    user: felt
 ) -> (res: felt) {
-    let (res) = Referral.is_referred(user, referrer);
+    let (res) = Referral.get_referral_count(user);
+    return (res,);
+}
+
+@view
+func get_referral_cut{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    res: Uint256
+) {
+    let (res) = Referral.get_referral_cut();
+    return (res,);
+}
+
+@view
+func get_referral_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    performance_fees: Uint256
+) -> (res: Uint256) {
+    let (res) = Referral.get_referral_fees(performance_fees);
     return (res,);
 }
 
@@ -28,9 +45,9 @@ func record_referral{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 }
 
 @external
-func set_referral_bonus{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    bonus: felt
+func set_referral_cut{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    cut: Uint256
 ) {
-    Referral.set_score_bonus(bonus);
+    Referral.set_referral_cut(cut);
     return ();
 }

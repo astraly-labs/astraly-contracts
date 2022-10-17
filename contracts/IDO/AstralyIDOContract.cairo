@@ -59,6 +59,10 @@ func _referral() -> (res: felt) {
 @storage_var
 func performance_fees_acc() -> (res: Uint256) {
 }
+// Earnings through referrals
+@storage_var
+func referral_earnings(user: felt) -> (res: Uint256) {
+}
 
 //
 // Events
@@ -104,6 +108,14 @@ func get_amm_wrapper{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     res: felt
 ) {
     let (res) = IDO.get_amm_wrapper();
+    return (res,);
+}
+
+@view
+func get_referral_earnings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    user: felt
+) -> (res: Uint256) {
+    let (res) = referral_earnings.read(user);
     return (res,);
 }
 
@@ -166,6 +178,14 @@ func get_number_of_vesting_portions{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }() -> (res: felt) {
     return number_of_vesting_portions.read();
+}
+
+@view
+func get_referral{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    res: felt
+) {
+    let (res) = _referral.read();
+    return (res,);
 }
 
 //############################################
@@ -425,7 +445,8 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(portion_id);
 
     with_attr error_message("withdraw_tokens::Invalid vesting portion percent") {
-        uint256_lt(Uint256(0, 0), vesting_portion_percent);
+        let (valid) = uint256_lt(Uint256(0, 0), vesting_portion_percent);
+        assert valid = TRUE;
     }
 
     let (address_caller: felt) = get_caller_address();
@@ -445,8 +466,17 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         let token_address = the_sale.token;
         // Take performance fees
         let (fees) = IDO.get_performance_fees(amt_withdrawing);
+        // Take referral fees
+        let (referral) = get_referral();
+        let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
+        let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
+        let (cur_ref_fees) = referral_earnings.read(referrer);
+        let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
+        referral_earnings.write(referrer, ref_fees_acc);
+        // Accumulate performance fees
         let (cur_fees) = performance_fees_acc.read();
-        let (fees_acc) = SafeUint256.add(fees, cur_fees);
+        let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
+        let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
         performance_fees_acc.write(fees_acc);
         // Transfer after fees
         let (amt_transfer) = SafeUint256.sub_le(amt_withdrawing, fees);
@@ -493,6 +523,26 @@ func withdraw_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 }
 
 @external
+func withdraw_referral_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    let (caller) = get_caller_address();
+    let (fees) = referral_earnings.read(caller);
+    with_attr error_message("withdraw_referral_fees::Nothing to withdraw") {
+        let (check) = uint256_lt(Uint256(0, 0), fees);
+        assert check = TRUE;
+    }
+    let (the_sale) = get_current_sale();
+    let token_address = the_sale.token;
+    // Reset fees accumulator
+    referral_earnings.write(caller, Uint256(0, 0));
+    let (token_transfer_success: felt) = IERC20.transfer(token_address, caller, fees);
+    with_attr error_message("withdraw_referral_fees::Token transfer failed") {
+        assert token_transfer_success = TRUE;
+    }
+
+    return ();
+}
+
+@external
 func withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     portion_ids_len: felt, portion_ids: felt*
 ) {
@@ -517,8 +567,17 @@ func _withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
         let token_address = the_sale.token;
         // Take performance fees
         let (fees) = IDO.get_performance_fees(amt_withdrawn_sum);
+        // Take referral fees
+        let (referral) = get_referral();
+        let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
+        let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
+        let (cur_ref_fees) = referral_earnings.read(referrer);
+        let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
+        referral_earnings.write(referrer, ref_fees_acc);
+        // Accumulate performance fees
         let (cur_fees) = performance_fees_acc.read();
-        let (fees_acc) = SafeUint256.add(fees, cur_fees);
+        let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
+        let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
         performance_fees_acc.write(fees_acc);
         // Transfer after fees
         let (amt_transfer) = SafeUint256.sub_le(amt_withdrawn_sum, fees);
@@ -577,7 +636,8 @@ func withdraw_multiple_portions_rec{
 
     let (vesting_portion_percent) = vesting_percent_per_portion_array.read(current_portion);
     with_attr error_message("withdraw_multiple_portions_rec::Invalid vestion portion percent") {
-        uint256_lt(Uint256(0, 0), vesting_portion_percent);
+        let (valid) = uint256_lt(Uint256(0, 0), vesting_portion_percent);
+        assert valid = TRUE;
     }
 
     let (amt_withdrawing_num: Uint256) = SafeUint256.mul(

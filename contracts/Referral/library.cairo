@@ -3,70 +3,65 @@
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.bool import TRUE
 from starkware.cairo.common.alloc import alloc
+from starkware.cairo.common.uint256 import Uint256
+
+from openzeppelin.security.safemath.library import SafeUint256
 
 @storage_var
-func Referral_is_referred(user: felt, referrer: felt) -> (res: felt) {
+func Referral_referrer(user: felt) -> (res: felt) {
 }
 
 @storage_var
-func Referral_refferals(user: felt, index: felt) -> (res: felt) {
+func Referral_referral_cut() -> (res: Uint256) {
 }
 
 @storage_var
-func Referral_refferals_len(user: felt) -> (res: felt) {
-}
-
-@storage_var
-func Referral_score_bonus() -> (res: felt) {
+func Referral_referrals_count(user: felt) -> (res: felt) {
 }
 
 namespace Referral {
     func record_referral{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         user: felt, referrer: felt
     ) {
-        Referral_is_referred.write(user, referrer, TRUE);
-        let (len) = Referral_refferals_len.read(user);
-        Referral_refferals.write(user, len, referrer);
-        Referral_refferals_len.write(user, len + 1);
+        Referral_referrer.write(user, referrer);
+        let (count) = Referral_referrals_count.read(referrer);
+        Referral_referrals_count.write(referrer, count + 1);
         return ();
     }
 
-    func get_referrers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    func get_referrer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         user: felt
-    ) -> (arr_len: felt, arr: felt*) {
-        alloc_locals;
-        let (arr_len: felt) = Referral_refferals_len.read(user);
-        let (arr: felt*) = alloc();
-
-        internal.get_referrers_rec(arr_len, arr, 0, user);
-        return (arr_len, arr);
-    }
-
-    func is_referred{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        user: felt, referrer: felt
     ) -> (res: felt) {
-        let (res) = Referral_is_referred.read(user, referrer);
+        let (res) = Referral_referrer.read(user);
         return (res,);
     }
 
-    func set_score_bonus{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        bonus: felt
+    func get_referral_count{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        user: felt
+    ) -> (res: felt) {
+        let (res) = Referral_referrals_count.read(user);
+        return (res,);
+    }
+
+    func set_referral_cut{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        cut: Uint256
     ) {
-        Referral_score_bonus.write(bonus);
+        Referral_referral_cut.write(cut);
         return ();
     }
-}
 
-namespace internal {
-    func get_referrers_rec{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        array_len: felt, array: felt*, index: felt, user: felt
+    func get_referral_cut{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+        res: Uint256
     ) {
-        if (index == array_len) {
-            return ();
-        }
-        let (referral) = Referral_refferals.read(user, index);
-        assert array[index] = referral;
+        let (res) = Referral_referral_cut.read();
+        return (res,);
+    }
 
-        return get_referrers_rec(array_len, array, index + 1, user);
+    func get_referral_fees{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        performance_fees: Uint256
+    ) -> (res: Uint256) {
+        let (cut) = Referral_referral_cut.read();
+        let (fees, _) = SafeUint256.div_rem(performance_fees, cut);
+        return (res=fees);
     }
 }

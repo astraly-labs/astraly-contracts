@@ -686,7 +686,7 @@ namespace IDO {
         }
 
         with_attr error_message("withdraw_tokens::Invalid portion id") {
-            assert_le_felt(participation.last_portion_withdrawn, portion_id);
+            assert_lt_felt(participation.last_portion_withdrawn, portion_id);
         }
 
         let participation_upd = Participation(
