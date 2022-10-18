@@ -468,16 +468,31 @@ func withdraw_tokens{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
         let (fees) = IDO.get_performance_fees(amt_withdrawing);
         // Take referral fees
         let (referral) = get_referral();
-        let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
-        let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
-        let (cur_ref_fees) = referral_earnings.read(referrer);
-        let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
-        referral_earnings.write(referrer, ref_fees_acc);
-        // Accumulate performance fees
-        let (cur_fees) = performance_fees_acc.read();
-        let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
-        let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
-        performance_fees_acc.write(fees_acc);
+        if (referral != 0) {
+            // Compute referral fees
+            let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
+            let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
+            let (cur_ref_fees) = referral_earnings.read(referrer);
+            let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
+            referral_earnings.write(referrer, ref_fees_acc);
+            // Accumulate performance fees
+            let (cur_fees) = performance_fees_acc.read();
+            let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
+            let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
+            performance_fees_acc.write(fees_acc);
+            tempvar pedersen_ptr: HashBuiltin* = pedersen_ptr;
+            tempvar syscall_ptr: felt* = syscall_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        } else {
+            // Accumulate performance fees
+            let (cur_fees) = performance_fees_acc.read();
+            let (fees_acc) = SafeUint256.add(fees, cur_fees);
+            performance_fees_acc.write(fees_acc);
+            tempvar pedersen_ptr: HashBuiltin* = pedersen_ptr;
+            tempvar syscall_ptr: felt* = syscall_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        }
+
         // Transfer after fees
         let (amt_transfer) = SafeUint256.sub_le(amt_withdrawing, fees);
         let (token_transfer_success: felt) = IERC20.transfer(
@@ -569,16 +584,31 @@ func _withdraw_multiple_portions{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*,
         let (fees) = IDO.get_performance_fees(amt_withdrawn_sum);
         // Take referral fees
         let (referral) = get_referral();
-        let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
-        let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
-        let (cur_ref_fees) = referral_earnings.read(referrer);
-        let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
-        referral_earnings.write(referrer, ref_fees_acc);
-        // Accumulate performance fees
-        let (cur_fees) = performance_fees_acc.read();
-        let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
-        let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
-        performance_fees_acc.write(fees_acc);
+        if (referral != 0) {
+            // Compute referral fees
+            let (ref_fees) = IAstralyreferral.get_referral_fees(referral, fees);
+            let (referrer) = IAstralyreferral.get_referrer(referral, address_caller);
+            let (cur_ref_fees) = referral_earnings.read(referrer);
+            let (ref_fees_acc) = SafeUint256.add(ref_fees, cur_ref_fees);
+            referral_earnings.write(referrer, ref_fees_acc);
+            // Accumulate performance fees
+            let (cur_fees) = performance_fees_acc.read();
+            let (perf_fees) = SafeUint256.sub_lt(fees, ref_fees);
+            let (fees_acc) = SafeUint256.add(perf_fees, cur_fees);
+            performance_fees_acc.write(fees_acc);
+            tempvar pedersen_ptr: HashBuiltin* = pedersen_ptr;
+            tempvar syscall_ptr: felt* = syscall_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        } else {
+            // Accumulate performance fees
+            let (cur_fees) = performance_fees_acc.read();
+            let (fees_acc) = SafeUint256.add(fees, cur_fees);
+            performance_fees_acc.write(fees_acc);
+            tempvar pedersen_ptr: HashBuiltin* = pedersen_ptr;
+            tempvar syscall_ptr: felt* = syscall_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        }
+
         // Transfer after fees
         let (amt_transfer) = SafeUint256.sub_le(amt_withdrawn_sum, fees);
         let (token_transfer_success: felt) = IERC20.transfer(
