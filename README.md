@@ -10,13 +10,13 @@ _Smart Contracts for Astraly Launch, Fundraising powered by on-chain reputation 
 
 ## Contracts
 
-| Contract                                       | Title           | Description                                                            |
-| ---------------------------------------------- | --------------- | ---------------------------------------------------------------------- |
-| [AstralyIDO](./contracts/AstralyIDO.cairo)     | IDO Contract    | Handles the whole business logic of the IDO.                           |
-| [AstralyINO](./contracts/AstralyINO.cairo)     | INO Contract    | Handles the whole business logic of the INO.                           |
-| [AstralyIDOFactory](./AstralyIDOFactory.cairo) | IDO/INO Factory | Instanciates AstralyIDO/INO contracts for every new IDO/INO.           |
-| [AstralyReferral](./AstralyReferral.cairo)     | Referral        | Handles the referral logic, one referral contract is deployed per IDO. |
-| [Utils](./contracts/utils)                     | Cairo utils     |
+| Contract                                                      | Title           | Description                                                            |
+| ------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------- |
+| [AstralyIDO](./contracts/IDO/AstralyIDO.cairo)                | IDO Contract    | Handles the whole business logic of the IDO.                           |
+| [AstralyINO](./contracts/IDO/AstralyINO.cairo)                | INO Contract    | Handles the whole business logic of the INO.                           |
+| [AstralyIDOFactory](./contracts/IDO/AstralyIDOFactory.cairo)  | IDO/INO Factory | Instanciates AstralyIDO/INO contracts for every new IDO/INO.           |
+| [AstralyReferral](./contracts/Referral/AstralyReferral.cairo) | Referral        | Handles the referral logic, one referral contract is deployed per IDO. |
+| [Utils](./contracts/utils)                                    | Cairo utils     |
 
 # Development Workflow
 
