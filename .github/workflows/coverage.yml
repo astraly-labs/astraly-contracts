@@ -1,0 +1,37 @@
+name: CodeCov
+on: [push, pull_request]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      OS: ubuntu-latest
+      PYTHON: "3.9.1"
+    steps:
+      - uses: checkout@v2
+        with:
+          fetch-depth: ‘2’
+
+      - name: Setup Python
+        uses: actions/setup-python@master
+        with:
+          python-version: 3.9.1
+      - name: Install protostar
+        run: |
+          curl -L https://raw.githubusercontent.com/software-mansion/protostar/master/install.sh | bash
+
+      - name: Update env variables
+        run: |
+          source /home/runner/.bashrc | bash
+      - name: Install dependencies
+        run: |
+          python3.9 -m pip install --upgrade pip
+          pip install poetry
+          if [ -f pyproject.toml ]; then poetry install; fi
+          /home/runner/.protostar/dist/protostar/protostar install
+      - name: Build
+        run: /home/runner/.protostar/dist/protostar/protostar build
+      - name: Generate Report
+        run: |
+          poetry run nile coverage --xml
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
