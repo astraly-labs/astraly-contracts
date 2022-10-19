@@ -673,6 +673,20 @@ optional = false
 python-versions = ">=3.8"
 
 [[package]]
+name = "openzeppelin-cairo-contracts"
+version = "0.4.0"
+description = "Library for secure smart contract development written in Cairo"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+importlib-metadata = ">=4.0"
+
+[package.extras]
+testing = ["pytest", "tox", "setuptools"]
+
+[[package]]
 name = "packaging"
 version = "21.3"
 description = "Core utilities for Python packages"
@@ -1145,7 +1159,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9.1"
-content-hash = "b902e0ee78094e6bbe23f14e5a68f4da0eda8e87f1209aa03f9fbad05dc3a735"
+content-hash = "8792bc4cd1a156881c7f89bbb049064d135418b83b8c168abfa217aa07a99a26"
 
 [metadata.files]
 aiohttp = []
@@ -1322,6 +1336,7 @@ netaddr = [
 ]
 nile-coverage = []
 numpy = []
+openzeppelin-cairo-contracts = []
 packaging = [
     {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
     {file = "packaging-21.3.tar.gz", hash = "sha256:dd47c42927d89ab911e606518907cc2d3a1f38bbd026385970643f9c5b8ecfeb"},

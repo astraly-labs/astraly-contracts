@@ -15,6 +15,7 @@ pytest-order = "1.0.1"
 python-dotenv = "0.20.0"
 starknet-interface-generator = "^0.1.5"
 nile-coverage = "^0.2.0"
+openzeppelin-cairo-contracts = "^0.4.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "^1.7.0"
