@@ -1,4 +1,5 @@
 [![Tests](https://github.com/Astraly-Labs/astraly-contracts/actions/workflows/tests.yml/badge.svg)](https://github.com/Astraly-Labs/astraly-contracts/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/Astraly-Labs/astraly-contracts/branch/main/graph/badge.svg?token=R1V9JIGGLG)](https://codecov.io/gh/Astraly-Labs/astraly-contracts)
 [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/astralyxyz)
 [![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/AstralyXYZ)
 
